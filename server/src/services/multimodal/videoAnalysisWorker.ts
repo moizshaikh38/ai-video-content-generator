@@ -1,3 +1,4 @@
+import {MULTIMODAL_LEASE_MS,renewMultimodalLease,startMultimodalHeartbeat} from './multimodalJobLease.js';
 import {multimodalTranscriptSourceCurrent} from '../../shared/multimodalTranscriptSource.js';
 import {probeMultimodalSourceDuration} from './sourceDurationService.js';
 import {multimodalSourceKey} from '../../shared/multimodalSourceKey.js';
@@ -28,7 +29,6 @@ import { MultimodalTimelineService } from './multimodalTimelineService.js';
 import { JobReliabilityService } from '../queue/jobReliabilityService.js';
 
 export class VideoAnalysisWorker {
-  private static workerId = `worker_${process.pid}_${crypto.randomBytes(4).toString('hex')}`;
 
   /**
    * Enqueues an analysis job or returns existing pending/running job.
@@ -76,7 +76,7 @@ export class VideoAnalysisWorker {
     const db = await getMongoDb();
     const col = db.collection<VideoAnalysisJobRecord>('video_analysis_jobs');
     const now = new Date();
-    const leaseExpiry = new Date(now.getTime() - 5 * 60 * 1000);
+    const leaseExpiry = new Date(now.getTime() - MULTIMODAL_LEASE_MS);
     const retryDue = { $or: [{ next_retry_at: null }, { next_retry_at: { $lte: now } }] };
 
     const claimed = await col.findOneAndUpdate(
@@ -94,7 +94,7 @@ export class VideoAnalysisWorker {
       {
         $set: {
           status: 'processing',
-          worker_id: this.workerId,
+          worker_id: crypto.randomUUID(),
           locked_at: now,
           updated_at: now,
         },
@@ -113,45 +113,45 @@ export class VideoAnalysisWorker {
    * Updates job stage and progress in MongoDB.
    */
   public static async updateJobStage(
-    jobId: string,
+    job: VideoAnalysisJobRecord,
     stage: VideoAnalysisJobStage,
     progress: number,
     status: VideoAnalysisStatus = 'processing',
     errorMessage?: string
   ): Promise<void> {
     const db = await getMongoDb();
-    const col = db.collection<VideoAnalysisJobRecord>('video_analysis_jobs');
-    await col.updateOne(
-      { id: jobId },
-      {
-        $set: {
-          stage,
-          progress: Math.min(100, Math.max(0, progress)),
-          status,
-          ...(errorMessage !== undefined ? { error_message: errorMessage } : {}),
-          updated_at: new Date(),
-        },
-      }
-    );
+    await renewMultimodalLease(db,job,{
+      stage,progress:Math.min(100,Math.max(0,progress)),status,
+      ...(errorMessage!==undefined?{error_message:errorMessage}:{})
+    });
   }
 
   /**
    * Processes a single claimed job to completion.
    */
   public static async processJob(job: VideoAnalysisJobRecord): Promise<VideoAnalysisRecord> {
+    const db=await getMongoDb();
+    await renewMultimodalLease(db,job);
+    const heartbeat=startMultimodalHeartbeat(()=>renewMultimodalLease(db,job));
+    try{return await this.processOwnedJob(job,()=>heartbeat.assertOwned(),async()=>{await heartbeat.stop();heartbeat.assertOwned();});}
+    finally{await heartbeat.stop();}
+  }
+  private static async processOwnedJob(job:VideoAnalysisJobRecord,assertOwned:()=>void,preparePublish:()=>Promise<void>):Promise<VideoAnalysisRecord> {
     const db = await getMongoDb();
     const projectsCol = db.collection('projects');
     const transcriptsCol = db.collection('transcripts');
 
     const project = await projectsCol.findOne({ id: job.project_id,user_id:job.user_id });
     if (!project) {
-      await this.updateJobStage(job.id, 'failed', 0, 'failed', 'Project not found');
+      assertOwned();
+      await this.updateJobStage(job, 'failed', 0, 'failed', 'Project not found');
       throw new Error(`Project ${job.project_id} not found.`);
     }
 
     const transcript = await transcriptsCol.findOne({ project_id: job.project_id,user_id:job.user_id });
     if (!transcript || !transcript.transcript_text) {
-      await this.updateJobStage(job.id, 'failed', 0, 'failed', 'Transcript not found');
+      assertOwned();
+      await this.updateJobStage(job, 'failed', 0, 'failed', 'Transcript not found');
       throw new Error(`Transcript not found for project ${job.project_id}.`);
     }
 
@@ -193,19 +193,22 @@ export class VideoAnalysisWorker {
       durationSeconds=await probeMultimodalSourceDuration(videoPath);
 
       // Step 1: Detect Visual Scene Cuts (20%)
-      await this.updateJobStage(job.id, 'extracting_scenes', 20);
+      assertOwned();
+      await this.updateJobStage(job, 'extracting_scenes', 20);
       const sceneEvidence:{receipt?:SignalExecutionReceipt}={},silenceEvidence:{receipt?:SignalExecutionReceipt}={};
       const sceneCuts = await VideoSceneService.detectSceneCuts(videoPath, 0.25,undefined,sceneEvidence);
 
       // Step 2: Extract Audio Silence & Loudness (40%)
-      await this.updateJobStage(job.id, 'analyzing_audio', 40);
+      assertOwned();
+      await this.updateJobStage(job, 'analyzing_audio', 40);
       const [silenceIntervals, volumeStats] = await Promise.all([
         AudioFeatureService.detectSilenceIntervals(videoPath, -30, 0.3,60000,silenceEvidence),
         AudioFeatureService.detectAudioVolume(videoPath),
       ]);
 
       // Step 3: Extract Keyframes (60%)
-      await this.updateJobStage(job.id, 'extracting_keyframes', 60);
+      assertOwned();
+      await this.updateJobStage(job, 'extracting_keyframes', 60);
       const cutTimestamps = sceneCuts.map((c) => c.timestamp);
       const { keyframes, cleanup } = await VideoSceneService.extractKeyframes({
         videoPath,
@@ -216,11 +219,13 @@ export class VideoAnalysisWorker {
       keyframeCleanup = cleanup;
 
       // Step 4: Run Real Local OCR (75%)
-      await this.updateJobStage(job.id, 'running_ocr', 75);
+      assertOwned();
+      await this.updateJobStage(job, 'running_ocr', 75);
       const ocrSummary = await OcrFeatureService.processKeyframes(keyframes, 16);
 
       // Step 5: Detect Faces with CV (90%)
-      await this.updateJobStage(job.id, 'detecting_faces', 90);
+      assertOwned();
+      await this.updateJobStage(job, 'detecting_faces', 90);
       const faceResult = await FaceFeatureService.analyzeFacePresence(
         videoPath,
         durationSeconds,
@@ -228,7 +233,8 @@ export class VideoAnalysisWorker {
       );
 
       // Step 6: Fuse Multimodal Timeline (100%)
-      await this.updateJobStage(job.id, 'fusing_timeline', 95);
+      assertOwned();
+      await this.updateJobStage(job, 'fusing_timeline', 95);
       const fusedTimeline = MultimodalTimelineService.fuseTimeline({
         signalEvidence:{sceneCuts:sceneEvidence.receipt||{status:'legacy-unverified',method:'unknown'},silence:silenceEvidence.receipt||{status:'legacy-unverified',method:'unknown'},audioVolume:volumeStats.evidence||{status:'legacy-unverified',method:'unknown'},faces:faceResult.evidence||{status:'legacy-unverified',method:'unknown'}},
         projectId: job.project_id,
@@ -244,23 +250,28 @@ export class VideoAnalysisWorker {
         ocrExecution:ocrSummary.execution,
       });
 
+      // Settle any in-flight renewal before publication. A sticky failure may
+      // not be erased by a recovered database or still-valid token.
+      await preparePublish();
       const savedRecord = await MultimodalTimelineService.persistAnalysis({
         projectId: job.project_id,
         userId: job.user_id,
         timeline: fusedTimeline,
-        sourceReceipt,transcriptSnapshot,
+        sourceReceipt,transcriptSnapshot,lease:job,
       });
 
       if (!savedRecord || !savedRecord.id) {
         throw new Error('Deliverable verification failed: video analysis record was not saved');
       }
 
-      await this.updateJobStage(job.id, 'completed', 100, 'completed');
+
       logger.info(`[VideoAnalysisWorker] Multimodal analysis completed for project ${job.project_id}`);
 
       return savedRecord;
     } catch (err: any) {
       logger.error(`[VideoAnalysisWorker] Analysis job ${job.id} failed: ${err.message}`);
+      if(err?.code==='MULTIMODAL_LEASE_LOST')throw err;
+      assertOwned();
       const sanitized = JobReliabilityService.sanitizeErrorMessage(err);
       const isTransient = JobReliabilityService.isTransientError(err);
       const currentAttempts = (job.attempts || 1);
@@ -269,22 +280,11 @@ export class VideoAnalysisWorker {
       if (isTransient && currentAttempts < maxAttempts) {
         const delayMs = JobReliabilityService.computeBackoffDelayMs(currentAttempts, { baseDelayMs: 5000, maxDelayMs: 60000 });
         const nextRetryAt = new Date(Date.now() + delayMs);
-        const db = await getMongoDb();
-        const col = db.collection<VideoAnalysisJobRecord>('video_analysis_jobs');
-        await col.updateOne(
-          { id: job.id },
-          {
-            $set: {
-              status: 'queued',
-              stage: 'queued',
-              error_message: sanitized,
-              next_retry_at: nextRetryAt,
-              updated_at: new Date(),
-            },
-          }
-        );
+        assertOwned();
+        await renewMultimodalLease(db,job,{status:'queued',stage:'queued',error_message:sanitized,next_retry_at:nextRetryAt});
       } else {
-        await this.updateJobStage(job.id, 'failed', 0, 'failed', sanitized);
+        assertOwned();
+      await this.updateJobStage(job, 'failed', 0, 'failed', sanitized);
       }
       throw err;
     } finally {

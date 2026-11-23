@@ -1,3 +1,6 @@
+import {getMongoClient,getMongoDb} from '../../db/mongoClient.js';
+import {multimodalLeaseFilter,multimodalLeaseLost} from './multimodalJobLease.js';
+import type {VideoAnalysisJobRecord} from '../../types/index.js';
 import type {OcrExecution} from './ocrFeatureService.js';
 import {multimodalTranscriptSourceCurrent} from '../../shared/multimodalTranscriptSource.js';
 import {multimodalSourceKey} from '../../shared/multimodalSourceKey.js';
@@ -152,7 +155,7 @@ export class MultimodalTimelineService {
     projectId: string;
     userId: string;
     timeline: MultimodalTimeline;
-    sourceReceipt?:SourceObjectReceipt;transcriptSnapshot?:string;
+    sourceReceipt?:SourceObjectReceipt;transcriptSnapshot?:string;lease:VideoAnalysisJobRecord;
   }): Promise<VideoAnalysisRecord> {
     const { projectId, userId, timeline } = params;
 
@@ -172,43 +175,25 @@ export class MultimodalTimelineService {
         updated_at: new Date().toISOString(),
       };
 
-      const { data: existing } = await dataRepository
-        .from('video_analyses')
-        .select('id')
-        .eq('project_id', projectId)
-        .maybeSingle();
-
-      if (existing) {
-        const { data: updated, error: updateErr } = await dataRepository
-          .from('video_analyses')
-          .update(payload)
-          .eq('id', existing.id)
-          .select()
-          .single();
-
-        if (updateErr) {
-          throw new Error(`Failed to update video analysis: ${updateErr.message}`);
-        }
-        return updated as VideoAnalysisRecord;
-      } else {
-        const newId = crypto.randomUUID();
-        const insertPayload = {
-          id: newId,
-          ...payload,
-          created_at: new Date().toISOString(),
-        };
-
-        const { data: inserted, error: insertErr } = await dataRepository
-          .from('video_analyses')
-          .insert(insertPayload)
-          .select()
-          .single();
-
-        if (insertErr) {
-          throw new Error(`Failed to insert video analysis: ${insertErr.message}`);
-        }
-        return inserted as VideoAnalysisRecord;
+      if(params.lease){
+        const lease=params.lease;
+        if(lease.project_id!==projectId||lease.user_id!==userId)throw multimodalLeaseLost();
+        const db=await getMongoDb(),client=await getMongoClient(),session=client.startSession();
+        try{return await session.withTransaction(async()=>{
+          const now=new Date();
+          const owned=await db.collection('video_analysis_jobs').updateOne(multimodalLeaseFilter(lease,now),{$set:{status:'completed',stage:'completed',progress:100,updated_at:now,locked_at:null,error_message:null,next_retry_at:null}},{session});
+          if(owned.matchedCount!==1)throw multimodalLeaseLost();
+          const col=db.collection('video_analyses');
+          const existing=await col.findOne({project_id:projectId,user_id:userId},{session});
+          const record={...payload,id:existing?.id||crypto.randomUUID(),created_at:existing?.created_at||now.toISOString()} as VideoAnalysisRecord;
+          if(existing)await col.updateOne({_id:existing._id},{$set:record},{session});
+          else await col.insertOne(record,{session});
+          return record;
+        },{readPreference:'primary',readConcern:{level:'snapshot'},writeConcern:{w:'majority'},maxCommitTimeMS:10_000,timeoutMS:15_000});}
+        finally{await session.endSession();}
       }
+
+      throw multimodalLeaseLost();
     });
   }
 
