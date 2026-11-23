@@ -620,7 +620,7 @@ export class SubtitleStudioService {
 
         const assContent = CaptionService.buildAssScript(subtitleRenderCues(cues), {
           style: (style.preset as any) || 'hormozi',
-          position: (style.position as any) || 'bottom',
+          position: style.position === 'middle' ? 'center' : (style.position as any) || 'bottom',
           aspectRatio: '16:9',
           customConfig: {
             fontFamily: style.fontFamily,
