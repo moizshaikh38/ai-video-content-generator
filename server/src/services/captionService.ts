@@ -1,4 +1,4 @@
-import {subtitleWordsMatchCue} from '../shared/subtitleWordClockReview.js';
+import {subtitleWordsMatchCue,subtitleRenderCues} from '../shared/subtitleWordClockReview.js';
 import {joinTimedCaptionCompounds} from '../shared/captionCompoundWords.js';
 import {assertSpeechWordCoverage} from '../shared/speechWordCoverage.js';
 import { reliableOrderedClocks } from '../shared/orderedTranscriptTiming.js';
@@ -1460,7 +1460,7 @@ export class CaptionService {
       if(proj&&Array.isArray(proj.tracks)){
         editorProject=proj;
         const extracted=CaptionService.extractEditorCuesFromProject(proj);
-        if(extracted){editorCues=extracted.cues;editorStyle=extracted.style||null;editorPosition=extracted.position||null;editorPositionExplicit=extracted.positionExplicit===true;editorPositionYNumeric=typeof extracted.positionY==='number'?extracted.positionY:null;editorCoveredEnd=editorProjectCoveredEnd(proj);}
+        if(extracted){editorCues=subtitleRenderCues(extracted.cues);editorStyle=extracted.style||null;editorPosition=extracted.position||null;editorPositionExplicit=extracted.positionExplicit===true;editorPositionYNumeric=typeof extracted.positionY==='number'?extracted.positionY:null;editorCoveredEnd=editorProjectCoveredEnd(proj);}
       }
     }
 
