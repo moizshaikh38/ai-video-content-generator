@@ -1164,18 +1164,29 @@ export class CaptionService {
           plannedCs=offsetCs+Math.max(1,Math.round((tok.end-tok.start)*100));
           return plannedCs<=Math.round(cue.end*100)-cueStartCs;
         });
+        // Only exact validated display words may supply explicit hard breaks.
+        // Other whitespace and soft breaks retain the legacy single space.
+        let textCursor=0;
+        const displayTokens=Array.from(cue.text.replace(/\\[Nn]/g,'  ').matchAll(/\S+/g));
+        const separators=subtitleWordsMatchCue(cue)?displayTokens.map((token,index)=>{
+          const start=token.index!;
+          const between=cue.text.slice(textCursor,start);
+          textCursor=start+token[0].length;
+          return between.match(/\\N/g)?.join('')||(index===0?'':' ');
+        }):cue.words.map((_,index)=>index===0?'':' ');
+        const trailingBreaks=subtitleWordsMatchCue(cue)?(cue.text.slice(textCursor).match(/\\N/g)?.join('')||''):'';
         let elapsedCs=0;
-        for (const tok of cue.words) {
+        for (const [index,tok] of cue.words.entries()) {
           const offsetCs=useWordOffsets?Math.round(tok.start*100)-cueStartCs:elapsedCs;
           const delayCs=Math.max(0,offsetCs-elapsedCs);
           const delayTag=delayCs>0?`{\\k${delayCs}}`:'';
           elapsedCs+=delayCs;
           const durationCs = Math.max(1, Math.round((tok.end - tok.start) * 100));
           const safeWord = this.sanitizeAssText(tok.text);
-          parts.push(`${delayTag}{\\k${durationCs}}${safeWord}`);
+          parts.push(`${separators[index]}${delayTag}{\\k${durationCs}}${safeWord}`);
           elapsedCs+=durationCs;
         }
-        dialogueText = `${animationTag}${parts.join(' ')}`;
+        dialogueText = `${animationTag}${parts.join('')}${trailingBreaks}`;
       } else if (style === 'highlight' || style === 'podcast') {
         // Tokenize text preserving \N placement
         const rawTokens = cue.text.split(/\s+/).filter(Boolean);

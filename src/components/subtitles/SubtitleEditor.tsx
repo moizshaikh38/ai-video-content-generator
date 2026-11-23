@@ -626,7 +626,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
 
     return {
       position: 'absolute',
-      whiteSpace: ['hormozi','neon','beast','clean','minimal'].includes(style.preset||'hormozi') ? 'pre-line' : undefined,
+      whiteSpace: ['hormozi','neon','beast','clean','karaoke','minimal'].includes(style.preset||'hormozi') ? 'pre-line' : undefined,
       left: '50%',
       transform: pos === 'middle' ? 'translate(-50%, -50%)' : 'translateX(-50%)',
       top: topVal,
@@ -781,7 +781,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
             {/* LIVE SUBTITLE OVERLAY */}
             {activeCue && sourceDisplaySize && (
               <div data-subtitle-overlay style={getOverlayStyle()}>
-                {['hormozi','neon','beast','clean','minimal'].includes(style.preset||'hormozi')?legacySubtitlePreviewText(activeCue.text):activeCue.text}
+                {['hormozi','neon','beast','clean','karaoke','minimal'].includes(style.preset||'hormozi')?legacySubtitlePreviewText(activeCue.text):activeCue.text}
               </div>
             )}
 
