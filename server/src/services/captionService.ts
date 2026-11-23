@@ -984,7 +984,9 @@ export class CaptionService {
 
     // 1. Typography & Font validation
     const rawFont = customConfig.fontFamily;
-    const fontName = this.validateFontFamily(rawFont);
+    const validatedFont = this.validateFontFamily(rawFont);
+    // Match the existing preset emitter's committed Figtree face alias.
+    const fontName = validatedFont === 'Figtree' ? 'Figtree SemiBold' : validatedFont;
 
     // Bounds are exact bundled-family metrics, unknown families retain historical caps.
     let defaultFontSize = 64;
