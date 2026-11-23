@@ -1,3 +1,4 @@
+import {cutUnion} from '../shared/producerRangeCuts.js';
 import { getCaptionFontSizeBounds } from '../shared/captionPresets.js';
 /**
  * PlanSafetyService — code-enforced limits on producer edit plan operations.
@@ -137,13 +138,15 @@ export function sanitizePlanOperations(
               warnings.push('REMOVE_RANGE range with non-finite bounds dropped');
               continue;
             }
-            const start = clampNum(cut.start, 0, duration);
-            const end = clampNum(cut.end, 0, duration);
+            const origin=isFiniteNumber(sourceStartSec)&&sourceStartSec>=0?sourceStartSec:0;
+            const start = clampNum(cut.start, origin, origin+duration);
+            const end = clampNum(cut.end, origin, origin+duration);
             if (end <= start + 0.05) {
               warnings.push(`REMOVE_RANGE empty/reversed range ${cut.start}-${cut.end} dropped`);
               continue;
             }
-            if (totalCut + (end - start) > maxCut) {
+            const union=cutUnion([...kept,{start,end}],sourceStartSec,sourceStartSec+duration);
+            if (union.reduce((n,r)=>n+r.end-r.start,0) > maxCut) {
               warnings.push(`REMOVE_RANGE range ${cut.start}-${cut.end} dropped (cumulative cut cap 80% of clip)`);
               continue;
             }
@@ -153,7 +156,7 @@ export function sanitizePlanOperations(
           if (ranges.length > 200) {
             warnings.push(`REMOVE_RANGE cut_ranges capped at 200 (had ${ranges.length})`);
           }
-          op.parameters.cut_ranges = kept;
+          op.parameters.cut_ranges = cutUnion(kept,sourceStartSec,sourceStartSec+duration).map(r=>({...r,duration:Number((r.end-r.start).toFixed(3))}));
         }
         break;
       }

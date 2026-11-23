@@ -1,3 +1,5 @@
+import {selectionSourceReceiptMatches} from '../shared/selectionSourceReceipt.js';
+import {cutUnion,cutProducerProject} from '../shared/producerRangeCuts.js';
 import {producerItemPunch} from '../shared/producerItemPunch.js';
 import {getMongoDb,getMongoClient} from '../db/mongoClient.js';
 import {commitProducerApply,findProducerApply} from '../db/repositories/producerApplyRepository.js';
@@ -49,6 +51,7 @@ export interface RenderGraphResult {
   outputPath: string;
   startTime: number;
   duration: number;
+  sourceDuration?: number;
   videoFilters: string[];
   audioFilters: string[];
   /** LUFS target when NORMALIZE_AUDIO is enabled; the executor upgrades the one-pass
@@ -146,22 +149,19 @@ export class ProducerRenderService {
       // render never fails over a missing transcript - the punch falls back
       // to the plan's raw window with the eased curve.
       let wordTimings: Array<{ start: number; end: number }> | undefined;
+      const hasCuts=plan.operations.some((o:ProducerOperation)=>o.type==='REMOVE_RANGE'&&o.enabled&&o.parameters.cut_ranges?.length);
+      if(hasCuts)await assertSelectionSourceCurrent(userId,clip.project_id,clip.selection_source_receipt,clip.source_storage_path);
       try {
-        const { data: tx } = await dataRepository
-          .from('transcripts')
-          .select('words')
-          .eq('project_id', clip.project_id)
-          .eq('user_id', userId)
-          .maybeSingle();
-        const rawWords = Array.isArray((tx as any)?.words) ? (tx as any).words : [];
-        const wt = rawWords
-          .map((w: any) => ({ start: Number(w?.start) - clip.start_seconds, end: Number(w?.end) - clip.start_seconds }))
-          .filter((w: any) => Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start);
-        if (wt.length > 0) wordTimings = wt;
-      } catch (wErr: any) {
-        logger.info(`[ProducerRender] Word timings unavailable for punch-in adaptation: ${wErr.message}`);
-      }
+        const { data: tx,error:txError } = await dataRepository.from('transcripts').select('*').eq('project_id',clip.project_id).eq('user_id',userId).maybeSingle();
+        const rawWords=Array.isArray(tx?.words)?tx.words:[];
+        if(hasCuts&&(!tx||!selectionSourceReceiptMatches(clip.selection_source_receipt,tx,clip.source_storage_path||'')))throw new AppError('Pause-cut word evidence changed. Review the current source before previewing.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+        if(hasCuts&&(txError||!rawWords.length||rawWords.some((w:any)=>typeof w.start!=='number'||typeof w.end!=='number'||!Number.isFinite(w.start)||!Number.isFinite(w.end)||w.start<0||w.end<=w.start)))throw new AppError('Valid source-bound word timings are required before previewing pause cuts.',409,'PRODUCER_CUT_REVIEW_REQUIRED');
+        const wt=rawWords.map((w:any)=>({start:Number(w.start)-clip.start_seconds,end:Number(w.end)-clip.start_seconds})).filter((w:any)=>Number.isFinite(w.start)&&Number.isFinite(w.end)&&w.end>w.start);
+        if(wt.length)wordTimings=wt;
+      }catch(error:any){if(hasCuts)throw error;logger.info(`[ProducerRender] Word timings unavailable: ${error.message}`);}
       const renderGraph = await this.buildRenderGraph(plan, clip, localSourceFile, outputPath, tmpDir, wordTimings);
+
+      if(plan.operations.some((o:ProducerOperation)=>o.type==='REMOVE_RANGE'&&o.enabled&&o.parameters.cut_ranges?.length)){const {data:saved,error}=await dataRepository.from('editor_projects').select('id').eq('clip_id',clip.id).eq('user_id',userId).maybeSingle();if(error||saved)throw new AppError('Pause-cut preview needs a fresh timeline. Saved Studio edits were not replaced; use Studio to cut this saved timeline.',409,'PRODUCER_CUT_REVIEW_REQUIRED');}
 
       // Two-pass loudness normalization: measure the exact seeked audio window,
       // then substitute a linear loudnorm. Fails clearly when infeasible rather
@@ -183,7 +183,7 @@ export class ProducerRenderService {
             postMarkerFilters: post,
           };
           const measured = await LoudnormTwoPassService.measure(
-            ['-ss', renderGraph.startTime.toFixed(3), '-t', renderGraph.duration.toFixed(3), '-i', renderGraph.inputPath],
+            ['-ss', renderGraph.startTime.toFixed(3), '-t', (renderGraph.sourceDuration??renderGraph.duration).toFixed(3), '-i', renderGraph.inputPath],
             measurementGraph,
             120000
           );
@@ -201,7 +201,7 @@ export class ProducerRenderService {
             // stall the muxer and OOM long windows).
             const wavPath = path.join(tmpDir, 'producer-dialogue-normalized.wav');
             await LoudnormTwoPassService.renderNormalizedDialogue(
-              ['-ss', renderGraph.startTime.toFixed(3), '-t', renderGraph.duration.toFixed(3), '-i', renderGraph.inputPath],
+              ['-ss', renderGraph.startTime.toFixed(3), '-t', (renderGraph.sourceDuration??renderGraph.duration).toFixed(3), '-i', renderGraph.inputPath],
               measurementGraph,
               wavPath,
               120000
@@ -227,7 +227,7 @@ export class ProducerRenderService {
       const ffmpegArgs = [
         '-y',
         '-ss', renderGraph.startTime.toFixed(3),
-        '-t', renderGraph.duration.toFixed(3),
+        '-t', (renderGraph.sourceDuration??renderGraph.duration).toFixed(3),
         '-i', renderGraph.inputPath,
       ];
 
@@ -410,7 +410,7 @@ export class ProducerRenderService {
     if(transcriptError||!transcript)throw new AppError('Transcript could not be read.',503,'DATABASE_UNAVAILABLE');
     const {data:sourceProject,error:sourceProjectError}=await dataRepository.from('projects').select('clip_preferences').eq('id',clip.project_id).eq('user_id',userId).maybeSingle();
     if(sourceProjectError)throw new AppError('Project defaults could not be read.',503,'DATABASE_UNAVAILABLE');
-    const editorProject:EditorProject=existingEditor?structuredClone(existingEditor):ProEditorService.buildInitialProducerEditor({...clip,...clipUpdates},userId,plan,transcript,sourceProject?.clip_preferences);
+    let editorProject:EditorProject=existingEditor?structuredClone(existingEditor):ProEditorService.buildInitialProducerEditor({...clip,...clipUpdates},userId,plan,transcript,sourceProject?.clip_preferences);
     if(!editorProject||!Array.isArray(editorProject.tracks))throw new AppError('Producer editor preparation failed.',503,'PRODUCER_EDITOR_UNAVAILABLE');
 
     const videoTrack = editorProject.tracks.find((t) => t.type === 'VIDEO');
@@ -512,17 +512,24 @@ export class ProducerRenderService {
 
     }
 
-    // Sync REMOVE_RANGE
-    const removeOp = plan.operations.find((o: ProducerOperation) => o.type === 'REMOVE_RANGE' && o.enabled);
-    if (removeOp && Array.isArray(removeOp.parameters.cut_ranges) && removeOp.parameters.cut_ranges.length > 0) {
-      if (!(editorProject as any).metadata) (editorProject as any).metadata = {};
-      (editorProject as any).metadata.cut_ranges = removeOp.parameters.cut_ranges;
-
+    // Materialize source cuts into the actual queued editor, never metadata only.
+    const removeOp=plan.operations.find((o:ProducerOperation)=>o.type==='REMOVE_RANGE'&&o.enabled);
+    if(removeOp&&Array.isArray(removeOp.parameters.cut_ranges)&&removeOp.parameters.cut_ranges.length){
+      try{
+        if(existingEditor)throw Error('saved-editor-ownership');
+        if(clip.cold_open?.enabled)throw Error('teaser-preview-ownership');
+        if(editorProject.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)?.items.length!==1)throw Error('multi-item-preview-ownership');
+        const start=clip.start_seconds+trimStartOffset,end=clip.end_seconds-trimEndOffset;
+        const primary=editorProject.tracks.find(t=>t.type==='VIDEO'&&!t.hidden);
+        const mains=primary?.items.filter(i=>!i.hidden&&i.source_path===clip.source_storage_path&&i.source_asset_id===clip.id&&Math.abs(i.source_start-start)<.001&&Math.abs(i.source_end-end)<.001)||[];
+        if(mains.length!==1)throw Error('main-source-ownership');
+        editorProject=cutProducerProject(editorProject,mains[0],removeOp.parameters.cut_ranges,transcript.words||[],Boolean(existingEditor)).next;
+      }catch(error){throw new AppError('Producer pause cuts need review: saved edits, speech, or timing cannot be safely preserved. Disable Remove Range or edit the cuts in Studio. No edits were applied.',409,'PRODUCER_CUT_REVIEW_REQUIRED');}
     }
 
     // Validate without writes. Even unchanged tracks get a new revision so the
     // applied clip and queued editor snapshot share one transaction boundary.
-    const stagedUpdates=await ProEditorService.prepareEditorRevision(editorProject,userId,{tracks:editorProject.tracks,version:editorProject.version});
+    const stagedUpdates=await ProEditorService.prepareEditorRevision(editorProject,userId,{tracks:editorProject.tracks,canvas:editorProject.canvas,version:editorProject.version});
     // Preserve BSON Date fields; JSON cloning turns them into strings that
     // violate the bootstrapped editor_projects collection validator.
     const stagedEditor={...JSON.parse(JSON.stringify({...editorProject,...stagedUpdates,version:existingEditor?existingEditor.version+1:1})),created_at:editorProject.created_at,updated_at:stagedUpdates.updated_at};
@@ -575,30 +582,18 @@ export class ProducerRenderService {
     const targetW = targetRatio === '16:9' ? 1920 : 1080;
     const targetH = targetRatio === '9:16' ? 1920 : 1080;
 
-    // 2. Remove Dead Air Ranges (REMOVE_RANGE)
-    const removeOp = plan.operations.find((o) => o.type === 'REMOVE_RANGE' && o.enabled);
-    if (removeOp && Array.isArray(removeOp.parameters.cut_ranges) && removeOp.parameters.cut_ranges.length > 0) {
-      const rawCuts = removeOp.parameters.cut_ranges;
-      const validCuts: Array<{ start: number; end: number }> = [];
-      for (const cut of rawCuts) {
-        const cStart = Math.max(0, Number(cut.start) - startSec);
-        const cEnd = Math.min(durationSec, Number(cut.end) - startSec);
-        if (cEnd > cStart + 0.05) {
-          validCuts.push({ start: cStart, end: cEnd });
-        }
-      }
-
-      if (validCuts.length > 0) {
-        const betweenConditions = validCuts
-          .map((c) => `between(t\\,${c.start.toFixed(3)}\\,${c.end.toFixed(3)})`)
-          .join('+');
-        videoFilters.push(`select='not(${betweenConditions})',setpts=N/FRAME_RATE/TB`);
-        audioFilters.push(`aselect='not(${betweenConditions})',asetpts=N/SR/TB`);
-
-        const totalCutDuration = validCuts.reduce((sum, c) => sum + (c.end - c.start), 0);
-        durationSec = Math.max(1.0, durationSec - totalCutDuration);
-      }
-    }
+    // Keep source input length distinct from the shorter output clock. Apply
+    // selection after source-clock visual effects and captions, before audio mix.
+    const sourceDuration=durationSec;
+    const removeOp=plan.operations.find(o=>o.type==='REMOVE_RANGE'&&o.enabled);
+    const cuts=cutUnion(removeOp?.parameters.cut_ranges||[],startSec,endSec);
+    if(cuts.length&&clip.cold_open?.enabled)throw new AppError('Pause cuts with a teaser need review in Studio. No edits were applied.',409,'PRODUCER_CUT_REVIEW_REQUIRED');
+    const sourceWords=(wordTimings||[]).map(w=>({start:w.start+clip.start_seconds,end:w.end+clip.start_seconds}));
+    if(cuts.length&&!sourceWords.length)throw new AppError('Word timing evidence is required to verify pause cuts before previewing.',409,'PRODUCER_CUT_REVIEW_REQUIRED');
+    if(cuts.some(r=>sourceWords.some(w=>w.start<r.end&&w.end>r.start)))throw new AppError('Producer pause cuts overlap speech. Review the plan before previewing.',409,'PRODUCER_CUT_REVIEW_REQUIRED');
+    const outputCutDuration=cuts.reduce((n,r)=>n+r.end-r.start,0);
+    if(cuts.length&&sourceDuration-outputCutDuration<1)throw new AppError('Producer cuts leave too little footage. Review the plan.',409,'PRODUCER_CUT_REVIEW_REQUIRED');
+    durationSec-=outputCutDuration;
 
     // 3. Visual Punch-In (Dynamic Crop Zoom on Climax)
     // Word-timing adapted (OpenShorts): window snaps to word boundaries and
@@ -613,6 +608,7 @@ export class ProducerRenderService {
       if (adapted.suppressed) {
         logger.info(`[ProducerRender] Punch-in suppressed (${adapted.reason})`);
       } else {
+        if(cuts.some(r=>startSec+adapted.startSec<r.end&&startSec+adapted.startSec+2.5>r.start))throw new AppError('Pause cut crosses the punch-in window. Disable Punch-In or review the cuts in Studio.',409,'PRODUCER_CUT_REVIEW_REQUIRED');
         // Dynamic punch-in zoom: a time-conditional crop size is a silent
         // no-op (crop w/h are fixed at filter init; verified: zero pixel
         // change). This chain is a linear -vf graph where zoompan is verified
@@ -651,20 +647,24 @@ export class ProducerRenderService {
 
     // 5. Captions (Burn ASS subtitles if caption style is present)
     const captionStyleOp = plan.operations.find((o) => o.type === 'CAPTION_STYLE' && o.enabled);
-    if (captionStyleOp) {
+    if (captionStyleOp || (cuts.length && clip.caption_enabled!==false)) {
       try {
         const assPath = path.join(tmpDir, 'producer_captions.ass');
         const capResult = await CaptionService.generateCaptionsForClip({
           clip: {
             ...clip,
-            caption_style: captionStyleOp.parameters.style || 'clean',
-            caption_position: captionStyleOp.parameters.position || 'bottom',
+            trim_start_offset:startSec-clip.start_seconds,
+            trim_end_offset:clip.end_seconds-endSec,
+            caption_style: captionStyleOp?.parameters.style || clip.caption_style || 'clean',
+            caption_position: captionStyleOp?.parameters.position || clip.caption_position || 'bottom',
             caption_config: {
-              fontSize: captionStyleOp.parameters.font_size || 48,
-              primaryColor: captionStyleOp.parameters.primary_color || '#FFFFFF',
+              ...clip.caption_config,
+              fontSize: captionStyleOp?.parameters.font_size || clip.caption_config?.fontSize || 48,
+              primaryColor: captionStyleOp?.parameters.primary_color || clip.caption_config?.primaryColor || '#FFFFFF',
             },
           },
           targetAspectRatio: targetRatio,
+          ...(cuts.length?{editorProjectSnapshot:null}:{}),
           outputPath: assPath,
         });
 
@@ -673,8 +673,15 @@ export class ProducerRenderService {
           videoFilters.push(`ass=${safeAss}`);
         }
       } catch (capErr: any) {
+        if(cuts.length)throw capErr;
         logger.warn(`Producer caption generation skipped: ${capErr.message}`);
       }
+    }
+
+    if(cuts.length){
+      const conditions=cuts.map(r=>`gte(t\\,${(r.start-startSec).toFixed(6)})*lt(t\\,${(r.end-startSec).toFixed(6)})`).join('+');
+      videoFilters.push(`select='not(${conditions})',setpts=N/FRAME_RATE/TB`);
+      audioFilters.push(`aselect='not(${conditions})',asetpts=N/SR/TB`);
     }
 
     // 5. Audio Normalization & Dynamics
@@ -704,6 +711,7 @@ export class ProducerRenderService {
       outputPath,
       startTime: Number(startSec.toFixed(3)),
       duration: Number(durationSec.toFixed(3)),
+      sourceDuration:Number(sourceDuration.toFixed(3)),
       videoFilters,
       audioFilters,
       ...(normTargetI !== undefined ? { normalizeTargetI: normTargetI } : {}),

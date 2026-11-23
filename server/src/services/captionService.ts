@@ -1527,7 +1527,12 @@ export class CaptionService {
             clip.end_seconds - clip.start_seconds -
             Number(clip.trim_start_offset || 0) - Number(clip.trim_end_offset || 0)
           ).toFixed(3));
-          if (effectiveDuration > coveredEnd + 0.05) {
+          // A materialized Producer cut has a non-linear source clock. Raw
+          // transcript append would resurrect removed or duplicate tail words.
+          const cutTimeline=editorProject?.settings?.producer_range_cut_v1;
+          const hasSourceCuts=cutTimeline&&Array.isArray(cutTimeline.cuts)&&cutTimeline.cuts.length>0;
+          if(hasSourceCuts&&(Math.abs(clip.start_seconds+Number(clip.trim_start_offset||0)-cutTimeline.source_start)>.001||Math.abs(clip.end_seconds-Number(clip.trim_end_offset||0)-cutTimeline.source_end)>.001))throw new AppError('This cut timeline needs caption review after source trim or extension. Saved captions were not regenerated.',409,'PRODUCER_CUT_REVIEW_REQUIRED');
+          if (!hasSourceCuts && effectiveDuration > coveredEnd + 0.05) {
             const fresh = this.extractCuesForClipSettings(transcript, clip, targetAspectRatio);
             const merged = mergeExtendedCues(editorCues, fresh.cues as any, coveredEnd);
             if (merged.appended > 0) {
