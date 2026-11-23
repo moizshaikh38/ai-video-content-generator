@@ -1,3 +1,4 @@
+import {freshColdOpenInterval} from '../shared/freshColdOpenInterval.js';
 import {assertManualPlacement,assertPlacementTree,manualPlacementFilter} from '../shared/manualVideoPlacement.js';
 import {splitReviewItemCropConfig} from '../shared/automaticSplitEvidence.js';
 import{cacheBuiltinSoundEffect}from'./builtinSoundEffectAssetService.js';
@@ -2544,8 +2545,9 @@ export class ProEditorService {
     let trimEnd = clip.trim_end_offset || 0;
     let duration = rawDuration - trimStart - trimEnd;
 
-    const hasColdOpen = Boolean(clip.cold_open && clip.cold_open.enabled && clip.cold_open.duration_seconds > 0);
-    const teaserDuration = hasColdOpen ? Number((clip.cold_open!.duration_seconds).toFixed(3)) : 0;
+    const teaserInterval=freshColdOpenInterval(clip.cold_open,transcript?.segments);
+    const hasColdOpen = Boolean(teaserInterval);
+    const teaserDuration = teaserInterval?.duration??0;
     const finalDuration = Number((hasColdOpen ? duration + teaserDuration : duration).toFixed(3));
 
     const tracks: EditorTrack[] = [];
@@ -2578,7 +2580,7 @@ export class ProEditorService {
     const videoItems: EditorTrackItem[] = [];
 
     if (hasColdOpen) {
-      const co = clip.cold_open!;
+      const co = {start_seconds:teaserInterval!.start,end_seconds:teaserInterval!.end};
       const teaserSpeechFades=strictPreparation?newSpeechEdgeFades(transcript?.words,co.start_seconds,co.end_seconds):{fade_in:.1,fade_out:.1};
       videoItems.push({
         id: crypto.randomUUID(),
@@ -2818,14 +2820,16 @@ export class ProEditorService {
         const extracted = CaptionService.extractCuesForClipSettings(transcript, clip, aspectRatio);
         const rawCues = extracted.cues || [];
         if (hasColdOpen) {
-          if (clip.cold_open?.teaser_text) {
-            initialCues.push({
-              text: clip.cold_open.teaser_text,
-              start: 0.1,
-              end: Math.max(0.2, Number((teaserDuration - 0.1).toFixed(3))),
-              words: [],
-            });
-          }
+          // Fresh teaser captions use the same source-clock extraction as the
+          // main interval. Proposal teaser_text is not a transcript. Main cue-ID
+          // overrides belong to the main interval, not this repeated source slice.
+          const co={start_seconds:teaserInterval!.start,end_seconds:teaserInterval!.end};
+          const teaser=CaptionService.extractCuesForClipSettings(transcript,{
+            ...clip,start_seconds:co.start_seconds,end_seconds:co.end_seconds,
+            trim_start_offset:0,trim_end_offset:0,caption_overrides:[],
+            caption_config:{...clip.caption_config,caption_overrides:[]},
+          },aspectRatio);
+          initialCues.push(...teaser.cues.map((cue,index)=>({...cue,id:`teaser-${cue.id??index+1}`})));
           for (const c of rawCues) {
             initialCues.push({
               ...c,

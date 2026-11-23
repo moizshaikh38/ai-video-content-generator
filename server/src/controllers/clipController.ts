@@ -855,7 +855,7 @@ export const getClipEditorData = async (req: AuthenticatedRequest, res: Response
     });
   } catch (err: any) {
     const code = err.code || 'INTERNAL_ERROR';
-    const status = code === 'CLIP_NOT_FOUND' ? 404 : 500;
+    const status = code === 'CLIP_NOT_FOUND' ? 404 : code === 'COLD_OPEN_TIMING_REVIEW_REQUIRED' ? 409 : 500;
     res.status(status).json({
       status: 'error',
       code: (status) >= 500 ? 'INTERNAL_ERROR' : (code),

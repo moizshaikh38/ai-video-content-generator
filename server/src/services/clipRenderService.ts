@@ -2631,6 +2631,7 @@ export class ClipRenderService {
       // atomic editable read. Return its current clip revision, not v1 + editor v2.
       if(config.pendingHookInitialization)clip=await ClipRenderService.getClip(clipId,userId);
     } catch (e: any) {
+      if(e?.code==='COLD_OPEN_TIMING_REVIEW_REQUIRED')throw e;
       logger.warn(`Could not load or create EditorProject for clip ${clipId}: ${e.message}`);
     }
 
