@@ -1,3 +1,4 @@
+import {producerProgramGain,applyProducerProgramGain} from '../shared/producerProgramGain.js';
 import {applyProducerProgramFade} from '../shared/producerProgramFade.js';
 import {selectionSourceReceiptMatches} from '../shared/selectionSourceReceipt.js';
 import {cutUnion,cutProducerProject} from '../shared/producerRangeCuts.js';
@@ -103,6 +104,9 @@ export class ProducerRenderService {
     }
 
     // Code-enforced plan limits: clamp/drop out-of-range operations before render.
+    // Validate the original requested gain before generic safety can drop or
+    // clamp malformed values into a different, apparently successful intent.
+    for(const op of plan.operations||[])if(op?.type==='NORMALIZE_AUDIO'&&op.enabled){try{producerProgramGain(op.parameters)}catch{throw new AppError('Producer audio gain and target must be valid supported numbers. Review the plan; no gain was substituted.',409,'PRODUCER_GAIN_REVIEW_REQUIRED');}}
     const previewSanitize = sanitizePlanOperations(plan.operations, clipSpanSeconds(clip), clip.start_seconds);
     plan.operations = previewSanitize.operations;
     for (const w of previewSanitize.warnings) {
@@ -352,6 +356,9 @@ export class ProducerRenderService {
 
     // Code-enforced plan limits: clamp/drop out-of-range operations before
     // persisting anything derived from them to the clip.
+    // Validate the original requested gain before generic safety can drop or
+    // clamp malformed values into a different, apparently successful intent.
+    for(const op of plan.operations||[])if(op?.type==='NORMALIZE_AUDIO'&&op.enabled){try{producerProgramGain(op.parameters)}catch{throw new AppError('Producer audio gain and target must be valid supported numbers. Review the plan; no gain was substituted.',409,'PRODUCER_GAIN_REVIEW_REQUIRED');}}
     const applySanitize = sanitizePlanOperations(plan.operations, clipSpanSeconds(clip), clip.start_seconds);
     plan.operations = applySanitize.operations;
     for (const w of applySanitize.warnings) {
@@ -396,10 +403,8 @@ export class ProducerRenderService {
           position: op.parameters.position_overlay || 'top',
           size: op.parameters.size || 'md',
         };
-      } else if (op.type === 'NORMALIZE_AUDIO' && op.parameters.gain_db !== undefined) {
-        if (op.parameters.gain_db > 0) {
-          volume = Math.min(2.0, 1.0 + op.parameters.gain_db / 10);
-        }
+      } else if (op.type === 'NORMALIZE_AUDIO') {
+        try{volume=producerProgramGain(op.parameters)}catch{throw new AppError('Producer audio gain exceeds the supported Studio range or normalization target. Review the plan. No edits were applied.',409,'PRODUCER_GAIN_REVIEW_REQUIRED');}
       }
     }
 
@@ -440,6 +445,9 @@ export class ProducerRenderService {
       if(!existingEditor)main.keyframes=main.keyframes.filter(k=>k.property!=='scale');
       if(!punch.suppressed)main.keyframes.push({id:crypto.randomUUID(),time:Number(punch.startSec.toFixed(3)),property:'scale',value:punchInOp.parameters.scale||1.06,easing:'ease-in-out'});
     }
+
+    const normalizeOp=plan.operations.find((o:ProducerOperation)=>o.type==='NORMALIZE_AUDIO'&&o.enabled);
+    if(normalizeOp){try{applyProducerProgramGain(editorProject,normalizeOp.parameters)}catch{throw new AppError('Producer normalization cannot safely replace locked audio or an active enhancement chain. Review the gain and audio settings in Studio. No edits were applied.',409,'PRODUCER_GAIN_REVIEW_REQUIRED');}}
 
     // Sync AUDIO_FADE
     const fadeOp = plan.operations.find((o: ProducerOperation) => o.type === 'AUDIO_FADE' && o.enabled);
@@ -683,11 +691,10 @@ export class ProducerRenderService {
     if (normOp) {
       // One-pass loudnorm kept here so a buildRenderGraph result stays directly
       // executable; the preview executor upgrades it to two-pass (see below).
+      let gain:number;try{gain=producerProgramGain(normOp.parameters)}catch{throw new AppError('Producer audio gain or target needs review before previewing.',409,'PRODUCER_GAIN_REVIEW_REQUIRED');}
       audioFilters.push('loudnorm=I=-16:TP=-2.0:LRA=11');
-      normTargetI = -16;
-      if (normOp.parameters.gain_db && normOp.parameters.gain_db > 0) {
-        audioFilters.push(`volume=${normOp.parameters.gain_db}dB`);
-      }
+      normTargetI=-16;
+      if(gain!==1)audioFilters.push(`volume=${gain.toFixed(9)}`);
     }
 
     // 6. Audio Fades

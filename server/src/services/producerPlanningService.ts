@@ -1,3 +1,4 @@
+import {producerProgramGain} from '../shared/producerProgramGain.js';
 import crypto from 'node:crypto';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
@@ -200,6 +201,7 @@ export class ProducerPlanningService {
     }
 
     // Code-enforced plan limits: clamp/drop out-of-range operations before saving.
+    for(const op of operations||[])if(op?.type==='NORMALIZE_AUDIO'&&op.enabled){try{producerProgramGain(op.parameters)}catch{throw new AppError('Producer audio gain and target must be valid supported numbers. No replacement plan was saved.',409,'PRODUCER_GAIN_REVIEW_REQUIRED');}}
     const reviseSanitize = sanitizePlanOperations(operations, clipSpanSeconds(clip), clip.start_seconds);
     operations = reviseSanitize.operations;
     for (const w of reviseSanitize.warnings) {
