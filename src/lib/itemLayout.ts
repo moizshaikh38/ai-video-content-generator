@@ -105,7 +105,8 @@ export function applyItemLayout(
 /** Framing Strategy is clip-wide. Smart explicitly releases manual framing
  * channels so the stored automatic plan can run again in preview AND export. */
 export function applyFramingStrategy(project: EditorProject, mode: 'center'|'fit'|'blur'|'smart'): EditorProject {
-  return {...project,tracks:project.tracks.map(t=>t.type!=='VIDEO'?t:{...t,items:t.items.map(i=>{
+  return {...project,tracks:project.tracks.map(t=>t.type!=='VIDEO'||t.locked?t:{...t,items:t.items.map(i=>{
+    if(i.locked)return i;
     const next:any={...i,crop_mode:mode==='blur'?'fit':mode};
     // Clip-wide framing replaces scene layout choices too. Retaining an Auto
     // scene patch makes preview fall back to legacy crop_mode while export
