@@ -1,3 +1,4 @@
+import {constantSpeedSourceSplit} from '../shared/constantSpeedSourceSplit.js';
 import {freshColdOpenInterval} from '../shared/freshColdOpenInterval.js';
 import {assertManualPlacement,assertPlacementTree,manualPlacementFilter} from '../shared/manualVideoPlacement.js';
 import {splitReviewItemCropConfig} from '../shared/automaticSplitEvidence.js';
@@ -472,7 +473,9 @@ export class ProEditorService {
 
     const speed = item.speed.speed || 1.0;
     const offsetSeconds = splitTime - item.timeline_start;
-    const sourceSplitPoint = item.source_start + offsetSeconds * speed;
+    const constantMedia=(item.type==='VIDEO'||item.type==='AUDIO')&&!item.is_freeze&&!item.is_title_card&&!item.speed?.speed_ramp;
+    const sourceSplitPoint = constantMedia?constantSpeedSourceSplit(item,splitTime):item.source_start+offsetSeconds*speed;
+    if(sourceSplitPoint===undefined)throw new AppError('Source split is outside this media item.',400,'INVALID_SPLIT_TIME');
 
     // Partition caption cues if this is a CAPTION track or item contains caption cues
     let firstCaption = item.caption ? JSON.parse(JSON.stringify(item.caption)) : undefined;

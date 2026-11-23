@@ -1,3 +1,4 @@
+import {constantSpeedSourceSplit} from '../../server/src/shared/constantSpeedSourceSplit';
 import {manualCaptionTextEdit} from '../../server/src/shared/manualCaptionTextEdit';
 import { getCurrentAuthOwner, ownerMismatch } from '../lib/authOwner';
 import { useAuth } from '../context/AuthContext';
@@ -708,6 +709,11 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
         if (!item || splitTime <= item.timeline_start || splitTime >= item.timeline_end) return prev;
 
         const splitOffset = splitTime - item.timeline_start;
+        // Constant-speed source footage must split at its media clock, not
+        // its edited timeline clock. Preserve separate generated-item paths.
+        const constantMedia=(item.type==='VIDEO'||item.type==='AUDIO')&&!item.is_freeze&&!item.is_title_card&&!item.speed?.speed_ramp;
+        const sourceSplit=constantMedia?constantSpeedSourceSplit(item,splitTime):item.source_start+splitOffset;
+        if(sourceSplit===undefined)return prev;
         const firstEnd = splitTime;
         const secondStart = splitTime;
 
@@ -752,7 +758,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
         const firstItem: EditorTrackItem = {
           ...item,
           timeline_end: firstEnd,
-          source_end: item.source_start + splitOffset,
+          source_end: sourceSplit,
           keyframes: firstKeyframes,
           caption: firstCaption,
         };
@@ -761,7 +767,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
           ...JSON.parse(JSON.stringify(item)),
           id: crypto.randomUUID(),
           timeline_start: secondStart,
-          source_start: item.source_start + splitOffset,
+          source_start: sourceSplit,
           keyframes: secondKeyframes,
           caption: secondCaption,
         };
