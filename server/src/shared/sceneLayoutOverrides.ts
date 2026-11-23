@@ -33,7 +33,7 @@ export function sceneCropPanelUpdate(item:any,sourceTime:number,patch:{crop?:any
  // hydration. Mark exactly that effective scene as manual, not the base item
  // when the edit is scoped to a saved scene override.
  const current=selected?effectiveScenePatch(item,selected.patch):item;
- const manual={...patch,layout_mode:'track',crop_config:{...current.crop_config,layout_mode:'track',layout_mode_source:'user'}};
+ const manual={...patch,layout_mode:'track' as const,crop_config:{...current.crop_config,layout_mode:'track',layout_mode_source:'user'}};
  return selected?{scene_layout_overrides:item.scene_layout_overrides.map((o:any)=>o===selected?{...o,patch:{...o.patch,...manual}}:o)}:{...manual,framing_window:undefined};
 }
 export function resolveSceneLayoutItem<T extends object>(item:T,sourceTime:number):T{

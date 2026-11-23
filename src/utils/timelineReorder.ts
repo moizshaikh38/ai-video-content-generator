@@ -140,13 +140,15 @@ export function computeSceneReorder(
   // Normalize legacy item-relative cues using the same convention as export.
   // Scene deltas operate on absolute timeline clocks, not item-local seconds.
   const captionClockTracks=project.tracks.map(t=>t.type!=='CAPTION'?t:{...t,items:t.items.map(it=>{
-    const cues=it.caption?.cues;
+    const caption=it.caption;
+    if(!caption)return it;
+    const cues=caption.cues;
     if(!Array.isArray(cues)||!cues.length)return it;
     const start=it.timeline_start;
     const relative=start>0&&cues[0].start>=0&&cues[0].start<start-.05;
     if(!relative)return it;
     const shift=(rows:any)=>Array.isArray(rows)?rows.map((w:any)=>({...w,start:round3(w.start+start),end:round3(w.end+start)})):rows;
-    return {...it,caption:{...it.caption,...(typeof it.caption.cues_covered_end==='number'?{cues_covered_end:round3(it.caption.cues_covered_end+start)}:{}),cues:cues.map((c:any)=>({...c,start:round3(c.start+start),end:round3(c.end+start),...(Array.isArray(c.words)?{words:shift(c.words)}:{}),...(Array.isArray(c.tokens)?{tokens:shift(c.tokens)}:{})}))}};
+    return {...it,caption:{...caption,...(typeof caption.cues_covered_end==='number'?{cues_covered_end:round3(caption.cues_covered_end+start)}:{}),cues:cues.map((c:any)=>({...c,start:round3(c.start+start),end:round3(c.end+start),...(Array.isArray(c.words)?{words:shift(c.words)}:{}),...(Array.isArray(c.tokens)?{tokens:shift(c.tokens)}:{})}))}};
   })});
 
   // Correctness over convenience: a caption cue WITHOUT word timings that
