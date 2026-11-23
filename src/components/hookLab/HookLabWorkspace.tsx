@@ -67,7 +67,14 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
   const [expandedScoreId, setExpandedScoreId] = useState<string | null>(null);
   const snapshotsRef = useRef<Record<string, any>>({});
 
+  const identityKey=JSON.stringify([clipId,projectId??null,editorProjectId??null]);
+  const identityRef=useRef({key:identityKey,version:0});
+  if(identityRef.current.key!==identityKey)identityRef.current={key:identityKey,version:identityRef.current.version+1};
+  const sessionIdentityRef=useRef<number|null>(null);
+  const isCurrent=(version:number)=>identityRef.current.version===version;
+
   const loadSession = useCallback(async () => {
+    const version=identityRef.current.version;
     try {
       setIsLoading(true);
       setError(null);
@@ -75,26 +82,36 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
         project_id: projectId,
         opening_window_sec: 3.0,
       });
-      setSession(sess);
-
+      if(!isCurrent(version))return;
       const fullData = await hookLabService.getSession(sess.id);
+      if(!isCurrent(version))return;
+      sessionIdentityRef.current=version;
+      setSession(sess);
       setCandidates(fullData.candidates);
 
       // Load lines and analytics in background
-      hookLabService.getExistingLines(sess.id).then(setExistingLines).catch(() => {});
-      hookLabService.getAnalyticsAdvisory().then(setAnalyticsAdvisory).catch(() => {});
+      hookLabService.getExistingLines(sess.id).then(lines=>{if(isCurrent(version))setExistingLines(lines)}).catch(() => {});
+      hookLabService.getAnalyticsAdvisory().then(advisory=>{if(isCurrent(version))setAnalyticsAdvisory(advisory)}).catch(() => {});
     } catch (err: any) {
+      if(!isCurrent(version))return;
       setError(err.message || 'Failed to initialize Hook Lab session.');
     } finally {
+      if(!isCurrent(version))return;
       setIsLoading(false);
     }
-  }, [clipId, projectId]);
+  }, [clipId, projectId,editorProjectId]);
 
   useEffect(() => {
+    const version=identityRef.current.version;
+    sessionIdentityRef.current=null;
+    setSession(null);setCandidates([]);setExistingLines([]);setAnalyticsAdvisory(null);
+    setPreviewData(null);setEditingCandidateId(null);setEditedText('');setUserInstruction('');setExpandedScoreId(null);setActionSuccess(null);setError(null);setIsGenerating(false);snapshotsRef.current={};
     loadSession();
+    return ()=>{if(identityRef.current.version===version)identityRef.current.version++};
   }, [loadSession]);
 
   const handleGenerate = async (instruction?: string) => {
+    const version=identityRef.current.version;if(sessionIdentityRef.current!==version)return;
     if (!session) return;
     try {
       setIsGenerating(true);
@@ -102,44 +119,54 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
       const generated = await hookLabService.generateCandidates(session.id, {
         user_instruction: instruction || userInstruction,
       });
+      if(!isCurrent(version))return;
       setCandidates(generated);
       setActionSuccess('Generated source-grounded hook options!');
-      setTimeout(() => setActionSuccess(null), 3000);
+      setTimeout(() => {if(isCurrent(version))setActionSuccess(null)}, 3000);
     } catch (err: any) {
+      if(!isCurrent(version))return;
       setError(err.message || 'Failed to generate hook candidates.');
     } finally {
+      if(!isCurrent(version))return;
       setIsGenerating(false);
     }
   };
 
   const handleToggleLock = async (candidate: HookCandidate) => {
+    const version=identityRef.current.version;if(sessionIdentityRef.current!==version)return;
     if (!session) return;
     try {
       const updated = await hookLabService.updateCandidate(session.id, candidate.id, {
         locked: !candidate.locked,
       });
+      if(!isCurrent(version))return;
       setCandidates((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     } catch (err: any) {
+      if(!isCurrent(version))return;
       setError(err.message || 'Failed to update lock state.');
     }
   };
 
   const handleSaveEdit = async (candidateId: string) => {
+    const version=identityRef.current.version;if(sessionIdentityRef.current!==version)return;
     if (!session || !editedText.trim()) return;
     try {
       const updated = await hookLabService.updateCandidate(session.id, candidateId, {
         text: editedText.trim(),
       });
+      if(!isCurrent(version))return;
       setCandidates((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
       setEditingCandidateId(null);
       setActionSuccess('Hook updated and re-scored!');
-      setTimeout(() => setActionSuccess(null), 2500);
+      setTimeout(() => {if(isCurrent(version))setActionSuccess(null)}, 2500);
     } catch (err: any) {
+      if(!isCurrent(version))return;
       setError(err.message || 'Failed to save hook edit.');
     }
   };
 
   const handleRegenerateItem = async (candidateId: string) => {
+    const version=identityRef.current.version;if(sessionIdentityRef.current!==version)return;
     if (!session) return;
     try {
       const updated = await hookLabService.regenerateCandidate(
@@ -147,13 +174,16 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
         candidateId,
         userInstruction
       );
+      if(!isCurrent(version))return;
       setCandidates((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     } catch (err: any) {
+      if(!isCurrent(version))return;
       setError(err.message || 'Failed to regenerate hook candidate.');
     }
   };
 
   const handleApplyToEditor = async (candidate: HookCandidate) => {
+    const version=identityRef.current.version;if(sessionIdentityRef.current!==version)return;
     if(!supportsHookOverlayAction(candidate)){setError('This suggestion needs a separate edit workflow. No replacement was selected.');return;}
     if (!session || !editorProjectId) {
       setError('No active editor project available to apply hook.');
@@ -161,6 +191,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
     }
     try {
       const result = await hookLabService.applyToEditor(session.id, candidate.id, editorProjectId);
+      if(!isCurrent(version))return;
       if (result.previousProjectSnapshot) {
         snapshotsRef.current[candidate.id] = result.previousProjectSnapshot;
       }
@@ -170,13 +201,15 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
       setActionSuccess(`Applied to editor: ${result.appliedOperations.join(', ')}`);
       if (onApplyToEditor) onApplyToEditor(result);
       if (onEditorProjectUpdated) onEditorProjectUpdated();
-      setTimeout(() => setActionSuccess(null), 4000);
+      setTimeout(() => {if(isCurrent(version))setActionSuccess(null)}, 4000);
     } catch (err: any) {
+      if(!isCurrent(version))return;
       setError(err.message || 'Failed to apply hook to editor.');
     }
   };
 
   const handleRevertApply = async (candidate: HookCandidate) => {
+    const version=identityRef.current.version;if(sessionIdentityRef.current!==version)return;
     if (!session || !editorProjectId) {
       setError('No active editor project available to revert.');
       return;
@@ -184,37 +217,45 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
     try {
       const snapshot = snapshotsRef.current[candidate.id];
       const result = await hookLabService.revertApply(session.id, candidate.id, editorProjectId, snapshot);
+      if(!isCurrent(version))return;
       setCandidates((prev) =>
         prev.map((c) => (c.id === candidate.id ? { ...c, applied: false, status: 'GENERATED' } : c))
       );
       setActionSuccess('Reverted hook application in editor.');
       if (onApplyToEditor) onApplyToEditor(result);
       if (onEditorProjectUpdated) onEditorProjectUpdated();
-      setTimeout(() => setActionSuccess(null), 4000);
+      setTimeout(() => {if(isCurrent(version))setActionSuccess(null)}, 4000);
     } catch (err: any) {
+      if(!isCurrent(version))return;
       setError(err.message || 'Failed to revert hook in editor.');
     }
   };
 
   const handleApprove = async (candidate: HookCandidate) => {
+    const version=identityRef.current.version;if(sessionIdentityRef.current!==version)return;
     if (!session) return;
     try {
       const approved = await hookLabService.approveCandidate(session.id, candidate.id);
+      if(!isCurrent(version))return;
       setCandidates((prev) => prev.map((c) => (c.id === approved.id ? approved : c)));
       setActionSuccess('Hook approved and Brand Brain evidence recorded!');
-      setTimeout(() => setActionSuccess(null), 3000);
+      setTimeout(() => {if(isCurrent(version))setActionSuccess(null)}, 3000);
     } catch (err: any) {
+      if(!isCurrent(version))return;
       setError(err.message || 'Failed to approve hook.');
     }
   };
 
   const handlePreview = async (candidate: HookCandidate) => {
+    const version=identityRef.current.version;if(sessionIdentityRef.current!==version)return;
     if(!supportsHookOverlayAction(candidate)){setError('Source preview currently supports text overlays up to 100 characters only.');return;}
     if (!session) return;
     try {
       const preview = await hookLabService.renderPreview(session.id, candidate.id);
+      if(!isCurrent(version))return;
       setPreviewData({ url: preview.previewUrl, candidate });
     } catch (err: any) {
+      if(!isCurrent(version))return;
       setError(err.message || 'Failed to generate preview snippet.');
     }
   };
@@ -222,7 +263,7 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
   const recommendedCandidate = candidates.length > 0 ? candidates[0] : null;
   const alternateCandidates = candidates.length > 1 ? candidates.slice(1) : [];
 
-  if (isLoading) {
+  if (isLoading || (session!==null&&sessionIdentityRef.current!==identityRef.current.version)) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-neutral-400 space-y-3">
         <RotateCw className="w-6 h-6 animate-spin text-violet-400" />
