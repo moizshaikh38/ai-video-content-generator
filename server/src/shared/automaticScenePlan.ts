@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
  * Unknown/review-required status and measured protection remain unchanged.
  * Planner revisions must bump this ID so old geometry cannot silently survive.
  */
-export const AUTOMATIC_SCENE_PLANNER_VERSION = 'normal-auto-baseline-v2';
+export const AUTOMATIC_SCENE_PLANNER_VERSION = 'normal-auto-baseline-v3';
 export interface AutomaticSceneSegment {
   start:number; end:number; kind:'group'|'solo'|'fit'; windowW:number; windowH:number;
   keyframes:Array<{time:number;centerX:number;centerY:number}>;

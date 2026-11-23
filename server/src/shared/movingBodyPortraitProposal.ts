@@ -1,9 +1,10 @@
 import {boundedCameraPath} from './boundedCameraPath.js';
 import type {ReframeSample} from '../types/index.js';
 
-/** Review-only full-height moving window from complete sampled single-body
+/** Full-height moving window from complete sampled single-body
  * evidence. Does not identify a person or judge the importance of side content.
- * Kept separate from the older static, tall-body proposal. */
+ * Used by constrained ordinary Auto and explicit reviews. It remains a
+ * detector proposal, not participant identity or publication-quality proof. */
 export function movingBodyPortraitProposal(samples:ReframeSample[],start:number,end:number,w:number,h:number,regions:Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>=[]) {
  if(![start,end,w,h].every(Number.isFinite)||end-start<1||samples.length<4||h<=0||w<=h)return null;
  const width=(9/16)*h/w, margin=.02;

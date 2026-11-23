@@ -1576,6 +1576,17 @@ export class SmartReframeService {
       ...(track.metadata.protected_content_regions||[]),
       ...persistentObjectRegions(samples).map(r=>({...r,start,end}))
     ];
+    // A face does not invalidate independently measured single-body geometry.
+    // Require one repeated face/body association when faces are present, then
+    // apply the same full-height, all-sample containment checks as body-only Auto.
+    const singleBodyPortrait=(samples:ReframeSample[],start:number,end:number)=>{
+      const faces=samples.flatMap(s=>s.faces||[]);
+      if(faces.length){
+        const ids=[...new Set(faces.map(f=>f.track_id).filter((id):id is string=>!!id))];
+        if(ids.length!==1||faces.some(f=>!f.track_id)||!associatedBodyEnvelope(samples,ids))return null;
+      }
+      return movingBodyPortraitProposal(samples,start,end,track.source_width,track.source_height,bodyRegions(samples,start,end));
+    };
     const plan=this.computeShotComposition({rawSamples:track.raw_samples,sceneCuts:track.metadata.scene_cuts,duration,
       sourceWidth:track.source_width,sourceHeight:track.source_height,windowScope:'shot',allowConversationSplit:true,
       protectedContentRegions:track.metadata.protected_content_regions,splitHandSafetyReview:true});
@@ -1617,12 +1628,11 @@ export class SmartReframeService {
         s.presentationProtection.reason === 'measured-context') &&
         (!cropConfig.layoutPolicy || cropConfig.layoutPolicy.allowed.includes('fit'))) return plan;
     if(plan.length&&plan.every(s=>s.split)&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split')))return plan;
-    // A face-less moving body is a different evidence class from a talking
-    // head. Use only complete sampled single-body tracks, full source height,
+    // Use only complete sampled single-body tracks, full source height,
     // no scene cuts and the existing protected-region constraints. No zoom.
     if((!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fill'))&&
-       !(track.metadata.scene_cuts||[]).length&&track.raw_samples.every((s:any)=>s.faces?.length===0)){
-      const body=movingBodyPortraitProposal(track.raw_samples,0,duration,track.source_width,track.source_height,bodyRegions(track.raw_samples,0,duration));
+       !(track.metadata.scene_cuts||[]).length){
+      const body=singleBodyPortrait(track.raw_samples,0,duration);
       if(body)return [body];
     }
     return undefined;
