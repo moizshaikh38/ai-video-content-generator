@@ -122,6 +122,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
   const [stockItems, setStockItems] = useState<NormalizedMediaItem[]>([]);
   const [loadingStock, setLoadingStock] = useState(false);
   const [previewItem, setPreviewItem] = useState<NormalizedMediaItem | null>(null);
+  const [insertionError, setInsertionError] = useState<string | null>(null);
 
   // Load capabilities & initial media
   useEffect(() => {
@@ -279,6 +280,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
   };
 
   const handleInsertDirectAsset = async (asset: NormalizedMediaItem) => {
+    setInsertionError(null);
     try {
       await mediaService.insertDirectBroll(
         project.id,
@@ -288,15 +290,9 @@ export const MediaBin: React.FC<MediaBinProps> = ({
       );
       if (onRefreshProject) onRefreshProject();
     } catch (e: any) {
-      // Fallback: use callback to add to project timeline
-      const trackType: EditorTrackType =
-        asset.media_type === 'AUDIO' ? 'AUDIO' : asset.media_type === 'IMAGE' ? 'IMAGE' : 'VIDEO';
-      onAddMediaToTimeline(
-        trackType,
-        asset.title,
-        asset.source_url || asset.preview_url,
-        asset.duration || 3
-      );
+      // A rejected owned-asset insertion must not become an unverified local
+      // timeline mutation using a stale source or preview URL.
+      setInsertionError(e instanceof Error && e.message ? e.message : 'Could not add this media. Choose it again or retry.');
     }
   };
 
@@ -305,6 +301,11 @@ export const MediaBin: React.FC<MediaBinProps> = ({
 
   return (
     <div className="w-full h-full bg-vc-surface1 flex flex-col text-xs text-vc-text-secondary select-none animate-panelSlideIn">
+      {insertionError && (
+        <div role="alert" className="m-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          {insertionError}
+        </div>
+      )}
       {/* Hidden File Input for Direct Uploads (Library mode) */}
       <input
         ref={fileInputRef}
