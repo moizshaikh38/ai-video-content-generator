@@ -1899,10 +1899,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 onUpdateProject((prev) => ({
                   ...prev,
                   tracks: prev.tracks.map((t) => {
-                    if (t.type === 'VIDEO') {
+                    if (t.type === 'VIDEO'&&!t.locked) {
                       return {
                         ...t,
-                        items: t.items.map((i:any) => ({ ...i, framing_window: undefined, layout_mode: layout, crop_config:{...i.crop_config,layout_mode:layout,layout_mode_source:'user'} })),
+                        items: t.items.map((i:any) => i.locked?i:({ ...i, framing_window: undefined, layout_mode: layout, crop_config:{...i.crop_config,layout_mode:layout,layout_mode_source:'user'} })),
                       };
                     }
                     return t;
@@ -1921,10 +1921,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 onUpdateProject((prev) => ({
                   ...prev,
                   tracks: prev.tracks.map((t) => {
-                    if (t.type !== 'VIDEO') return t;
+                    if (t.type !== 'VIDEO'||t.locked) return t;
                     return {
                       ...t,
-                      items: t.items.map((i: any) => ({
+                      items: t.items.map((i: any) => i.locked?i:({
                         ...i,
                         crop_config: {
                           ...(i.crop_config || {}),
@@ -1939,10 +1939,11 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                 onUpdateProject((prev) => ({
                   ...prev,
                   tracks: prev.tracks.map((t) => {
-                    if (t.type === 'VIDEO') {
+                    if (t.type === 'VIDEO'&&!t.locked) {
                       return {
                         ...t,
                         items: t.items.map((i) => {
+                          if(i.locked)return i;
                           const prevScreencast = (i as any).crop_config?.screencast || {};
                           // null is an explicit opt-out and MUST persist -
                           // deleting the key would fall back to (and resurrect)
