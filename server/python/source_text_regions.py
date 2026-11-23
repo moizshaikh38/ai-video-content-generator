@@ -35,6 +35,11 @@ def source_text_regions(frame,include_word_candidates=False,deadline=None):
  # knows the title, subtitle wording or source-specific position/appearance.
  for index,(image,offset,scale) in enumerate([(frame,0,1),(cv2.resize(frame[h//2:],None,fx=1.5,fy=1.5),h//2,1.5)]):
   ih,iw=image.shape[:2]
+  # Keep source-edge glyphs away from the OCR canvas boundary. Reuse the
+  # existing lower-half pass, not an extra child or weaker confidence gate.
+  border=20 if index==1 else 0
+  if border:image=cv2.copyMakeBorder(image,border,border,border,border,cv2.BORDER_CONSTANT,value=(255,255,255))
+  oh,ow=image.shape[:2]
   with tempfile.TemporaryDirectory() as d:
    path=os.path.join(d,'frame.png');cv2.imwrite(path,image)
    # One OCR child at a time, one OpenMP thread in each child. Large default
@@ -43,9 +48,12 @@ def source_text_regions(frame,include_word_candidates=False,deadline=None):
    timeout=5 if deadline is None else min(5,deadline-__import__('time').monotonic())
    if timeout<=0:raise TimeoutError('OCR source budget exhausted')
    p=subprocess.run(['tesseract',path,'stdout','--psm','11','tsv'],capture_output=True,text=True,timeout=timeout,check=True,env={**os.environ,'OMP_THREAD_LIMIT':'1'})
-  for r in regions_from_tsv(p.stdout,iw,ih,include_word_candidates):
-   x=r['x']*iw/scale;y=r['y']*ih/scale+offset;rw=r['width']*iw/scale;rh=r['height']*ih/scale
-   r.update(x=x/w,y=y/h,width=rw/w,height=rh/h)
+  for r in regions_from_tsv(p.stdout,ow,oh,include_word_candidates):
+   # Clip padded-canvas measurements before mapping to source coordinates.
+   left=max(0,r['x']*ow-border);top=max(0,r['y']*oh-border)
+   right=min(iw,(r['x']+r['width'])*ow-border);bottom=min(ih,(r['y']+r['height'])*oh-border)
+   if right<=left or bottom<=top:continue
+   r.update(x=left/scale/w,y=(top/scale+offset)/h,width=(right-left)/scale/w,height=(bottom-top)/scale/h)
    result.append(r)
  return result
 
