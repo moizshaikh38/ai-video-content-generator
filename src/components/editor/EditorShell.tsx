@@ -778,7 +778,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     void clipRenderService
       .getClipReframe(clip.id)
       .then((r) => {
-        if(!currentSeed())return;
+        if(!currentSeed()||r.status!=='ready'||r.isStale!==false)return;
         const s1 = typeof r.speaker1X === 'number' && Number.isFinite(r.speaker1X) ? r.speaker1X : 0.25;
         const s2 = typeof r.speaker2X === 'number' && Number.isFinite(r.speaker2X) ? r.speaker2X : 0.75;
         onUpdateProject((prev) => !currentSeed()?prev:({
@@ -824,7 +824,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     void clipRenderService
       .getClipReframe(clip.id)
       .then((r) => {
-        if(!currentSeed())return;
+        if(!currentSeed()||r.status!=='ready'||r.isStale!==false)return;
         const kfs = (r.smoothedKeyframes || []).filter((k) => k.time < hookDurationSec);
         if (kfs.length === 0) return;
         const faceY = kfs.reduce((acc, k) => acc + (k.centerY ?? 0.5), 0) / kfs.length;
