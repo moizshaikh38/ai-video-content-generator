@@ -2,6 +2,25 @@
 Offline qualification first. No model downloads, no fixed game, region or border hue.
 """
 import cv2, numpy as np, json, sys, hashlib
+from collections import OrderedDict
+
+class PrefixCache:
+ """Exact band prefixes with an 8MiB retained-array ceiling per frame.
+
+ Eviction changes work only, never a candidate or threshold. Transient arrays
+ for one requested band remain proportional to one decoded width/height.
+ """
+ def __init__(self,budget=8*1024*1024):
+  self.budget=budget;self.bytes=0;self.peak_bytes=0;self.rows=OrderedDict()
+ def get(self,key,build):
+  if key in self.rows:
+   value=self.rows.pop(key);self.rows[key]=value;return value
+  value=build();size=sum(a.nbytes for a in value)
+  while self.rows and self.bytes+size>self.budget:
+   _,old=self.rows.popitem(last=False);self.bytes-=sum(a.nbytes for a in old)
+  if size<=self.budget:
+   self.rows[key]=value;self.bytes+=size;self.peak_bytes=max(self.peak_bytes,self.bytes)
+  return value
 
 def candidates(frame):
  h,w=frame.shape[:2]
@@ -25,20 +44,35 @@ def candidates(frame):
  pixels=frame.astype(np.int16)
  gx=np.max(np.abs(pixels[:,1:]-pixels[:,:-1]),axis=2)>35
  gy=np.max(np.abs(pixels[1:]-pixels[:-1]),axis=2)>35
+ # Band projection is independent of the rectangle's other sides. Cache exact
+ # prefix counts once, instead of reallocating four slices per rectangle.
+ def prefix(values):
+  return np.concatenate(([0],np.cumsum(values,dtype=np.int64)))
+ cache=PrefixCache()
+ def horizontal(y):
+  return cache.get(('h',y),lambda:(prefix(mask[max(0,y-band):min(h,y+band+1)].max(0)>0),
+                                  prefix(gy[max(0,y-band):min(h-1,y+band+1)].max(0))))
+ def vertical(x):
+  return cache.get(('v',x),lambda:(prefix(mask[:,max(0,x-band):min(w,x+band+1)].max(1)>0),
+                                  prefix(gx[:,max(0,x-band):min(w-1,x+band+1)].max(1))))
  for ai,x in enumerate(vs):
   for xx in vs[ai+1:]:
    rw=xx-x
    if not .06<=rw/w<=.5:continue
+   left,left_edge=vertical(x);right,right_edge=vertical(xx)
    for bi,y in enumerate(hs):
+    top,top_edge=horizontal(y)
     for yy in hs[bi+1:]:
      rh=yy-y
      if not(.06<=rh/h<=.5 and .008<=rw*rh/(w*h)<=.2 and .6<=rw/rh<=2.4):continue
-     strips=[mask[max(0,y-band):min(h,y+band+1),x:xx].max(0),mask[max(0,yy-band):min(h,yy+band+1),x:xx].max(0),mask[y:yy,max(0,x-band):min(w,x+band+1)].max(1),mask[y:yy,max(0,xx-band):min(w,xx+band+1)].max(1)]
-     score=float(min((z>0).mean()for z in strips))
+     bottom,bottom_edge=horizontal(yy)
+     score=min((top[xx]-top[x])/rw,(bottom[xx]-bottom[x])/rw,
+               (left[yy]-left[y])/rh,(right[yy]-right[y])/rh)
      if score<.85:continue
-     edges=[gy[max(0,y-band):min(h-1,y+band+1),x:xx].max(0),gy[max(0,yy-band):min(h-1,yy+band+1),x:xx].max(0),gx[y:yy,max(0,x-band):min(w-1,x+band+1)].max(1),gx[y:yy,max(0,xx-band):min(w-1,xx+band+1)].max(1)]
-     edge_score=float(min(z.mean()for z in edges))
+     edge_score=min((top_edge[xx]-top_edge[x])/rw,(bottom_edge[xx]-bottom_edge[x])/rw,
+                    (left_edge[yy]-left_edge[y])/rh,(right_edge[yy]-right_edge[y])/rh)
      if edge_score<.7:continue
+     score=float(score);edge_score=float(edge_score)
      r={'x':x/w,'y':y/h,'w':rw/w,'h':rh/h,'side_coverage':score,'edge_coverage':edge_score}
      out.append(r)
  return out
