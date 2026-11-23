@@ -1,3 +1,4 @@
+export type ReframeRuntimeCapability={available:boolean;pythonPath:string;detail?:string;base?:string;face?:{kind:string;status:string};person?:{kind:string;status:string};scope?:string};
 import{transcriptContentIdentity}from'../shared/transcriptSourceBinding.js';
 import{resolveClipReframeGenre,reframeGenreContextKey,genreTrackStale}from'../shared/effectiveClipGenre.js';
 import {produceGamingSceneEvidence} from './gamingSceneProducerService.js';
@@ -2874,43 +2875,58 @@ export class SmartReframeService {
   }
 
   /**
-   * One-time, cached capability check: can this host actually run the OpenCV
-   * reframe analysis? A missing python/OpenCV runtime silently degraded every
-   * render to center-crop before (audit M-6); the result is now cached, logged
-   * once, and surfaced as an advisory degradation on /ready.
+   * Bounded face/person load and blank-inference capability, not video accuracy.
+   * Cached for 60 seconds and invalidated on configured model file identity;
+   * a single process is owned at a time, also across configuration changes.
+   * Advisory only on /ready, independent of database readiness.
    */
-  public static async checkReframeRuntime(force = false): Promise<{
-    available: boolean;
-    pythonPath: string;
-    detail?: string;
-  }> {
-    if (this.reframeRuntimeCheck && !force) return this.reframeRuntimeCheck;
-
+  public static async checkReframeRuntime(force = false): Promise<ReframeRuntimeCapability> {
+    const identity=JSON.stringify([this.getPythonPath(),process.env.SMART_REFRAME_YUNET_THRESHOLD||'0.6',
+      ...['SMART_REFRAME_YUNET_MODEL','SMART_REFRAME_PERSON_MODEL'].map(key=>{
+        const value=process.env[key]||'';if(!value)return [key,''];
+        try{const st=fs.statSync(value);return [key,value,st.size,st.mtimeMs,st.ctimeMs,st.ino];}catch{return [key,value,'missing'];}
+      })]);
+    if(this.reframeRuntimeCheck&&this.reframeRuntimePending&&this.reframeRuntimeIdentity!==identity){
+      await this.reframeRuntimeCheck;
+      return this.checkReframeRuntime(force);
+    }
+    if(this.reframeRuntimeCheck&&this.reframeRuntimeIdentity===identity&&
+       (this.reframeRuntimePending||(!force&&Date.now()-this.reframeRuntimeCheckedAt<60000)))return this.reframeRuntimeCheck;
+    this.reframeRuntimeIdentity=identity;this.reframeRuntimeCheckedAt=Date.now();this.reframeRuntimePending=true;
     this.reframeRuntimeCheck = (async () => {
       const pythonPath = this.getPythonPath();
       try {
-        await execFileAsync(
-          pythonPath,
-          ['-c', 'import cv2, numpy'],
-          { timeout: 20000 }
-        );
-        logger.info(`[SmartReframe] OpenCV runtime available via '${pythonPath}'.`);
-        return { available: true, pythonPath };
-      } catch (err: any) {
-        logger.warn(
-          `[SmartReframe] OpenCV runtime unavailable via '${pythonPath}' (${err.message}). Smart reframing will degrade to center crop until a Python environment with opencv-python is provided.`
-        );
-        return { available: false, pythonPath, detail: err.message };
+        const scriptPath = ['server/python/reframe_runtime_probe.py','python/reframe_runtime_probe.py','../server/python/reframe_runtime_probe.py']
+          .map(p=>path.resolve(process.cwd(),p)).find(p=>fs.existsSync(p));
+        if(!scriptPath)throw Error('Local detector runtime probe is missing.');
+        const result = process.platform==='linux'
+          ? await supervisedExecFile(pythonPath,[scriptPath],{timeoutMs:8000,maxBuffer:16384})
+          : await execFileAsync(pythonPath,[scriptPath],{timeout:8000,killSignal:'SIGKILL',maxBuffer:16384});
+        const capability=JSON.parse(result.stdout.trim());
+        const scope='local-face-person-load-and-blank-inference-only';
+        if(typeof capability?.available!=='boolean'||!['available','unavailable'].includes(capability.base)||
+           !['haar','yunet'].includes(capability.face?.kind)||capability.person?.kind!=='nanodet'||capability.scope!==scope||
+           !['available','unavailable'].includes(capability.face?.status)||
+           !['available','unavailable','not-configured'].includes(capability.person?.status)||
+           capability.available!==(capability.base==='available'&&capability.face.status==='available'&&capability.person.status!=='unavailable'))throw Error('Invalid local detector capability response.');
+        const runtime:ReframeRuntimeCapability={available:capability.available,pythonPath,base:capability.base,
+          face:{kind:capability.face.kind,status:capability.face.status},person:{kind:'nanodet',status:capability.person.status},
+          scope,...(!capability.available?{detail:'Local face/person detector failed load or blank inference.'}:{})};
+        logger.info('[SmartReframe] Local face/person runtime capability',runtime);
+        return runtime;
+      } catch {
+        logger.warn('[SmartReframe] Local face/person detector runtime probe failed or exceeded its budget.');
+        return { available: false, pythonPath, detail:'Local detector runtime probe failed or exceeded its 8-second budget.' };
       }
     })();
-
-    return this.reframeRuntimeCheck;
+    const pending=this.reframeRuntimeCheck;
+    void pending.finally(()=>{if(this.reframeRuntimeCheck===pending)this.reframeRuntimePending=false;});
+    return pending;
   }
-  private static reframeRuntimeCheck: Promise<{
-    available: boolean;
-    pythonPath: string;
-    detail?: string;
-  }> | null = null;
+  private static reframeRuntimeIdentity='';
+  private static reframeRuntimeCheckedAt=0;
+  private static reframeRuntimePending=false;
+  private static reframeRuntimeCheck: Promise<ReframeRuntimeCapability> | null = null;
 
   /**
    * Invokes Python face detection script via execFile with strict timeout and input isolation.

@@ -1,3 +1,4 @@
+import type {ReframeRuntimeCapability} from './smartReframeService.js';
 import {isDatabaseBootstrapReady} from './databaseBootstrapState.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import { HealthStatus } from '../types/index.js';
@@ -64,11 +65,8 @@ export interface ReadinessStatus {
     activeRendersInProcess: number;
     concurrencyCap: number;
   } | null;
-  /** Smart-reframe runtime capability (informational; false degrades renders to center crop). */
-  reframeRuntime?: {
-    available: boolean;
-    pythonPath: string;
-  } | null;
+  /** Local face/person capability only, informational and never overall readiness. */
+  reframeRuntime?: Omit<ReframeRuntimeCapability,'pythonPath'> | null;
 }
 
 /**
@@ -146,7 +144,8 @@ async function getReframeRuntimeStats(): Promise<ReadinessStatus['reframeRuntime
   try {
     const { SmartReframeService } = await import('./smartReframeService.js');
     const runtime = await SmartReframeService.checkReframeRuntime();
-    return { available: runtime.available, pythonPath: runtime.pythonPath };
+    const {pythonPath: _privatePath,...capability}=runtime;
+    return capability;
   } catch {
     return null;
   }
