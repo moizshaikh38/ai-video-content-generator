@@ -638,6 +638,8 @@ export class SubtitleStudioService {
             shadowEnabled: style.shadowEnabled,
             shadowColor: style.shadowColor,
             shadowDepth: style.shadowDepth,
+            shadow: typeof style.shadowDepth === 'number' && Number.isFinite(style.shadowDepth) ? style.shadowDepth : undefined,
+            shadowOpacity: typeof style.shadowOpacity === 'number' && Number.isFinite(style.shadowOpacity) ? style.shadowOpacity : undefined,
             uppercase: style.uppercase,
             textAlign: style.alignment,
           } as any,
