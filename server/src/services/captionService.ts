@@ -1,3 +1,4 @@
+import {subtitleWordsMatchCue} from '../shared/subtitleWordClockReview.js';
 import {joinTimedCaptionCompounds} from '../shared/captionCompoundWords.js';
 import {assertSpeechWordCoverage} from '../shared/speechWordCoverage.js';
 import { reliableOrderedClocks } from '../shared/orderedTranscriptTiming.js';
@@ -1155,10 +1156,24 @@ export class CaptionService {
       if (style === 'karaoke' && timingMode === 'word' && Array.isArray(cue.words) && cue.words.length > 0) {
         // True Karaoke: use real word durations with ASS {\k<duration_cs>}
         const parts: string[] = [];
+        const cueStartCs=Math.round(Math.max(0,cue.start)*100);
+        let plannedCs=0;
+        const useWordOffsets=cue.start>=0 && subtitleWordsMatchCue(cue) && cue.words.every(tok=>{
+          const offsetCs=Math.round(tok.start*100)-cueStartCs;
+          if(offsetCs<plannedCs)return false;
+          plannedCs=offsetCs+Math.max(1,Math.round((tok.end-tok.start)*100));
+          return plannedCs<=Math.round(cue.end*100)-cueStartCs;
+        });
+        let elapsedCs=0;
         for (const tok of cue.words) {
+          const offsetCs=useWordOffsets?Math.round(tok.start*100)-cueStartCs:elapsedCs;
+          const delayCs=Math.max(0,offsetCs-elapsedCs);
+          const delayTag=delayCs>0?`{\\k${delayCs}}`:'';
+          elapsedCs+=delayCs;
           const durationCs = Math.max(1, Math.round((tok.end - tok.start) * 100));
           const safeWord = this.sanitizeAssText(tok.text);
-          parts.push(`{\\k${durationCs}}${safeWord}`);
+          parts.push(`${delayTag}{\\k${durationCs}}${safeWord}`);
+          elapsedCs+=durationCs;
         }
         dialogueText = `${animationTag}${parts.join(' ')}`;
       } else if (style === 'highlight' || style === 'podcast') {
