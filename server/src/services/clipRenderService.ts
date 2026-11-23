@@ -1,4 +1,5 @@
 import {sourceTextReviewNotice,type SourceTextReviewNotice} from '../shared/sourceTextReviewNotice.js';
+import { explicitCropScaleUpdate } from '../shared/explicitCropScaleUpdate.js';
 import {completePendingHookInitialization,recoverPendingHookCompletion} from '../db/repositories/pendingHookInitializationRepository.js';
 import {nonPortraitAutoFullSourceFit} from '../shared/nonPortraitAutoFit.js';
 import {automaticHeadlineText} from '../shared/autoHookTitle.js';
@@ -2246,6 +2247,7 @@ export class ClipRenderService {
       safeCrop = {
         ...safeCrop,
         mode,
+        ...explicitCropScaleUpdate(update.cropConfig),
         focusX: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.focusX ?? 0.5))),
         focusY: Math.min(1.0, Math.max(0.0, Number(update.cropConfig.focusY ?? 0.5))),
         smart: update.cropConfig.smart ? {

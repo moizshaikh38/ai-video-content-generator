@@ -1067,7 +1067,7 @@ export const updateClipEditor = async (req: AuthenticatedRequest, res: Response)
       code === 'EDITOR_REVISION_CONFLICT' ? 409 :
       code === 'CLIP_NOT_FOUND'
         ? 404
-        : code === 'INVALID_VOLUME' || code === 'INVALID_TRIM' || code === 'TRIM_TOO_SHORT' || code === 'INVALID_ASPECT_RATIO' || code === 'INVALID_CAPTION_STYLE' || code === 'INVALID_CAPTION_POSITION' || code === 'EXTEND_BEYOND_SOURCE'
+        : code === 'INVALID_CROP_SCALE' || code === 'INVALID_VOLUME' || code === 'INVALID_TRIM' || code === 'TRIM_TOO_SHORT' || code === 'INVALID_ASPECT_RATIO' || code === 'INVALID_CAPTION_STYLE' || code === 'INVALID_CAPTION_POSITION' || code === 'EXTEND_BEYOND_SOURCE'
         ? 400
         : 500;
 
