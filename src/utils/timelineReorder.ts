@@ -137,11 +137,23 @@ export function computeSceneReorder(
   };
   const round3 = (v: number) => Math.max(0, Math.round(v * 1000) / 1000);
 
+  // Normalize legacy item-relative cues using the same convention as export.
+  // Scene deltas operate on absolute timeline clocks, not item-local seconds.
+  const captionClockTracks=project.tracks.map(t=>t.type!=='CAPTION'?t:{...t,items:t.items.map(it=>{
+    const cues=it.caption?.cues;
+    if(!Array.isArray(cues)||!cues.length)return it;
+    const start=it.timeline_start;
+    const relative=start>0&&cues[0].start>=0&&cues[0].start<start-.05;
+    if(!relative)return it;
+    const shift=(rows:any)=>Array.isArray(rows)?rows.map((w:any)=>({...w,start:round3(w.start+start),end:round3(w.end+start)})):rows;
+    return {...it,caption:{...it.caption,...(typeof it.caption.cues_covered_end==='number'?{cues_covered_end:round3(it.caption.cues_covered_end+start)}:{}),cues:cues.map((c:any)=>({...c,start:round3(c.start+start),end:round3(c.end+start),...(Array.isArray(c.words)?{words:shift(c.words)}:{}),...(Array.isArray(c.tokens)?{tokens:shift(c.tokens)}:{})}))}};
+  })});
+
   // Correctness over convenience: a caption cue WITHOUT word timings that
   // straddles a boundary whose scenes move apart cannot be placed without
   // inventing timing - refuse the reorder rather than silently misalign
   // spoken text. (Word-timed straddlers split safely, see remapCue.)
-  const unwordedStraddle = project.tracks.some(
+  const unwordedStraddle = captionClockTracks.some(
     (t) =>
       t.type === 'CAPTION' &&
       t.items.some(
@@ -193,6 +205,7 @@ export function computeSceneReorder(
           words: words
             ? words.map((w: any) => ({ ...w, start: round3(w.start + d), end: round3(w.end + d) }))
             : cue.words,
+          ...(Array.isArray(cue.tokens)?{tokens:cue.tokens.map((w:any)=>({...w,start:round3(w.start+d),end:round3(w.end+d)}))}:{}),
         },
       ];
     }
@@ -222,6 +235,7 @@ export function computeSceneReorder(
         start: fragStart,
         end: fragEnd,
         text: fragWords.map((w: any) => w.text ?? w.word ?? '').join(' ').trim() || cue.text,
+        ...(Array.isArray(cue.tokens)?{tokens:cue.tokens.filter((w:any)=>{const center=(Number(w.start)+Number(w.end))/2;return center>=fs-.001&&center<fe-.001+(k===points.length-2?.002:0)}).map((w:any)=>({...w,start:Math.max(fragStart,round3(w.start+d)),end:Math.min(fragEnd,Math.max(fragStart,round3(w.end+d)))}))}:{}),
         // A word straddling the split boundary keeps its duration but clamps
         // into its fragment's shifted span rather than drifting outside it.
         words: fragWords.map((w: any) => ({
@@ -243,7 +257,7 @@ export function computeSceneReorder(
   // track-spanning items like a music bed have no dominant scene and
   // correctly stay put.
   let movedCount = 0;
-  const newTracks = project.tracks.map((t) => {
+  const newTracks = captionClockTracks.map((t) => {
     if (t.id === trackId) return { ...t, items: newTrackItems };
     const items = t.items.map((it) => {
       if (t.type === 'CAPTION' && it.caption && Array.isArray(it.caption.cues)) {
@@ -257,9 +271,11 @@ export function computeSceneReorder(
           });
         if (changed) {
           movedCount++;
-          return { ...it, caption: { ...it.caption, cues } };
+          return { ...it, timeline_start:0,timeline_end:Math.max(it.timeline_end,...cues.map((c:any)=>c.end)),caption: { ...it.caption, cues } };
         }
-        return it;
+        // Clock normalization is temporary planning data. Unaffected captions
+        // retain their exact saved item, including locks and legacy convention.
+        return project.tracks.find(original=>original.id===t.id)?.items.find(original=>original.id===it.id) || it;
       }
       const d = dominantDelta(it.timeline_start, it.timeline_end);
       if (d !== 0) {
