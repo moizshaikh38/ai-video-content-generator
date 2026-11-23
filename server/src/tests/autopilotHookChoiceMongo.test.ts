@@ -19,7 +19,13 @@ const {editorRenderSnapshot}=await import('../shared/editorRenderSnapshot.js');c
 await db.collection('hook_candidates').updateOne({id:preserved.id},{$set:{text_overlay_plan:{text:'MANUAL ORIGINAL',start_time:.5,end_time:2.5,position_y:.22,font_size:48,font_family:'Inter',color:'#ffffff'}}});
 await db.collection('hook_candidates').deleteMany({hook_lab_session_id:session.id});const oldBrand=B.getBrandContext;B.getBrandContext=async()=>null as any;
 const result=await ownerContext.run(user,()=> (A as any).runHookLabAsync(user,{id:crypto.randomUUID(),user_id:user,clip_id:clip,project_id:project,settings:{target_platform:'tiktok'},steps:[{step:'HOOK_LAB',attempts:0}]}));B.getBrandContext=oldBrand;
-const candidates=await db.collection('hook_candidates').find({hook_lab_session_id:session.id}).toArray();const sorted=[...candidates].sort((a,b)=>b.overall_hook_fit-a.overall_hook_fit);assert(result.success);assert.equal(result.chosen.overall_hook_fit,sorted[0].overall_hook_fit);assert.equal(result.chosen.id,sorted[0].id);assert.equal(result.chosen.delivery_mode,'SPOKEN_REWRITE');assert.match(result.rationale,/90\/100/);assert.equal(candidates[0].overall_hook_fit,38);assert.equal(sorted[0].overall_hook_fit,90);
+const candidates=await db.collection('hook_candidates').find({hook_lab_session_id:session.id}).toArray();const sorted=[...candidates].sort((a,b)=>b.overall_hook_fit-a.overall_hook_fit);assert(result.success);assert.equal(result.chosen.overall_hook_fit,sorted[0].overall_hook_fit);assert.equal(result.chosen.id,sorted[0].id);assert.equal(result.chosen.delivery_mode,sorted[0].delivery_mode);assert(result.rationale.includes(`${sorted[0].overall_hook_fit}/100`));
+for(const candidate of candidates){assert(words.some(w=>w.word===candidate.text));assert.equal(candidate.generation_input_receipt.semantic_truth_verified,false);assert(candidate.validation_warnings.some((w:string)=>w.includes('not semantic truth')));}
+// Regeneration preserves locked/manual product fields; transaction fence may advance.
+await db.collection('hook_candidates').insertOne(preserved);const saved=await db.collection('hook_candidates').findOne({id:preserved.id});
+B.getBrandContext=async()=>null as any;await ownerContext.run(user,()=>H.generateCandidates(session.id,user,{candidate_count:6}));B.getBrandContext=oldBrand;
+const regenerated=await db.collection('hook_candidates').findOne({id:preserved.id});const {hook_generation_fence:_before,...beforeProduct}=saved!;const {hook_generation_fence:afterFence,...afterProduct}=regenerated!;assert.deepEqual(afterProduct,beforeProduct);assert.equal(afterFence,1);
+const after=await db.collection('hook_candidates').find({hook_lab_session_id:session.id}).toArray();assert(after.filter(c=>c.id!==preserved.id).every(c=>words.some(w=>w.word===c.text)));
 }finally{await db.dropDatabase();await closeMongo();storage.closeAllConnections();await new Promise<void>(r=>storage.close(()=>r()));}
 
 });

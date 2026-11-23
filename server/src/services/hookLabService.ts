@@ -346,9 +346,9 @@ export class HookLabService {
       );
 
       for (const sv of synthesizedVariants) {
-        // References document the exact input used by this deterministic
-        // suggestion, not entailment of the template's editorial wording.
-        sv.source_evidence=scope.segments.map((segment:any)=>exactHookEvidence(scope,segment,'Exact generation input; template wording is not verified as a source claim'));
+        // Preserve the complete exact scoped generation input receipt.
+        // Verbatim wording is not proof of a complete or effective hook.
+        sv.source_evidence=scope.segments.map((segment:any)=>exactHookEvidence(scope,segment,'Exact generation input; completeness and hook quality are not verified'));
         rawCandidates.push(sv);
       }
 
@@ -431,9 +431,9 @@ export class HookLabService {
    */
   private static synthesizeGroundedHooks(
     segments: TranscriptSegment[],
-    fullText: string,
-    userInstruction?: string,
-    preferredTypes: HookType[] = []
+    _fullText: string,
+    _userInstruction?: string,
+    _preferredTypes: HookType[] = []
   ): Array<{
     text: string;
     hook_type: HookType;
@@ -449,120 +449,21 @@ export class HookLabService {
       text_overlay_plan?: any;
     }> = [];
 
-    const firstSeg = segments[0]?.text.trim() || '';
-    const mainTopic = segments.slice(0, 3).map((s) => s.text.trim()).join(' ');
-
-    // 1. QUESTION Hook
-    let questionText = `Why does this happen in ${firstSeg.slice(0, 25)}?`;
-    if (firstSeg.includes('?')) {
-      questionText = firstSeg;
-    } else if (segments.some((s) => s.text.includes('?'))) {
-      const qSeg = segments.find((s) => s.text.includes('?'))!;
-      questionText = qSeg.text.trim();
-    } else {
-      questionText = `How do you actually solve this: ${firstSeg.slice(0, 30)}?`;
-    }
-    variants.push({
-      text: questionText,
-      hook_type: 'QUESTION',
-      delivery_mode: 'SPOKEN_REWRITE',
-      source_evidence: [
-        {
-          start_seconds: 0,
-          end_seconds: 3.5,
-          text: firstSeg,
-          reason: 'Transforms opening statement into high-engagement question',
-        },
-      ],
-    });
-
-    // 2. CONTRARIAN / WARNING Hook
-    let contrarianText = `Stop doing this if you want results: ${firstSeg.slice(0, 30)}.`;
-    if (/\b(mistake|wrong|never|fail|problem)\b/i.test(fullText)) {
-      const matchSeg = segments.find((s) => /\b(mistake|wrong|never|fail|problem)\b/i.test(s.text));
-      if (matchSeg) {
-        contrarianText = `The biggest mistake here: ${matchSeg.text.trim().slice(0, 45)}.`;
-      }
-    }
-    variants.push({
-      text: contrarianText,
-      hook_type: 'CONTRARIAN',
-      delivery_mode: 'TEXT_OVERLAY',
-      source_evidence: [
-        {
-          start_seconds: 0,
-          end_seconds: 3.0,
-          text: firstSeg,
-          reason: 'Frame opening as critical pitfall prevention',
-        },
-      ],
-      text_overlay_plan: {
-        text: contrarianText,
-        start_time: 0,
-        end_time: 3.0,
-        position_y: 0.7,
-        font_family: 'Inter',
-        font_size: 48,
-        color: '#FFFFFF',
-      },
-    });
-
-    // 3. CURIOSITY GAP Hook
-    const curiosityText = `Most people miss this exact detail: ${firstSeg.slice(0, 35)}.`;
-    variants.push({
-      text: curiosityText,
-      hook_type: 'CURIOSITY_GAP',
-      delivery_mode: 'COMBINED',
-      source_evidence: [
-        {
-          start_seconds: 0,
-          end_seconds: 3.0,
-          text: firstSeg,
-          reason: 'Information gap opening anchored in real topic',
-        },
-      ],
-      text_overlay_plan: {
-        text: curiosityText,
-        start_time: 0,
-        end_time: 2.8,
-        position_y: 0.65,
-        font_family: 'Inter',
-        font_size: 50,
-        color: '#FFD700',
-      },
-    });
-
-    // 4. RESULT FIRST / BENEFIT Hook
-    const resultText = `Here is what happens when you do this right: ${firstSeg.slice(0, 35)}.`;
-    variants.push({
-      text: resultText,
-      hook_type: 'RESULT_FIRST',
-      delivery_mode: 'CAPTION_OPEN',
-      source_evidence: [
-        {
-          start_seconds: 0,
-          end_seconds: 3.2,
-          text: firstSeg,
-          reason: 'Front-loads the payoff directly',
-        },
-      ],
-    });
-
-    // 5. DIRECT Hook
-    const directText = firstSeg.length > 10 ? firstSeg : `Pay attention to this: ${mainTopic.slice(0, 40)}.`;
-    variants.push({
-      text: directText,
-      hook_type: 'DIRECT',
-      delivery_mode: 'SPOKEN_REWRITE',
-      source_evidence: [
-        {
-          start_seconds: 0,
-          end_seconds: 3.0,
-          text: firstSeg,
-          reason: 'Direct clear opening statement without filler',
-        },
-      ],
-    });
+    // Future deterministic suggestions may quote actual supplied utterances,
+    // but may not invent a problem, outcome, audience belief or causal claim.
+    // Keep whole segments only. A short excerpt is not complete-thought proof;
+    // overlong or malformed text needs review, never a midword character slice.
+    const source=segments.map(segment=>({segment,text:segment.text.trim()})).filter(({text})=>text.length>0&&text.length<=HOOK_LAB_LIMITS.MAX_HOOK_TEXT_LENGTH&&!/[\x00-\x08\x0b-\x1f\x7f]/.test(text));
+    const append=(entry:typeof source[number]|undefined,hook_type:HookType,delivery_mode:HookDeliveryMode,overlay=false)=>{
+      if(!entry)return;
+      const text=entry.text;
+      variants.push({text,hook_type,delivery_mode,source_evidence:[{start_seconds:entry.segment.start,end_seconds:entry.segment.end,text,reason:'Verbatim source utterance suggestion. Not semantic completeness or hook-quality proof.'}],...(overlay?{text_overlay_plan:{text,start_time:0,end_time:3,position_y:.7,font_family:'Inter',font_size:48,color:'#FFFFFF'}}:{})});
+    };
+    append(source.find(({text})=>text.includes('?')),'QUESTION','SPOKEN_REWRITE');
+    append(source.find(({text})=>/\b(mistake|wrong|never|fail|problem)\b/i.test(text)),'CONTRARIAN','TEXT_OVERLAY',true);
+    append(source.find(({text})=>/\b(secret|nobody|truth)\b/i.test(text)),'CURIOSITY_GAP','COMBINED',true);
+    append(source.find(({text})=>/\b(result|finally|achieved|became|learned)\b/i.test(text)),'RESULT_FIRST','CAPTION_OPEN');
+    append(source[0],'DIRECT','SPOKEN_REWRITE');
 
     return variants;
   }
