@@ -1,3 +1,4 @@
+import {applyProducerProgramFade} from '../shared/producerProgramFade.js';
 import {selectionSourceReceiptMatches} from '../shared/selectionSourceReceipt.js';
 import {cutUnion,cutProducerProject} from '../shared/producerRangeCuts.js';
 import {producerItemPunch} from '../shared/producerItemPunch.js';
@@ -442,14 +443,7 @@ export class ProducerRenderService {
 
     // Sync AUDIO_FADE
     const fadeOp = plan.operations.find((o: ProducerOperation) => o.type === 'AUDIO_FADE' && o.enabled);
-    if (videoItem && fadeOp) {
-      if (!videoItem.audio) {
-        videoItem.audio = { volume: 1.0, fade_in: 0.15, fade_out: 0.25, normalized: true, target_lufs: -16 };
-      }
-      videoItem.audio.fade_in = fadeOp.parameters.fade_in_sec ?? 0.15;
-      videoItem.audio.fade_out = fadeOp.parameters.fade_out_sec ?? 0.25;
-
-    }
+    if(fadeOp){try{applyProducerProgramFade(editorProject,fadeOp.parameters)}catch{throw new AppError('Producer audio fades need review: the saved program edges are locked, overlapping, or do not cover the canvas. No edits were applied.',409,'PRODUCER_FADE_REVIEW_REQUIRED');}}
 
     // Sync CAPTION_EMPHASIS
     const emphasisOp = plan.operations.find((o: ProducerOperation) => o.type === 'CAPTION_EMPHASIS' && o.enabled);
@@ -699,11 +693,11 @@ export class ProducerRenderService {
     // 6. Audio Fades
     const fadeOp = plan.operations.find((o) => o.type === 'AUDIO_FADE' && o.enabled);
     if (fadeOp) {
-      const fadeIn = fadeOp.parameters.fade_in_sec || 0.15;
-      const fadeOut = fadeOp.parameters.fade_out_sec || 0.25;
+      const fadeIn = Math.min(durationSec,fadeOp.parameters.fade_in_sec ?? 0.15);
+      const fadeOut = Math.min(durationSec,fadeOp.parameters.fade_out_sec ?? 0.25);
       const fadeOutStart = Math.max(0, durationSec - fadeOut);
-      audioFilters.push(`afade=t=in:ss=0:d=${fadeIn}`);
-      audioFilters.push(`afade=t=out:st=${fadeOutStart.toFixed(2)}:d=${fadeOut}`);
+      if(fadeIn>0)audioFilters.push(`afade=t=in:ss=0:d=${fadeIn}`);
+      if(fadeOut>0)audioFilters.push(`afade=t=out:st=${fadeOutStart.toFixed(6)}:d=${fadeOut}`);
     }
 
     return {
