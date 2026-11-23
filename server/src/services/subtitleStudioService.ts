@@ -1,3 +1,4 @@
+import {subtitleRenderCues} from '../shared/subtitleWordClockReview.js';
 import {subtitleBurnIdentity,subtitleBurnCurrent,subtitleBurnInvalidation} from '../shared/subtitleBurnIdentity.js';
 import {transcriptReviewCode} from '../shared/transcriptReviewErrors.js';
 import {insertProjectWithinQuota, projectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
@@ -617,7 +618,7 @@ export class SubtitleStudioService {
           .eq('user_id', userId)
           .eq('subtitle_export_run_token',runToken);
 
-        const assContent = CaptionService.buildAssScript(cues, {
+        const assContent = CaptionService.buildAssScript(subtitleRenderCues(cues), {
           style: (style.preset as any) || 'hormozi',
           position: (style.position as any) || 'bottom',
           aspectRatio: '16:9',

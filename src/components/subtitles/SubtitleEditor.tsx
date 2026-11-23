@@ -1,3 +1,4 @@
+import {subtitleWordsMatchCue} from '../../../server/src/shared/subtitleWordClockReview';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Play,
@@ -628,8 +629,11 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
     };
   };
 
+  const wordClockFallbackCount=style.preset==='karaoke'?cues.filter(cue=>!subtitleWordsMatchCue(cue)).length:0;
+
   return (
     <div className="space-y-6">
+      {wordClockFallbackCount>0 && <p role="status" className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm leading-relaxed text-amber-200 break-words">Word highlighting is unavailable for {wordClockFallbackCount} subtitle{wordClockFallbackCount===1?'':'s'}. After saving, export uses your subtitle text for each full subtitle duration, without guessed word timing.</p>}
       {/* Top Studio Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 shadow-xl backdrop-blur-md">
         <div className="flex items-center gap-3">
