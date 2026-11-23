@@ -1,3 +1,4 @@
+import {chooseAutopilotHook} from '../shared/autopilotHookChoice.js';
 import {readAutomaticHookAdmission,commitAutomaticHookAdmission,commitAutomaticReady} from '../db/repositories/autopilotHookAdmissionRepository.js';
 import {automaticSelectedInput,nextRenderContinuation} from '../shared/autopilotSelectedInput.js';
 import {projectHookTextOverlay} from '../shared/hookTextOverlayProjection.js';
@@ -569,8 +570,7 @@ export class AutopilotService {
       }
 
       // Check for locked candidates first, otherwise pick top overall_hook_fit
-      const locked = candidates.find((c) => c.locked);
-      const chosen = locked || candidates[0];
+      const {chosen,locked}=chooseAutopilotHook(candidates);
 
       // Mark candidate approved
       await HookLabService.updateCandidate(session.id, chosen.id, userId, {
