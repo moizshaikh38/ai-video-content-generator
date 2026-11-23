@@ -1,3 +1,4 @@
+import {assFontsDirArg} from './editorFontFiles.js';
 import {subtitleRenderCues} from '../shared/subtitleWordClockReview.js';
 import {subtitleBurnIdentity,subtitleBurnCurrent,subtitleBurnInvalidation} from '../shared/subtitleBurnIdentity.js';
 import {transcriptReviewCode} from '../shared/transcriptReviewErrors.js';
@@ -658,7 +659,7 @@ export class SubtitleStudioService {
 
         const safeAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
         const watermarkRequired = await WatermarkService.shouldWatermark(userId);
-        const filterChain: string[] = [`ass=${safeAss}`];
+        const filterChain: string[] = [`ass=${safeAss}${assFontsDirArg()}`];
         if (watermarkRequired) {
           filterChain.push(WatermarkService.getFfmpegFilterString());
           logger.info(`[SubtitleStudio] Watermark enforced for user ${userId} on project ${projectId}`);
