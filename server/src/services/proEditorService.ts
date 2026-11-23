@@ -1801,7 +1801,7 @@ export class ProEditorService {
           } else {
             const srcStart = item.source_start || 0;
             filterComplex.push(
-              `[${currentInputIdx}:v]trim=start=${srcStart.toFixed(2)}:duration=${dur.toFixed(2)},setpts=PTS-STARTPTS,fps=${fps},${scaleCropFilter}${brollTag}`
+              `[${currentInputIdx}:v]trim=start=${srcStart.toFixed(2)}:duration=${dur.toFixed(2)},setpts=PTS-STARTPTS+${start.toFixed(2)}/TB,fps=${fps},${scaleCropFilter}${brollTag}`
             );
           }
 
