@@ -388,10 +388,12 @@ export class SubtitleStudioService {
           );
         }
 
+        const start=Math.round(rawStart*1000)/1000,end=Math.round(rawEnd*1000)/1000;
+        if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start)throw new AppError(`Cue at index ${index} collapses at millisecond precision. Increase its duration before saving.`,400,'INVALID_TIMESTAMP');
         return {
           id: cue.id || crypto.randomUUID(),
-          start: Math.round(rawStart * 1000) / 1000,
-          end: Math.round(rawEnd * 1000) / 1000,
+          start,
+          end,
           text: CaptionService.sanitizeAssText(String(cue.text || '').trim()),
           words: Array.isArray(cue.words) ? cue.words : undefined,
           position_x: cue.position_x,
