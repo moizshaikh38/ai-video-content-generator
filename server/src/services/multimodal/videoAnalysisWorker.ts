@@ -1,3 +1,4 @@
+import {multimodalSourceKey} from '../../shared/multimodalSourceKey.js';
 import {runsMultimodalWorker} from '../runtimePolicy.js';
 import {workLifecycle} from '../queue/workLifecycle.js';
 import {transcriptSnapshotIdentity} from '../../shared/transcriptSnapshotIdentity.js';
@@ -140,13 +141,13 @@ export class VideoAnalysisWorker {
     const projectsCol = db.collection('projects');
     const transcriptsCol = db.collection('transcripts');
 
-    const project = await projectsCol.findOne({ id: job.project_id });
+    const project = await projectsCol.findOne({ id: job.project_id,user_id:job.user_id });
     if (!project) {
       await this.updateJobStage(job.id, 'failed', 0, 'failed', 'Project not found');
       throw new Error(`Project ${job.project_id} not found.`);
     }
 
-    const transcript = await transcriptsCol.findOne({ project_id: job.project_id });
+    const transcript = await transcriptsCol.findOne({ project_id: job.project_id,user_id:job.user_id });
     if (!transcript || !transcript.transcript_text) {
       await this.updateJobStage(job.id, 'failed', 0, 'failed', 'Transcript not found');
       throw new Error(`Transcript not found for project ${job.project_id}.`);
@@ -174,8 +175,9 @@ export class VideoAnalysisWorker {
       let sourceReceipt:SourceObjectReceipt|undefined;
       const transcriptSnapshot=transcriptSnapshotIdentity(transcript);
       // Step 0: Obtain source video
-      if (project.storage_path) {
-        const downloaded=await downloadObjectToFile('source', project.storage_path, videoPath,{requireSnapshotReceipt:true});
+      const sourceKey=multimodalSourceKey(project);
+      if (sourceKey) {
+        const downloaded=await downloadObjectToFile('source', sourceKey, videoPath,{requireSnapshotReceipt:true});
         sourceReceipt=downloaded.sourceReceipt;
       } else if (project.source_url && fs.existsSync(project.source_url)) {
         fs.copyFileSync(project.source_url, videoPath);

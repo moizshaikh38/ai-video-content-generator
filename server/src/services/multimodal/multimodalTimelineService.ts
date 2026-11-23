@@ -1,3 +1,4 @@
+import {multimodalSourceKey} from '../../shared/multimodalSourceKey.js';
 import {transcriptSnapshotIdentity} from '../../shared/transcriptSnapshotIdentity.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../../shared/sourceObjectReceipt.js';
 import {headObject} from '../objectStorageService.js';
@@ -214,10 +215,11 @@ export class MultimodalTimelineService {
   public static async getFreshAnalysis(projectId:string,userId:string):Promise<VideoAnalysisRecord|null>{
     return ownerContext.run(userId,async()=>{
       const record=await this.getAnalysis(projectId,userId);if(!record||record.status!=='completed')return null;
-      const {data:project}=await dataRepository.from('projects').select('id,storage_path').eq('id',projectId).eq('user_id',userId).maybeSingle();
+      const {data:project}=await dataRepository.from('projects').select('id,source_url,storage_path').eq('id',projectId).eq('user_id',userId).maybeSingle();
       const {data:transcript}=await dataRepository.from('transcripts').select('*').eq('project_id',projectId).eq('user_id',userId).maybeSingle();
-      if(!project?.storage_path||!transcript||transcript.quality_assessment?.status==='needs_review'||record.metadata?.transcript_snapshot_sha256!==transcriptSnapshotIdentity(transcript))return null;
-      try{const head=await headObject('source',project.storage_path);if(!sourceObjectReceiptMatches(record.metadata?.source_receipt,project.storage_path,head))return null;}catch{return null;}
+      const sourceKey=multimodalSourceKey(project);
+      if(!sourceKey||!transcript||transcript.quality_assessment?.status==='needs_review'||record.metadata?.transcript_snapshot_sha256!==transcriptSnapshotIdentity(transcript))return null;
+      try{const head=await headObject('source',sourceKey);if(!sourceObjectReceiptMatches(record.metadata?.source_receipt,sourceKey,head))return null;}catch{return null;}
       return record;
     });
   }
