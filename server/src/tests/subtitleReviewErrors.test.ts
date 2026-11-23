@@ -1,4 +1,20 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 import {TRANSCRIPT_REVIEW_CODES,transcriptReviewCode} from '../shared/transcriptReviewErrors.js';
 test('processing review classification is an exact three-code allowlist, not a provider status passthrough',()=>{for(const code of TRANSCRIPT_REVIEW_CODES)assert.equal(transcriptReviewCode(code),code);for(const value of [undefined,null,0,409,{},['TRANSCRIPT_REVIEW_REQUIRED'],'TRANSCRIPTION_FAILED','STORAGE_UNAVAILABLE','SOURCE_CHANGED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED ','INTERNAL_ERROR'])assert.equal(transcriptReviewCode(value),undefined);});
-test('Subtitle propagates classified review only after releasing failed reservation, while unclassified failure remains internal',()=>{const s=fs.readFileSync(new URL('../services/subtitleStudioService.ts',import.meta.url),'utf8');const a=s.indexOf("    if (result.status !== 'transcribed' || !result.transcript)"),b=s.indexOf('    const transcript = result.transcript;',a),failure=s.slice(a,b);assert(a>0&&b>a);assert(failure.indexOf('releaseReservation')<failure.indexOf('transcriptReviewCode(result.reviewCode)'));assert.match(failure,/reviewCode\?409:500, reviewCode\|\|'TRANSCRIPTION_FAILED'/);});
+test('subtitle caller preserves classified review codes without releasing an admitted producer reservation',()=>{
+ const s=fs.readFileSync(new URL('../services/subtitleStudioService.ts',import.meta.url),'utf8');
+ const a=s.indexOf("    if (result.status !== 'transcribed' || !result.transcript)"),b=s.indexOf('    return{completionIsCurrent:',a);
+ assert(a>0&&b>a);const failure=s.slice(a,b);
+ assert.equal(failure.includes('releaseReservation('),false);
+ assert.match(failure,/const reviewCode=transcriptReviewCode\(result.reviewCode\)/);
+ assert.match(failure,/reviewCode\?409:500, reviewCode\|\|'TRANSCRIPTION_FAILED'/);
+ const producer=fs.readFileSync(new URL('../services/videoProcessingService.ts',import.meta.url),'utf8');
+ const catchStart=producer.indexOf('const reviewCode=transcriptReviewCode((err as any)?.code)'),returnFailed=producer.indexOf("status: 'failed',",catchStart);
+ assert(catchStart>0&&returnFailed>catchStart);const cleanup=producer.slice(catchStart,returnFailed);
+ assert.match(cleanup,/processingAttemptId&&!committed&&cleanupSafe/);
+ assert.match(cleanup,/const ownsCurrent=admitted&&current\?\.processing_attempt_id===processingAttemptId&&current\?\.processing_run_token===runToken/);
+ assert.match(cleanup,/if\(admitted&&\(ownsCurrent\|\|isObsolete\)\)/);
+ assert.match(cleanup,/CreditWalletService\.releaseReservation\(processingAttemptId/);
+ assert.match(cleanup,/UsageService\.releaseReservation\(processingAttemptId/);
+ assert.match(producer.slice(returnFailed),/\.\.\.\(reviewCode\?\{reviewCode\}:\{\}\)/);
+});
