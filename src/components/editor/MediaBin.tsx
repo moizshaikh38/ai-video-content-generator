@@ -1,3 +1,4 @@
+import{OwnedLibraryVideoPreview}from'./OwnedLibraryVideoPreview';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Video,
@@ -490,7 +491,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
                       <Plus className="w-3 h-3" />
                       <span>Use this</span>
                     </button>
-                    {item.preview_url && (
+                    {(item.preview_url || item.media_type==='VIDEO'&&item.source_url?.startsWith('users/')) && (
                       <button
                         type="button"
                         onClick={() => setPreviewItem(item)}
@@ -773,7 +774,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
                           <Plus className="w-3 h-3" />
                           <span>Place at {currentTime.toFixed(1)}s</span>
                         </button>
-                        {item.preview_url && (
+                        {(item.preview_url || item.media_type==='VIDEO'&&item.source_url?.startsWith('users/')) && (
                           <button
                             type="button"
                             onClick={() => setPreviewItem(item)}
@@ -824,6 +825,8 @@ export const MediaBin: React.FC<MediaBinProps> = ({
                     className="w-full"
                   />
                 </div>
+              ) : previewItem.media_type==='VIDEO'&&previewItem.source_url?.startsWith('users/') ? (
+                <OwnedLibraryVideoPreview assetId={previewItem.id} sourcePath={previewItem.source_url} title={previewItem.title}/>
               ) : (
                 <video
                   src={previewItem.source_url || previewItem.preview_url}
