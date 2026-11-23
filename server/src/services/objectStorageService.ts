@@ -143,7 +143,7 @@ async function streamObjectToFile(
   const bodyStream = result.Body as Readable;
   const meter = new Transform({ transform(chunk, _encoding, callback) {
     totalBytes += chunk.length;
-    if (maxBytes !== undefined && totalBytes > maxBytes) { callback(new Error('Object exceeds byte budget.')); return; }
+    if (maxBytes !== undefined && totalBytes > maxBytes) { callback(new AppError('Object exceeds the selected download byte budget.', 413, 'OBJECT_BYTE_BUDGET_EXCEEDED')); return; }
     hasher.update(chunk); callback(null, chunk);
   }});
   await pipeline(bodyStream, meter, createWriteStream(path, { flags: 'w' }), { signal });
@@ -264,7 +264,7 @@ export async function downloadObjectToFile(
     if(expectedObject&&(head.ContentLength!==expectedObject.size||head.ETag!==expectedObject.etag||(expectedObject.versionId!=null&&head.VersionId!==expectedObject.versionId)))throw new AppError('Selected output object changed before download.',409,'SOURCE_VERSION_CHANGED');
     const size = Number(head.ContentLength || 0);
     if(options?.maxBytes !== undefined && (!Number.isSafeInteger(options.maxBytes) || options.maxBytes <= 0 ||
-      !Number.isSafeInteger(size) || size <= 0 || size > options.maxBytes)) throw new Error('Object exceeds byte budget.');
+      !Number.isSafeInteger(size) || size <= 0 || size > options.maxBytes)) throw new AppError('Object exceeds the selected download byte budget.', 413, 'OBJECT_BYTE_BUDGET_EXCEEDED');
     const sizedTimeout = downloadTimeoutForSize(size, timeoutMs);
     if (sizedTimeout > timeoutMs) {
       clearTimeout(timer);
@@ -295,7 +295,7 @@ export async function downloadObjectToFile(
     if (controller.signal.aborted || err?.name === 'AbortError') {
       throw new AppError(`Source object download timed out after ${timeoutMs / 1000}s.`, 504, 'DOWNLOAD_TIMEOUT');
     }
-    if(err?.code==='SOURCE_VERSION_CHANGED')throw err;
+    if(err?.code==='SOURCE_VERSION_CHANGED'||err?.code==='OBJECT_BYTE_BUDGET_EXCEEDED')throw err;
     throw new AppError('Source object is unavailable.', 503, 'STORAGE_UNAVAILABLE');
   } finally {
     clearTimeout(timer);
