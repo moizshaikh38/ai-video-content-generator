@@ -1,3 +1,4 @@
+import {FONT_EM_PER_ASS_SIZE,clampCaptionFontSize,CAPTION_RENDER_FONTS} from '../../lib/captionPresets';
 import {subtitleWordsMatchCue} from '../../../server/src/shared/subtitleWordClockReview';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
@@ -248,6 +249,9 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   onProjectUpdated,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const pictureRef=useRef<HTMLDivElement>(null);
+  const [pictureHeight,setPictureHeight]=useState(0);
+  useEffect(()=>{const frame=pictureRef.current;if(!frame)return;const measure=()=>setPictureHeight(frame.clientHeight);measure();const observer=new ResizeObserver(measure);observer.observe(frame);return()=>observer.disconnect();},[]);
 
   // Video playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -576,6 +580,9 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
 
   // Compute CSS for active subtitle overlay
   const getOverlayStyle = (): React.CSSProperties => {
+    const savedFontSize=Math.min(120,Math.max(16,Number(style.fontSize)||54));
+    const legacyStudioPreset=['hormozi','neon','beast','clean','karaoke','minimal'].includes(style.preset||'hormozi');
+    const family=(CAPTION_RENDER_FONTS as readonly string[]).includes(style.fontFamily?.trim()||'')?style.fontFamily!.trim():'Arial';
     const pos = style.position || 'bottom';
     const align = style.alignment || 'center';
 
@@ -616,8 +623,8 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
       width: '90%',
       maxWidth: '560px',
       textAlign: align,
-      fontFamily: style.fontFamily || 'Montserrat, sans-serif',
-      fontSize: `${Math.max(16, Math.min(48, (style.fontSize || 42) * 0.55))}px`,
+      fontFamily: family,
+      fontSize: `${legacyStudioPreset?clampCaptionFontSize(savedFontSize,family,64)*(pictureHeight/1080)*(FONT_EM_PER_ASS_SIZE[family as keyof typeof FONT_EM_PER_ASS_SIZE]??FONT_EM_PER_ASS_SIZE.Arial):Math.max(16,Math.min(48,(style.fontSize||42)*0.55))}px`,
       fontWeight: style.fontWeight || 800,
       color: style.textColor || '#FFFFFF',
       textTransform: style.uppercase ? 'uppercase' : 'none',
@@ -738,7 +745,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
         {/* LEFT COLUMN: Video Player & Controls (col-span-6)       */}
         {/* ======================================================== */}
         <div className="lg:col-span-6 space-y-4">
-          <div data-subtitle-picture-frame className="relative rounded-2xl bg-black border border-zinc-800 overflow-hidden shadow-2xl mx-auto flex items-center justify-center" style={{aspectRatio:sourceDisplaySize?`${sourceDisplaySize.width} / ${sourceDisplaySize.height}`:'9 / 16',width:'100%',maxWidth:sourceDisplaySize?`${620*sourceDisplaySize.width/sourceDisplaySize.height}px`:'348.75px'}}>
+          <div ref={pictureRef} data-subtitle-picture-frame className="relative rounded-2xl bg-black border border-zinc-800 overflow-hidden shadow-2xl mx-auto flex items-center justify-center" style={{aspectRatio:sourceDisplaySize?`${sourceDisplaySize.width} / ${sourceDisplaySize.height}`:'9 / 16',width:'100%',maxWidth:sourceDisplaySize?`${620*sourceDisplaySize.width/sourceDisplaySize.height}px`:'348.75px'}}>
             {previewUrl ? (
               <video
                 key={previewUrl}
