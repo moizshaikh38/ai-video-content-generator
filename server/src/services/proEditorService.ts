@@ -952,7 +952,7 @@ export class ProEditorService {
         // Chain-safe fragment: consumes the trimmed slice stream via split and
         // ends unlabeled, so the caller's comma chain keeps working.
         const tag = 'vcb'+crypto.createHash('sha256').update(String(item.id||'x')).digest('hex').slice(0,12);
-        return buildBlurFitChain(ratio, zoom, tag, cs);
+        return buildBlurFitChain(ratio, zoom, tag, cs, clampFocus(item.crop.focusX), clampFocus(item.crop.focusY));
       }
       return buildCropFilter(ratio, { focusX: clampFocus(item.crop.focusX), focusY: clampFocus(item.crop.focusY), scale: zoom }, cs);
     }

@@ -318,18 +318,22 @@ export function buildBlurFitChain(
   aspectRatio: ClipAspectRatio = '9:16',
   zoom: number = 1,
   tag: string = 'vcb',
-  canvasScale: number = 1
+  canvasScale: number = 1,
+  focusX: number = 0.5,
+  focusY: number = 0.5
 ): string {
   const cd = canvasDims(aspectRatio, canvasScale);
   const ar = { w: cd.width, h: cd.height };
   const z = Math.min(4, Math.max(1, Number(zoom) || 1));
   // Contain on BOTH axes before zoom. Width-only scaling cuts tall sources.
   const zoomFilter = z > 1 ? `,scale=trunc(iw*${z}/2)*2:trunc(ih*${z}/2)*2` : '';
+  const focus = (v: number) => Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5;
+  const axis = (upper: string, lower: string, v: number) => focus(v) === 0.5 ? `(${upper}-${lower})/2` : `(${upper}-${lower})*${focus(v)}`;
   return (
     `split=2[${tag}_bgs][${tag}_fgs];` +
     `[${tag}_bgs]scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=${Math.round(25 * canvasScale)}:5,eq=brightness=-0.15:contrast=0.95[${tag}_bg];` +
     `[${tag}_fgs]scale=${ar.w}:${ar.h}:force_original_aspect_ratio=decrease${zoomFilter}[${tag}_fg];` +
-    `[${tag}_bg][${tag}_fg]overlay=(W-w)/2:(H-h)/2`
+    `[${tag}_bg][${tag}_fg]overlay=${axis('W', 'w', focusX)}:${axis('H', 'h', focusY)}`
   );
 }
 
@@ -1598,7 +1602,7 @@ export class ClipRenderService {
 
     if (clip.crop_config?.mode === 'fit_blur') {
       const zoom = Math.min(4, Math.max(1, Number(clip.crop_config.scale ?? 1)));
-      return { cropFilter: buildBlurFitChain(clip.aspect_ratio as ClipAspectRatio, zoom, 'vcb', canvasScale), mode: 'manual', layoutMode: 'manual', track: null };
+      return { cropFilter: buildBlurFitChain(clip.aspect_ratio as ClipAspectRatio, zoom, 'vcb', canvasScale, clip.crop_config.focusX, clip.crop_config.focusY), mode: 'manual', layoutMode: 'manual', track: null };
     }
 
     if (clip.crop_config?.mode === 'fit') {
