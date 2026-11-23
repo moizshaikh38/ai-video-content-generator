@@ -2861,6 +2861,9 @@ export class ClipRenderService {
             hasCustomAudio ||
             hasCustomCrop ||
             hasFramingWindow ||
+            // Panels are a saved Pro-only channel, including unassigned views
+            // which must reach the compiler's existing export review gate.
+            i.panels != null ||
             Boolean(i.scene_layout_overrides?.length) ||
             i.crop_config?.layout_mode_source==='auto' ||
             hasModifiedTimelineStart ||

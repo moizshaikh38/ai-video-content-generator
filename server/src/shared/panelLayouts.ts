@@ -180,6 +180,21 @@ export function unassignedPanelViews(project: { tracks: Array<{type: string; hid
   return missing;
 }
 export function assertPanelViewsAssigned(project: Parameters<typeof unassignedPanelViews>[0]): void {
+  // Null/undefined are an absent channel. Any supplied non-null channel must
+  // be a recognizable panel template, never silently fall through to Quick
+  // or to an unrelated crop when a stored layout is malformed.
+  for(const track of project.tracks){
+    if(track.type!=='VIDEO'||track.hidden)continue;
+    for(const item of track.items){
+      if(item.hidden||item.panels==null)continue;
+      const p=item.panels as any;
+      if(typeof p!=='object'||Array.isArray(p)||!Object.prototype.hasOwnProperty.call(PANEL_RECTS,p.layout)||
+         (p.slots!==undefined&&!Array.isArray(p.slots))){
+        const err=new Error('Saved panel layout needs review before exporting.') as Error & {code:string;statusCode:number};
+        err.code='PANEL_LAYOUT_INVALID';err.statusCode=409;throw err;
+      }
+    }
+  }
   const missing = unassignedPanelViews(project);
   if (missing.length) {
     const err = new Error(`Set every panel view before exporting (${missing.length} unassigned). Open each scene and use its Panel buttons to review and Apply each view.`) as Error & { code: string; statusCode: number };
