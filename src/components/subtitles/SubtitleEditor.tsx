@@ -235,6 +235,12 @@ const AVAILABLE_FONTS = [
   'Poppins',
 ];
 
+// Display only. Legacy ASS strips markup, collapses raw newlines and distinguishes
+// hard \N from soft \n under its existing WrapStyle 0. Saved cue text stays intact.
+function legacySubtitlePreviewText(text: string): string {
+  return text.replace(/[{}]/g,'').replace(/[\r\n]+/g,' ').replace(/\\(?![Nn])/g,'/').replace(/[ \t]+/g,' ').trim().replace(/\\N/g,'\n').replace(/\\n/g,' ');
+}
+
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return '00:00.00';
   const mins = Math.floor(seconds / 60);
@@ -616,6 +622,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
 
     return {
       position: 'absolute',
+      whiteSpace: ['hormozi','neon','beast','clean','minimal'].includes(style.preset||'hormozi') ? 'pre-line' : undefined,
       left: '50%',
       transform: pos === 'middle' ? 'translate(-50%, -50%)' : 'translateX(-50%)',
       top: topVal,
@@ -770,7 +777,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
             {/* LIVE SUBTITLE OVERLAY */}
             {activeCue && sourceDisplaySize && (
               <div data-subtitle-overlay style={getOverlayStyle()}>
-                {activeCue.text}
+                {['hormozi','neon','beast','clean','minimal'].includes(style.preset||'hormozi')?legacySubtitlePreviewText(activeCue.text):activeCue.text}
               </div>
             )}
 
