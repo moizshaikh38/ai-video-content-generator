@@ -1,3 +1,8 @@
+import {readAutopilotApproval,commitAutopilotApproval} from '../db/repositories/autopilotApprovalRepository.js';
+import {provenOutput} from '../shared/autopilotHookOutput.js';
+import {headObject} from './objectStorageService.js';
+import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
+import {getMongoClient} from '../db/mongoClient.js';
 import {workLifecycle} from './queue/workLifecycle.js';
 import crypto from 'node:crypto';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
@@ -1153,6 +1158,18 @@ export class AutopilotService {
         }
       }
 
+      if(dto.selected_hook_candidate_id&&!isValidUUID(dto.selected_hook_candidate_id))throw new AppError('Choose a valid hook candidate.',400,'INVALID_UUID');
+      if(dto.selected_thumbnail_concept_id&&dto.selected_thumbnail_concept_id!==run.selected_thumbnail_concept_id)throw new AppError('A different thumbnail needs its own reviewed run before approval.',409,'AUTOPILOT_APPROVAL_CONFLICT');
+      const expected=await readAutopilotApproval(db,userId,runId,dto.selected_hook_candidate_id);
+      run=expected.run as unknown as AutopilotRunRecord;
+      if(dto.selected_thumbnail_concept_id&&dto.selected_thumbnail_concept_id!==run.selected_thumbnail_concept_id)throw new AppError('A different thumbnail needs its own reviewed run before approval.',409,'AUTOPILOT_APPROVAL_CONFLICT');
+      const proof=provenOutput(expected);
+      await assertSelectionSourceCurrent(userId,run.project_id,expected.clip!.selection_source_receipt,expected.clip!.source_storage_path);
+      const outputObject=await headObject('clips',proof.output_storage_path);
+      const artifact=proof.output_artifact_receipt;
+      if(outputObject.size!==artifact.size||outputObject.etag!==artifact.etag||(artifact.version_id&&outputObject.versionId!==artifact.version_id))throw new AppError('The hook output object changed.',409,'AUTOPILOT_HOOK_OUTPUT_REQUIRED');
+      if(!(outputObject.size>0))throw new AppError('The completed hook video is unavailable.',409,'AUTOPILOT_HOOK_OUTPUT_REQUIRED');
+
       // Verify that Content Pack is present
       if (!run.content_pack_id) {
         throw new AppError('Content Pack deliverable missing from run.', 400, 'DELIVERABLE_MISSING');
@@ -1166,35 +1183,8 @@ export class AutopilotService {
         targetPlatform
       );
 
-      // 1. Resolve winning hook text & support optional hook override on approval
-      const hookStep = run.steps.find((s) => s.step === 'HOOK_LAB');
-      let winningHookText = hookStep?.artifacts?.hook_text || '';
-
-      if (dto.selected_hook_candidate_id && run.hook_session_id) {
-        try {
-          const { candidates } = await HookLabService.getSession(run.hook_session_id, userId);
-          const overrideCandidate = (candidates || []).find((c: any) => c.id === dto.selected_hook_candidate_id);
-          if (overrideCandidate) {
-            winningHookText = overrideCandidate.text;
-          }
-        } catch (err: any) {
-          logger.warn(`Failed to resolve hook candidate override in approveRun: ${err.message}`);
-        }
-      }
-
-      // 2. Fetch clip metadata non-fatally to enrich handoff
-      let clip: any = null;
-      try {
-        const { data: clipData } = await dataRepository
-          .from('clips')
-          .select('*')
-          .eq('id', run.clip_id)
-          .eq('user_id', userId)
-          .maybeSingle();
-        clip = clipData;
-      } catch (err: any) {
-        logger.warn(`Failed to fetch clip record in approveRun: ${err.message}`);
-      }
+      const winningHookText=proof.hook_text;
+      const clip=expected.clip!;
 
       // Add thumbnail handoff if thumbnail session and concept exist
       let thumbnailHandoff: any = null;
@@ -1241,28 +1231,10 @@ export class AutopilotService {
         return s;
       });
 
-      const runUpdates: Partial<AutopilotRunRecord> = {
-        status: 'APPROVED',
-        is_approved: true,
-        approved_by: userId,
-        approved_at: now,
-        publishing_handoff: consolidatedHandoff,
-        steps,
-      };
-
-      if (dto.selected_hook_candidate_id) {
-        runUpdates.selected_hook_candidate_id = dto.selected_hook_candidate_id;
-      }
-      if (dto.selected_thumbnail_concept_id) {
-        runUpdates.selected_thumbnail_concept_id = dto.selected_thumbnail_concept_id;
-      }
-
-      const updated = await this.updateRunState(userId, run.id, runUpdates);
-
-      return {
-        run: updated,
-        publishing_handoff: consolidatedHandoff,
-      };
+      const outputNow=await headObject('clips',proof.output_storage_path);
+      if(outputNow.size!==artifact.size||outputNow.etag!==artifact.etag||(artifact.version_id&&outputNow.versionId!==artifact.version_id))throw new AppError('The hook output object changed.',409,'AUTOPILOT_HOOK_OUTPUT_REQUIRED');
+      await assertSelectionSourceCurrent(userId,run.project_id,expected.clip!.selection_source_receipt,expected.clip!.source_storage_path);
+      return await commitAutopilotApproval(await getMongoClient(),db,{userId,expected,candidateId:dto.selected_hook_candidate_id,handoff:consolidatedHandoff,steps,outputObject}) as any;
     });
   }
 

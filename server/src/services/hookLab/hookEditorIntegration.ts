@@ -1,3 +1,5 @@
+import {hookAppliedInput} from '../../shared/hookAppliedInput.js';
+import {assertSelectionSourceCurrent} from '../selectionSourceGuardService.js';
 import {projectHookTextOverlay} from '../../shared/hookTextOverlayProjection.js';
 import {getMongoClient,getMongoDb} from '../../db/mongoClient.js';
 import {assertHookEditorIdentity,commitHookEditorRevision,hookCandidateEditIdentity} from '../../db/repositories/hookEditorRevisionRepository.js';
@@ -40,13 +42,17 @@ export class HookEditorIntegration {
       const previousSnapshot = JSON.parse(JSON.stringify(currentProject)) as EditorProject;
       const appliedOperations: string[] = [];
 
+      const {data:sourceProject}=await dataRepository.from('projects').select('*').eq('id',currentProject.project_id).eq('user_id',userId).single();
+      const {data:transcript}=await dataRepository.from('transcripts').select('*').eq('project_id',currentProject.project_id).eq('user_id',userId).single();
+      const appliedInput=hookAppliedInput(clip,sourceProject,transcript);
+      await assertSelectionSourceCurrent(userId,currentProject.project_id,clip.selection_source_receipt,clip.source_storage_path);
       const projected=projectHookTextOverlay(currentProject,persisted as HookCandidate);
       const updatedTracks=projected.tracks;
       appliedOperations.push('Added the current text-overlay hook with its planned timing and normalized canvas position');
 
       // Update editor project in DB
       const updates=await ProEditorService.prepareEditorRevision(currentProject,userId,{tracks:updatedTracks,version:currentProject.version});
-      const updatedProject=await commitHookEditorRevision(await getMongoClient(),await getMongoDb(),{userId,candidate:persisted,expectedEditor:currentProject,updates}) as unknown as EditorProject;
+      const updatedProject=await commitHookEditorRevision(await getMongoClient(),await getMongoDb(),{userId,candidate:persisted,expectedEditor:currentProject,updates,appliedInput}) as unknown as EditorProject;
 
       logger.info('Applied HookCandidate to EditorProject', {
         editorProjectId,

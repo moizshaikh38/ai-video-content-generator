@@ -1328,6 +1328,10 @@ export class ClipRenderService {
       );
       await uploadFile('clips', outputStoragePath, outputPath, renderedSize, 'video/mp4');
       const finalStoragePath = outputStoragePath;
+      const outputHead=await headObject('clips',finalStoragePath);
+      if(outputHead.size!==renderedSize||!outputHead.etag||outputHead.etag.startsWith('W/'))throw new AppError('Uploaded output identity cannot be verified.',503,'RENDER_OUTPUT_UNVERIFIED');
+      const outputHash=crypto.createHash('sha256');for await(const chunk of fs.createReadStream(outputPath))outputHash.update(chunk);
+      const outputReceipt={version:1,key:finalStoragePath,size:renderedSize,etag:outputHead.etag,...(outputHead.versionId?{version_id:outputHead.versionId}:{}),sha256:outputHash.digest('hex'),job_id:jobId,render_version:renderVersion,editor_version:Number(clip.editor_version||1),editor_project:expectedEditorProject};
 
       // Output verification guard: ensure deliverable exists before marking ready
       JobReliabilityService.verifyRequiredOutputs('clip_render', { output_storage_path: finalStoragePath });
@@ -1335,9 +1339,10 @@ export class ClipRenderService {
       // Publish clip and job atomically. A stale upload has its own immutable
       // attempt key and cannot overwrite the current worker's output bytes.
       await commitUploadedRenderOutcome(await getMongoClient(),db,{jobId:jobId!,clipId,userId,workerId,renderVersion,editorVersion:Number(clip.editor_version||1),editorProject:expectedEditorProject},{
-        job:{status:'completed',progress:100,stage:'completed',completed_at:new Date(),updated_at:new Date(),worker_id:null,locked_at:null,next_retry_at:null},
+        job:{output_artifact_receipt:outputReceipt,status:'completed',progress:100,stage:'completed',completed_at:new Date(),updated_at:new Date(),worker_id:null,locked_at:null,next_retry_at:null},
         clip:{
           render_status: 'ready',
+          output_artifact_receipt: outputReceipt,
           rendered_editor_version:expectedEditorProject?.version??null,
           rendered_editor_digest:expectedEditorProject?.digest??null,
           encoded_audio_review: encodedAudioReview,
