@@ -2890,11 +2890,11 @@ export class ProEditorService {
       try {
         const sfxCues = SoundDesignService.generateSoundDesignCues({
           words: transcript.words
-            .filter((w: any) => w.start >= clip.start_seconds && w.end <= clip.end_seconds)
+            .filter((w: any) => w.start >= clip.start_seconds + trimStart && w.end <= clip.end_seconds - trimEnd)
             .map((w: any) => ({
               ...w,
-              start: Number((w.start - clip.start_seconds + (hasColdOpen ? teaserDuration : 0)).toFixed(3)),
-              end: Number((w.end - clip.start_seconds + (hasColdOpen ? teaserDuration : 0)).toFixed(3)),
+              start: Number((w.start - clip.start_seconds - trimStart + teaserDuration).toFixed(3)),
+              end: Number((w.end - clip.start_seconds - trimStart + teaserDuration).toFixed(3)),
             })),
           durationSeconds: finalDuration,
           coldOpenActive: hasColdOpen,
