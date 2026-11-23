@@ -1052,7 +1052,10 @@ export class CaptionService {
       borderStyle = 3; // 3 = Opaque/Translucent Bounding Box
       const bgOpacity = Math.min(1, Math.max(0, customConfig.backgroundOpacity ?? 0.55));
       const bgAlpha = Math.round((1 - bgOpacity) * 255);
+      // libass BorderStyle 3 fills the line box with OutlineColour.
+      // Preserve the existing shadow channel while fixing the box paint.
       backColour = this.hexToAssColor(customConfig.backgroundColor || '#000000', '#000000', bgAlpha);
+      outlineColour = backColour;
     } else {
       const shadowOpacity = Math.min(1, Math.max(0, customConfig.shadowOpacity ?? 0.45));
       const shadowAlpha = Math.round((1 - shadowOpacity) * 255);
@@ -1103,15 +1106,17 @@ export class CaptionService {
       let dialogueText = '';
 
       let cuePosTag = '';
-      if (cue.position_x !== undefined || cue.position_y !== undefined) {
-        const effX = Math.max(0.08, Math.min(0.92, cue.position_x ?? 0.5));
+      const hasPositionX = typeof cue.position_x === 'number' && Number.isFinite(cue.position_x);
+      const hasPositionY = typeof cue.position_y === 'number' && Number.isFinite(cue.position_y);
+      if (hasPositionX || hasPositionY) {
+        const effX = Math.max(0.08, Math.min(0.92, hasPositionX ? cue.position_x! : 0.5));
         const defaultY =
           posConfig.alignment === 8
             ? posConfig.marginV / playRes.y
             : posConfig.alignment === 5
             ? 0.5
             : 1 - marginV / playRes.y;
-        const effY = Math.max(0.08, Math.min(0.92, cue.position_y ?? defaultY));
+        const effY = Math.max(0.08, Math.min(0.92, hasPositionY ? cue.position_y! : defaultY));
         const px = Math.round(effX * playRes.x);
         const py = Math.round(effY * playRes.y);
         cuePosTag = `{${cue.position_anchor === 'center' ? '\\an5' : cue.position_anchor === 'bottom' ? '\\an2' : ''}\\pos(${px},${py})}`;
