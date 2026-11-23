@@ -124,6 +124,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
   const [loadingStock, setLoadingStock] = useState(false);
   const [previewItem, setPreviewItem] = useState<NormalizedMediaItem | null>(null);
   const [insertionError, setInsertionError] = useState<string | null>(null);
+  const [libraryError,setLibraryError]=useState<string|null>(null);
 
   // Load capabilities & initial media
   useEffect(() => {
@@ -150,9 +151,11 @@ export const MediaBin: React.FC<MediaBinProps> = ({
     }
   };
 
-  const loadLibraryMedia = async () => {
+  const loadLibraryMedia = async (refresh=false) => {
     setLoadingMedia(true);
+    setLibraryError(null);
     try {
+      if(project.project_id&&['Project','Clips'].includes(librarySubTab))await mediaService.syncProjectLibrary(project.project_id,refresh);
       const filter: MediaSearchFilter = {
         query: searchQuery.trim() || undefined,
         media_type: mediaTypeFilter === 'ALL' ? undefined : (mediaTypeFilter as any),
@@ -174,6 +177,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
       setMediaItems(res.items || []);
     } catch (e) {
       console.error('Failed to load media items', e);
+      setLibraryError('Could not load project media. Use Refresh to retry.');
       setMediaItems([]);
     } finally {
       setLoadingMedia(false);
@@ -302,6 +306,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
 
   return (
     <div className="w-full h-full bg-vc-surface1 flex flex-col text-xs text-vc-text-secondary select-none animate-panelSlideIn">
+      {libraryError&&<div role="alert" className="m-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">{libraryError}</div>}
       {insertionError && (
         <div role="alert" className="m-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
           {insertionError}
@@ -322,6 +327,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
           <div className="flex items-center gap-2 font-semibold text-white">
             <Folder className="w-4 h-4 text-vc-text-secondary" />
             <span className="text-sm">Media Library</span>
+            <button type="button" onClick={()=>void loadLibraryMedia(true)} disabled={loadingMedia} className="text-xs underline disabled:opacity-50">Refresh</button>
           </div>
 
           <button
@@ -402,7 +408,7 @@ export const MediaBin: React.FC<MediaBinProps> = ({
               </div>
               <button
                 type="button"
-                onClick={loadLibraryMedia}
+                onClick={()=>void loadLibraryMedia()}
                 className="hover:text-white flex items-center gap-1"
                 title="Refresh media"
               >

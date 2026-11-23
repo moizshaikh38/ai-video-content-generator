@@ -139,6 +139,18 @@ export class MediaAssetService {
     return {signedUrl:await signObjectGet(bucket,expectedKey,undefined,{versionId:head.versionId}),expiresInSeconds:300};
   }
 
+  /** Concurrent first opens converge on one row without rewriting legacy IDs. */
+  private static async createIndexedAsset(userId:string,binding:string,data:Partial<MediaAssetRecord>):Promise<MediaAssetRecord>{
+    const hash=crypto.createHash('sha256').update(JSON.stringify([userId,binding])).digest('hex');
+    const id=`${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}`;
+    try{return await this.createAsset(userId,{...data,id});}
+    catch(error){
+      const {data:existing,error:readError}=await dataRepository.from('media_assets').select('*').eq('id',id).eq('user_id',userId).maybeSingle();
+      if(!readError&&existing&&existing.source_type===data.source_type&&existing.project_id===data.project_id&&existing.clip_id===(data.clip_id??null))return existing as MediaAssetRecord;
+      throw error;
+    }
+  }
+
   /**
    * Indexes existing real project media:
    * - Source video from `projects`
@@ -165,19 +177,26 @@ export class MediaAssetService {
       throw new AppError('Project not found or access denied.', 404, 'PROJECT_NOT_FOUND');
     }
 
-    const indexedAssets: MediaAssetRecord[] = [];
-
-    // Check if source video is already indexed
-    const { data: existingSource } = await dataRepository
-      .from('media_assets')
-      .select('*')
-      .eq('project_id', projectId)
-      .eq('user_id', userId)
-      .eq('source_type', 'PROJECT_SOURCE')
-      .maybeSingle();
+    // Bound this explicit synchronization before any index mutation. Existing
+    // rows are read once, not once per clip. Large libraries need paging first.
+    const {data:clips,error:clipsError}=await dataRepository.from('clips').select('*')
+      .eq('project_id',projectId).eq('user_id',userId).limit(101);
+    const {data:existingAssets,error:assetsError}=await dataRepository.from('media_assets').select('*')
+      .eq('project_id',projectId).eq('user_id',userId).limit(301);
+    if(clipsError||assetsError||!Array.isArray(clips)||!Array.isArray(existingAssets))throw new AppError('Could not read project media for synchronization.',503,'DATABASE_ERROR');
+    if(clips.length>100||existingAssets.length>300)throw new AppError('This project library needs paged synchronization before loading.',409,'MEDIA_LIBRARY_SYNC_LIMIT');
+    const indexedAssets:MediaAssetRecord[]=[];
+    const sources=existingAssets.filter(a=>a.source_type==='PROJECT_SOURCE');
+    if(sources.length>1)throw new AppError('Project source library identity needs review.',409,'MEDIA_LIBRARY_IDENTITY_CONFLICT');
+    const existingSource=sources[0];
+    const generated=new Map<string,MediaAssetRecord>();
+    for(const row of existingAssets.filter(a=>a.source_type==='GENERATED_CLIP')){
+      if(row.clip_id&&generated.has(row.clip_id))throw new AppError('Generated library identity needs review.',409,'MEDIA_LIBRARY_IDENTITY_CONFLICT');
+      if(row.clip_id)generated.set(row.clip_id,row as MediaAssetRecord);
+    }
 
     if (!existingSource && project.source_storage_path) {
-      const sourceAsset = await this.createAsset(userId, {
+      const sourceAsset = await this.createIndexedAsset(userId, `PROJECT_SOURCE:${projectId}`, {
         project_id: projectId,
         source_type: 'PROJECT_SOURCE',
         media_type: 'VIDEO',
@@ -198,13 +217,6 @@ export class MediaAssetService {
       indexedAssets.push(existingSource as MediaAssetRecord);
     }
 
-    // 2. Fetch all clips for this project and index rendered/ready clips
-    const { data: clips } = await dataRepository
-      .from('clips')
-      .select('*')
-      .eq('project_id', projectId)
-      .eq('user_id', userId);
-
     if (Array.isArray(clips)) {
       for (const clip of clips) {
         // Only a published output is a generated clip. Source footage is indexed
@@ -212,13 +224,7 @@ export class MediaAssetService {
         if (clip.render_status !== 'ready' || typeof clip.output_storage_path !== 'string' ||
             !clip.output_storage_path.startsWith(`users/${userId}/`) || !isAllowedClientEditorSourcePath(userId, clip.output_storage_path) ||
             clip.output_storage_path === clip.source_storage_path) continue;
-        const { data: existingClipAsset } = await dataRepository
-          .from('media_assets')
-          .select('*')
-          .eq('clip_id', clip.id)
-          .eq('user_id', userId)
-          .eq('source_type', 'GENERATED_CLIP')
-          .maybeSingle();
+        const existingClipAsset=generated.get(clip.id);
 
         if (!existingClipAsset) {
           const duration = clip.end_seconds && clip.start_seconds
@@ -226,7 +232,7 @@ export class MediaAssetService {
             : clip.duration_seconds || null;
 
           const tags = Array.isArray(clip.tags) ? clip.tags : [];
-          const clipAsset = await this.createAsset(userId, {
+          const clipAsset = await this.createIndexedAsset(userId, `GENERATED_CLIP:${clip.id}`, {
             project_id: projectId,
             clip_id: clip.id,
             source_type: 'GENERATED_CLIP',
@@ -245,7 +251,7 @@ export class MediaAssetService {
           });
           indexedAssets.push(clipAsset);
         } else {
-          const resolved = await this.resolveGeneratedAsset(existingClipAsset as MediaAssetRecord, userId);
+          const resolved={...existingClipAsset,storage_path:clip.output_storage_path};
           if (resolved) {
             if (resolved.storage_path !== existingClipAsset.storage_path) {
               const { error } = await dataRepository.from('media_assets').update({ storage_path: resolved.storage_path })

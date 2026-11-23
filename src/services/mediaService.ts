@@ -1,3 +1,4 @@
+import{getCurrentAuthOwner,getAuthOwnerGeneration}from'../lib/authOwner';
 import { backendRequest } from './backendClient';
 import {
   MediaAssetRecord,
@@ -18,6 +19,8 @@ export interface ApiResponse<T> {
 }
 
 class MediaService {
+  private projectSyncs=new Map<string,Promise<{indexedCount:number}>>();
+  private syncingProjects=new Set<string>();
   /**
    * Retrieves status and capabilities of all stock and AI media providers.
    */
@@ -29,6 +32,15 @@ class MediaService {
   /**
    * Searches media across project, user library, brand assets, and stock providers.
    */
+  syncProjectLibrary(projectId:string,refresh=false):Promise<{indexedCount:number}>{
+    const scope=JSON.stringify([getCurrentAuthOwner(),getAuthOwnerGeneration(),projectId]);
+    if(!getCurrentAuthOwner())return backendRequest<ApiResponse<{indexedCount:number}>>(`/projects/${projectId}/media-library/sync`,{method:'POST'}).then(res=>res.data);
+    if(refresh&&!this.syncingProjects.has(scope))this.projectSyncs.delete(scope);
+    const prior=this.projectSyncs.get(scope);if(prior)return prior;
+    const request=backendRequest<ApiResponse<{indexedCount:number}>>(`/projects/${projectId}/media-library/sync`,{method:'POST'}).then(res=>res.data).catch(error=>{if(this.projectSyncs.get(scope)===request)this.projectSyncs.delete(scope);throw error;}).finally(()=>this.syncingProjects.delete(scope));
+    this.syncingProjects.add(scope);this.projectSyncs.set(scope,request);return request;
+  }
+
   async searchMedia(filter: MediaSearchFilter = {}): Promise<MediaSearchResult> {
     const res = await backendRequest<ApiResponse<MediaSearchResult>>('/media/search', {
       method: 'POST',

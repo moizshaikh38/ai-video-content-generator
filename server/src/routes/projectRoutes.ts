@@ -74,6 +74,7 @@ import {
 } from '../controllers/proEditorController.js';
 import {
   getMediaCapabilities,
+  syncProjectMediaLibrary,
   searchMedia,
   listMediaAssets,
   getMediaAsset,
@@ -172,6 +173,7 @@ router.post('/editor-projects/:id/render', requireAuth, asyncHandler(renderEdito
 
 // Phase 19: Vireo AI B-Roll & Media Intelligence Routes
 router.get('/media/capabilities', requireAuth, asyncHandler(getMediaCapabilities));
+router.post('/projects/:id/media-library/sync', requireAuth, asyncHandler(syncProjectMediaLibrary));
 router.post('/media/search', requireAuth, asyncHandler(searchMedia));
 router.get('/media/assets', requireAuth, asyncHandler(listMediaAssets));
 router.get('/media/assets/:id', requireAuth, asyncHandler(getMediaAsset));

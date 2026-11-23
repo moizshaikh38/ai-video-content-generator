@@ -352,3 +352,12 @@ export const getSelectedMediaVideoPreview=async(req:AuthenticatedRequest,res:Res
  try{res.status(200).json({status:'ok',data:await MediaAssetService.selectedVideoPreview(id,userId,key)});}
  catch(error){sendSafeControllerError(res,error,{status:500,message:'Media preview failed.'});}
 };
+
+/** Explicit owner-scoped library synchronization, no analysis/provider call. */
+export const syncProjectMediaLibrary=async(req:AuthenticatedRequest,res:Response):Promise<void>=>{
+ const owner=req.user?.id,id=req.params.id;
+ if(!owner){res.status(401).json({status:'error',code:'AUTH_REQUIRED',message:'User not authenticated.'});return;}
+ if(!isValidUUID(id)){res.status(400).json({status:'error',code:'INVALID_UUID',message:'Valid project UUID required.'});return;}
+ try{const assets=await MediaAssetService.indexProjectMedia(id,owner);res.status(200).json({status:'ok',data:{indexedCount:assets.length}});}
+ catch(error){sendSafeControllerError(res,error,{status:500,message:'Could not load project media.'});}
+};
