@@ -1,0 +1,6 @@
+import{test}from'node:test';import assert from'node:assert/strict';
+import{ClipRenderService as C}from'../services/clipRenderService.js';
+const make=():any=>({id:'v',type:'VIDEO',source_start:0,source_end:8,timeline_start:0,timeline_end:8,crop:{mode:'fill',focusX:.8,focusY:.5,scale:1},crop_config:{layout_mode:'track',layout_mode_source:'user'},transform:{scale:1,position_x:0,position_y:0,rotation:0},audio:{volume:1,fade_in:0,fade_out:0}});
+const project=(i:any)=>({canvas:{duration:8},tracks:[{type:'VIDEO',items:[i]}]});
+test('stored off-center unzoomed Fill routes to saved Pro geometry without another Pro trigger',()=>{const i=make(),before=JSON.stringify(i);assert.equal(C.hasCustomProEdits(project(i),{start_seconds:0}),true);assert.equal(JSON.stringify(i),before);i.crop.focusX=.5;assert.equal(C.hasCustomProEdits(project(i),{start_seconds:0}),false);i.crop.focusY=.8;assert.equal(C.hasCustomProEdits(project(i),{start_seconds:0}),true)});
+test('ordinary centered unzoomed Fill and missing crop do not acquire Pro route from defaults',()=>{for(const crop of [undefined,{mode:'fill'},{mode:'fill',focusX:.5,focusY:.5,scale:1}]){const i=make();i.crop=crop;assert.equal(C.hasCustomProEdits(project(i),{start_seconds:0}),false)}});

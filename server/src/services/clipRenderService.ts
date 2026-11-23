@@ -2840,7 +2840,8 @@ export class ClipRenderService {
           const cropMode = i.crop?.mode;
           const cropScale = Number(i.crop?.scale ?? 1);
           const hasCustomCrop = Boolean(
-            i.crop && ((cropMode && cropMode !== 'fill') || Math.abs(cropScale - 1) > 0.001)
+            i.crop && ((cropMode && cropMode !== 'fill') || Math.abs(cropScale - 1) > 0.001 ||
+              Math.abs(Number(i.crop.focusX ?? .5)-.5)>.000001 || Math.abs(Number(i.crop.focusY ?? .5)-.5)>.000001)
           );
           // A framing window (valid or not) only compiles in the Pro graph: force it, and let the compiler reject invalid ones.
           const hasFramingWindow = i.framing_window !== undefined;
