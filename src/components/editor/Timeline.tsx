@@ -52,6 +52,7 @@ import { computeSceneReorder, isReorderBlocked } from '../../utils/timelineReord
 interface TimelineProps {
   automaticSceneRanges?: AutomaticLayoutRange[];
   measuredPanelChoices?: MeasuredPanelChoice[];
+  getCurrentSourceVersion?:()=>string|undefined;
   subjectSourceSize?: {width:number;height:number};
   contentFramingDecision?: ContentFramingDecision | null;
   /** Clip subject track (smart reframe keyframes, source seconds) used to seed ScreenShare/Gameplay panel framing. */
@@ -89,6 +90,7 @@ export const Timeline: React.FC<TimelineProps> = ({
   contentFramingDecision = null,
   automaticSceneRanges = [],
   measuredPanelChoices,
+  getCurrentSourceVersion,
   subjectSourceSize,
   subjectKeyframes = null,
   clip,
@@ -999,7 +1001,7 @@ export const Timeline: React.FC<TimelineProps> = ({
                             current={autoRanges.length ? 'auto' : readItemLayout(item)}
                             onPick={(layout) => {
                               onCommitProject?.(project);
-                              onUpdateProject(applyItemLayout(project, item.id, layout, subjectKeyframes,subjectSourceSize,measuredPanelChoices), { recordHistory: true, markAsDirty: true });
+                              onUpdateProject(applyItemLayout(project, item.id, layout, subjectKeyframes,subjectSourceSize,measuredPanelChoices,getCurrentSourceVersion?.()), { recordHistory: true, markAsDirty: true });
                             }}
                           />
                         )}
@@ -1170,7 +1172,7 @@ export const Timeline: React.FC<TimelineProps> = ({
           </div>
         </div>
       </div>
-      {sceneMenu && <SceneLayoutMenu autoAvailable scopeTitle="Layout for this scene only" anchor={sceneMenu.anchor} current={readItemLayout(resolveSceneLayoutItem(project.tracks.flatMap(t=>t.items).find(i=>i.id===sceneMenu.itemId)!, (sceneMenu.start+sceneMenu.end)/2))} onClose={()=>setSceneMenu(null)} onPick={layout=>{onCommitProject?.(project);onUpdateProject(applySceneLayout(project,sceneMenu.itemId,sceneMenu.start,sceneMenu.end,layout,subjectKeyframes,subjectSourceSize,measuredPanelChoices),{recordHistory:true,markAsDirty:true})}} onPickWholeClip={layout=>{onCommitProject?.(project);onUpdateProject(applyWholeClipLayout(project,layout,subjectKeyframes,subjectSourceSize,measuredPanelChoices),{recordHistory:true,markAsDirty:true})}}/>}
+      {sceneMenu && <SceneLayoutMenu autoAvailable scopeTitle="Layout for this scene only" anchor={sceneMenu.anchor} current={readItemLayout(resolveSceneLayoutItem(project.tracks.flatMap(t=>t.items).find(i=>i.id===sceneMenu.itemId)!, (sceneMenu.start+sceneMenu.end)/2))} onClose={()=>setSceneMenu(null)} onPick={layout=>{onCommitProject?.(project);onUpdateProject(applySceneLayout(project,sceneMenu.itemId,sceneMenu.start,sceneMenu.end,layout,subjectKeyframes,subjectSourceSize,measuredPanelChoices,getCurrentSourceVersion?.()),{recordHistory:true,markAsDirty:true})}} onPickWholeClip={layout=>{onCommitProject?.(project);onUpdateProject(applyWholeClipLayout(project,layout,subjectKeyframes,subjectSourceSize,measuredPanelChoices,getCurrentSourceVersion?.()),{recordHistory:true,markAsDirty:true})}}/>}
     </div>
   );
 };

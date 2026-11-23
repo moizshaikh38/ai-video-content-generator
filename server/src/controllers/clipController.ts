@@ -1,3 +1,4 @@
+import {normalGamingManualEnvelope} from '../services/normalGamingManualChoiceService.js';
 import {splitReviewCropConfig,createBareSmartSplitReview} from '../shared/automaticSplitEvidence.js';
 import {readRenderUsageCount} from '../db/repositories/renderQuotaRepository.js';
 import {renderQuotaPolicy} from '../db/repositories/renderQuotaRepository.js';
@@ -1380,6 +1381,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
     res.status(200).json({
       status: track.status,
       measuredPlanEnvelope,
+      normalGamingManualEnvelope:normalGamingManualEnvelope(policyClip,track),
       bareSmartSplitReview:createBareSmartSplitReview(track,Number(track.metadata?.clip_duration)||1,(t,c,d)=>SmartReframeService.explicitAutoLayoutPlan(t,c,d,policyClip?.aspect_ratio)),
       adaptiveComposition: track.metadata?.shot_composition_candidate===true,
       detectedFaceCount: track.detected_face_count || 0,

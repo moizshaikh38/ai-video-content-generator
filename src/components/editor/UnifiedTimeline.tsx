@@ -12,6 +12,7 @@ import { Timeline } from './Timeline';
 interface UnifiedTimelineProps {
   automaticSceneRanges?: AutomaticLayoutRange[];
   measuredPanelChoices?: MeasuredPanelChoice[];
+  getCurrentSourceVersion?:()=>string|undefined;
   subjectSourceSize?: {width:number;height:number};
   contentFramingDecision?: ContentFramingDecision | null;
   subjectKeyframes?: Array<{ time: number; centerX: number; centerY?: number }> | null;
@@ -46,6 +47,7 @@ export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
   contentFramingDecision = null,
   automaticSceneRanges = [],
   measuredPanelChoices,
+  getCurrentSourceVersion,
   subjectSourceSize,
   subjectKeyframes = null,
   clip,
@@ -109,6 +111,7 @@ export const UnifiedTimeline: React.FC<UnifiedTimelineProps> = ({
           <Timeline
             automaticSceneRanges={automaticSceneRanges}
             measuredPanelChoices={measuredPanelChoices}
+            getCurrentSourceVersion={getCurrentSourceVersion}
             subjectSourceSize={subjectSourceSize}
             contentFramingDecision={contentFramingDecision}
             subjectKeyframes={subjectKeyframes}

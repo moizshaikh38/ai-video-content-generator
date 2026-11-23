@@ -1,3 +1,4 @@
+import {normalGamingManualChoices,type NormalGamingManualEnvelope} from '../../../server/src/shared/normalGamingManualChoice';
 import{placementUpdate}from'../../../server/src/shared/manualVideoPlacement';
 import {SourceTextReviewBanner} from './SourceTextReviewBanner';
 import {initialExportResolution} from '../../../server/src/shared/initialExportResolution.js';
@@ -251,6 +252,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     sourceHeight?: number | null;
     analysisVersion?: number | null;
   } | null>(null);
+  const [normalGamingOption,setNormalGamingOption]=useState<NormalGamingManualEnvelope|null>(null);
   const autoCandidateEnabled=projectAutoCandidate(project);
   const [stableShotComposition,setStableShotComposition]=useState<NonNullable<typeof speakerSplitData>['shotComposition']>(null);
   const [adaptivePlanExpected,setAdaptivePlanExpected]=useState(false);
@@ -269,15 +271,21 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const compositionSourceStart=previewItemPlan?.status==='ready'?previewItemPlan.identity.analysisSourceStart:(Number(clip?.start_seconds)||0)+(speakerSplitData?.analyzedTrimStart||0);
   const selectedComposition=previewItemPlan?.status==='ready'?previewItemPlan.shots as NonNullable<typeof speakerSplitData>['shotComposition']:adaptivePlanExpected?null:activeCandidate?speakerSplitData?.shotComposition:stableShotComposition;
   const speakerSplit=automaticPlanReviewRequired?null:speakerSplitData?{...speakerSplitData,shotComposition:selectedComposition}:null;
-  const measuredPanelChoices=adaptivePlanExpected?measuredPanelChoicesForManualPick(activeCandidateItem?{...activeCandidateItem,id:activeCandidateBase?.id}:undefined,activeEnvelope,{sourceAssetId:clip.id,sourcePath:clip.source_storage_path,outputAspect:project.canvas.aspect_ratio,layoutPolicy:clip.crop_config?.layoutPolicy,sourceVersion:(clip as any).selection_source_receipt?.source_receipt?.sha256}):undefined;
+  const measuredParticipantChoices=adaptivePlanExpected?measuredPanelChoicesForManualPick(activeCandidateItem?{...activeCandidateItem,id:activeCandidateBase?.id}:undefined,activeEnvelope,{sourceAssetId:clip.id,sourcePath:clip.source_storage_path,outputAspect:project.canvas.aspect_ratio,layoutPolicy:clip.crop_config?.layoutPolicy,sourceVersion:(clip as any).selection_source_receipt?.source_receipt?.sha256}):undefined;
+  const currentSourceVersionRef=useRef<string|undefined>(undefined);currentSourceVersionRef.current=(clip as any).selection_source_receipt?.source_receipt?.sha256;
+  const measuredGamingChoices=normalGamingManualChoices(activeCandidateItem?{...activeCandidateItem,id:activeCandidateBase?.id}:undefined,normalGamingOption,{sourceAssetId:clip.id,sourcePath:clip.source_storage_path,outputAspect:project.canvas.aspect_ratio,layoutPolicy:clip.crop_config?.layoutPolicy,sourceVersion:(clip as any).selection_source_receipt?.source_receipt?.sha256});
+  const measuredPanelChoices=[...(measuredParticipantChoices||[]),...(measuredGamingChoices||[])];
+  const manualGamingSideReview=activeCandidateItem?.panels?.layout==='gameplay'&&activeCandidateItem.panels.slots?.some(s=>s.sourceRect);
   useEffect(() => {
     let cancelled = false;
     setSpeakerSplit(null);
+    setNormalGamingOption(null);
     setAdaptivePlanExpected(false);setCandidatePlanEnvelope(null);setStablePlanEnvelope(null);
     if (!clip?.id) return;
     Promise.all([clipRenderService.getClipReframe(clip.id,true),clipRenderService.getClipReframe(clip.id,false)])
       .then(([r,stable]) => {
         if (cancelled) return;
+        setNormalGamingOption(stable.normalGamingManualEnvelope??null);
         setAdaptivePlanExpected(Boolean(r.adaptiveComposition||stable.adaptiveComposition));
         setCandidatePlanEnvelope(r.measuredPlanEnvelope??null);setStablePlanEnvelope(stable.measuredPlanEnvelope??null);
         setStableShotComposition(stable.status==='ready'&&!stable.isStale?stable.shotComposition??null:null);
@@ -1834,7 +1842,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
                     current={readItemLayout(resolveSceneLayoutItem(sceneItem,sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1)))}
                     onPick={(layout) => {
                       onCommitProject?.(project);
-                      onUpdateProject(prev=>{const offset=compositionSourceStart,time=sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1);const shot=speakerSplit?.shotComposition?.find(s=>time>=s.start+offset&&time<s.end+offset);return applyLayoutAtSourceTime(prev,sceneItem.id,time,layout,shot?{start:shot.start+offset,end:shot.end+offset}:undefined,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices)});
+                      onUpdateProject(prev=>{const offset=compositionSourceStart,time=sceneItem.source_start+(currentTime-sceneItem.timeline_start)*(sceneItem.speed?.speed||1);const shot=speakerSplit?.shotComposition?.find(s=>time>=s.start+offset&&time<s.end+offset);return applyLayoutAtSourceTime(prev,sceneItem.id,time,layout,shot?{start:shot.start+offset,end:shot.end+offset}:undefined,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices,currentSourceVersionRef.current)});
                     }}
                   />
                 </div>
@@ -1995,6 +2003,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               {viewMode==='edit' && sourceReviewNotice && (
                 <SourceTextReviewBanner notice={sourceReviewNotice}/>
               )}
+              {viewMode==='edit' && manualGamingSideReview && <div role="status" className="shrink-0 px-3 py-2 text-[11px] text-amber-200 border-b border-white/10">Review side context. Gameplay views may omit HUD, alerts or action outside the selected source regions. Manual framing does not certify their visibility.</div>}
           {/* Mobile discoverability: collapsed inspector gets an explicit opener in normal flow above the canvas,
               so it never overlaps the rendered video or the caption safe area (an earlier overlay pill obscured cues). */}
           {showRightInspector && inspectorCollapsed && (
@@ -2133,14 +2142,14 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             onUpdateCanvas={(patch) => {
               onUpdateProject((prev) => ({ ...prev, canvas: { ...prev.canvas, ...patch } }));
             }}
-            onPickWholeClipLayout={layout=>{onCommitProject?.(project);onUpdateProject(prev=>applyWholeClipLayout(prev,layout,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices));}}
+            onPickWholeClipLayout={layout=>{onCommitProject?.(project);onUpdateProject(prev=>applyWholeClipLayout(prev,layout,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices,currentSourceVersionRef.current));}}
             onPickSceneLayout={(itemId, layout) => {
               onCommitProject?.(project);
               onUpdateProject((prev) => {
                 const item=prev.tracks.flatMap(t=>t.type==='VIDEO'?t.items:[]).find(i=>i.id===itemId);if(!item)return prev;
                 const offset=compositionSourceStart,sourceTime=item.source_start+(currentTime-item.timeline_start)*(item.speed?.speed||1);
                 const shot=speakerSplit?.shotComposition?.find(s=>sourceTime>=s.start+offset&&sourceTime<s.end+offset);
-                return applyLayoutAtSourceTime(prev,itemId,sourceTime,layout,shot?{start:shot.start+offset,end:shot.end+offset}:undefined,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices);
+                return applyLayoutAtSourceTime(prev,itemId,sourceTime,layout,shot?{start:shot.start+offset,end:shot.end+offset}:undefined,layoutSubjectKeyframes,layoutSubjectSourceSize,measuredPanelChoices,currentSourceVersionRef.current);
               });
             }}
             onUpdateCropMode={(mode) => {
@@ -2370,6 +2379,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       {/* 3. MULTI-TRACK UNIFIED TIMELINE */}
       <UnifiedTimeline
         measuredPanelChoices={measuredPanelChoices}
+        getCurrentSourceVersion={()=>currentSourceVersionRef.current}
         subjectSourceSize={layoutSubjectSourceSize}
         automaticSceneRanges={(speakerSplit?.shotComposition || []).map(s=>({start:s.start+compositionSourceStart,end:s.end+compositionSourceStart,label:s.split?'Auto Split':Math.abs(s.windowW*(speakerSplit?.sourceWidth||1)/(s.windowH*(speakerSplit?.sourceHeight||1))-9/16)<.01?'Auto Fill':'Auto Fit',review:Boolean((s as any).contextStatus?.startsWith('unresolved')),reason:(s as any).uncertainty}))}
         contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}

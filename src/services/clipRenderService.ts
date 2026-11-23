@@ -278,6 +278,7 @@ class ClipRenderService {
   }
 
   async getClipReframe(clipId: string,candidate?:boolean): Promise<{
+    normalGamingManualEnvelope?:import('../../server/src/shared/normalGamingManualChoice').NormalGamingManualEnvelope|null;
     bareSmartSplitReview?:import('../../server/src/shared/automaticSplitEvidence').BareSmartSplitReview|null;
     adaptiveComposition?:boolean;
     measuredPlanEnvelope?:import('../../server/src/shared/previewItemAutomaticPlan').PreviewMeasuredPlanEnvelope|null;
