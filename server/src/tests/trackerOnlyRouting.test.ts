@@ -1,0 +1,8 @@
+import{test}from'node:test';import assert from'node:assert/strict';
+import{ClipRenderService as C}from'../services/clipRenderService.js';
+import{expandSceneLayoutProject}from'../shared/sceneLayoutOverrides.js';
+const tracker=()=>({enabled:true,source_width:960,source_height:540,tracked_from:2,tracked_to:6,keyframes:[{time:2,centerX:.2,centerY:.5},{time:4,centerX:.5,centerY:.5},{time:6,centerX:.8,centerY:.5}]});
+const project=(tr?:any):any=>({canvas:{duration:8},tracks:[{type:'VIDEO',name:'Video',items:[{id:'v',type:'VIDEO',source_start:0,source_end:8,timeline_start:0,timeline_end:8,layout_mode:'track',crop_config:{mode:'smart',layout_mode:'track',layout_mode_source:'user'},tracker:tr,transform:{scale:1,position_x:0,position_y:0,rotation:0},audio:{volume:1,fade_in:0,fade_out:0}}]}]});
+test('manual tracker-only item routes saved evidence through Pro without another trigger',()=>{const p=project(tracker()),before=JSON.stringify(p);assert.equal(C.hasCustomProEdits(p,{start_seconds:0}),true);assert.equal(JSON.stringify(p),before);delete p.tracks[0].items[0].tracker;assert.equal(C.hasCustomProEdits(p,{start_seconds:0}),false)});
+test('disabled/missing tracker leaves existing default route unchanged',()=>{for(const tr of[undefined,null,{enabled:false,keyframes:tracker().keyframes},{}])assert.equal(C.hasCustomProEdits(project(tr),{start_seconds:0}),false)});
+test('routing reuses measured interval and does not hold manual tracker through unobserved tails',()=>{const p=project(tracker());const items=expandSceneLayoutProject(p).tracks[0].items;assert.deepEqual(items.map((i:any)=>[i.source_start,i.source_end,!!i.tracker]),[[0,2,false],[2,6,true],[6,8,false]]);assert.equal(p.tracks[0].items.length,1)});

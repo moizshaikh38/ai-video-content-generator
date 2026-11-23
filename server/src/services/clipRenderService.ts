@@ -2861,6 +2861,9 @@ export class ClipRenderService {
             hasCustomAudio ||
             hasCustomCrop ||
             hasFramingWindow ||
+            // Manual tracker evidence is read only by the saved Pro compiler,
+            // including its existing source-time bounds and loss fallback.
+            i.tracker?.enabled===true ||
             // Panels are a saved Pro-only channel, including unassigned views
             // which must reach the compiler's existing export review gate.
             i.panels != null ||
