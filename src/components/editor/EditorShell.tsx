@@ -1,3 +1,4 @@
+import {templateCanvasConsentKey} from '../../lib/templateCanvasConsent';
 import {normalGamingManualChoices,type NormalGamingManualEnvelope} from '../../../server/src/shared/normalGamingManualChoice';
 import{placementUpdate}from'../../../server/src/shared/manualVideoPlacement';
 import {SourceTextReviewBanner} from './SourceTextReviewBanner';
@@ -324,6 +325,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   }, [clip?.id, persistedReframeSourceKey]);
   // Non-destructive reason when an action is refused (e.g. locked followers).
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [templateConsent,setTemplateConsent]=useState<{templateId:OutputTemplateId;name:string;aspect:string;canvasKey:string;consentKey:string;identityVersion:number}|null>(null);
   // Refusal feedback for canvas turn-off controls: shown in normal flow above the canvas (the transcript notice area is collapsed on phones).
   const [lockNotice, setLockNotice] = useState<string | null>(null);
   const journalIssue = useJournalIssue(project);
@@ -859,9 +861,18 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   // One-click output template: ONE object owns aspect + framing + captions +
   // hook + transitions. Applied through the pure shared mapper so preview and
   // export see exactly what a hand-picked combination would produce.
-  const handleApplyOutputTemplate = (templateId: OutputTemplateId) => {
+  const handleApplyOutputTemplate = (templateId: OutputTemplateId,approval?:NonNullable<typeof templateConsent>) => {
     const tpl = getOutputTemplate(templateId);
     if (!tpl) return;
+    const targetCanvas=normalizeEditorCanvasAspect({...project.canvas,aspect_ratio:tpl.aspectRatio});
+    const startingCanvasKey=JSON.stringify(project.canvas);
+    const consentKey=templateCanvasConsentKey(project,targetCanvas);
+    if(approval&&(approval.templateId!==templateId||approval.canvasKey!==startingCanvasKey||approval.consentKey!==consentKey||approval.identityVersion!==seedIdentityRef.current.version)){
+      setTemplateConsent(null);setActionNotice('Template not applied because the canvas or locked content changed. Choose the template again to review.');return;
+    }
+    if(consentKey&&!approval){setTemplateConsent({templateId,name:tpl.name,aspect:tpl.aspectRatio,canvasKey:startingCanvasKey,consentKey,identityVersion:seedIdentityRef.current.version});return;}
+    setTemplateConsent(null);
+    setActionNotice(consentKey?'Template canvas change confirmed. Locked content keeps its coordinates and may be cropped. Undo restores the previous project. If locked content changes before application, apply the template again.':'Applying template. If locked content or the canvas changes before application, this action is skipped. Apply again to review.');
     splitSeedSequence.current++;hookSeedSequence.current++;
     setExportStale(true);
     // A template whose caption preset exceeds the current plan would otherwise
@@ -879,6 +890,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     // (tracks/items/caption/crop/canvas), so the boundary cast is safe.
     const hookTarget={id:crypto.randomUUID(),snapshot:undefined as string|undefined};
     onUpdateProject((prev) => {
+      // Never reuse consent for newly locked or changed locked content, or a
+      // different starting canvas, when React runs this updater later.
+      const currentConsent=templateCanvasConsentKey(prev,normalizeEditorCanvasAspect({...prev.canvas,aspect_ratio:tpl.aspectRatio}));
+      if(JSON.stringify(prev.canvas)!==startingCanvasKey||currentConsent!==consentKey){hookTarget.snapshot=undefined;splitSeedSequence.current++;hookSeedSequence.current++;return prev;}
       const next=applyOutputTemplateToProject(prev as any,effectiveTpl,{hookItemId:hookTarget.id}) as unknown as EditorProject;
       const inserted=next.tracks.flatMap(t=>t.type==='TEXT'?t.items:[]).find(i=>i.id===hookTarget.id);
       hookTarget.snapshot=inserted?JSON.stringify(inserted):undefined;
@@ -2471,6 +2486,22 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       />
 
       {/* 4. EXPORT DIALOG */}
+      {templateConsent&&(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" onKeyDown={event=>{
+          event.stopPropagation(); // Editor shortcuts must not mutate the project behind this dialog.
+          if(event.key==='Escape'){event.preventDefault();setTemplateConsent(null);}
+          if(event.key==='Tab'){const buttons=event.currentTarget.querySelectorAll<HTMLButtonElement>('button');const first=buttons[0],last=buttons[buttons.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}
+        }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="template-consent-title" aria-describedby="template-consent-description" className="w-full max-w-md rounded-2xl border border-white/15 bg-neutral-900 p-5 shadow-2xl text-white">
+            <h2 id="template-consent-title" className="text-base font-semibold">Change canvas with locked content?</h2>
+            <p id="template-consent-description" className="mt-3 text-sm text-neutral-300 leading-relaxed">Apply {templateConsent.name} at {templateConsent.aspect}? Locked content keeps its coordinates and may be cropped by the new canvas. Nothing will be repositioned. Undo restores the previous project.</p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button type="button" autoFocus className="rounded-lg border border-white/20 px-4 py-2 text-sm" onClick={()=>setTemplateConsent(null)}>Cancel</button>
+              <button type="button" className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold" onClick={()=>handleApplyOutputTemplate(templateConsent.templateId,templateConsent)}>Apply template</button>
+            </div>
+          </section>
+        </div>
+      )}
       <ExportDialog
         resolution={geometryResolution}
         onResolutionChange={setGeometryResolution}
