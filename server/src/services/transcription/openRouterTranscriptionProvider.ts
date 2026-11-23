@@ -13,6 +13,10 @@ import { normalizeTranscriptionError } from './errorNormalizer.js';
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB OpenRouter limit
 const OPENROUTER_TRANSCRIPTION_URL = 'https://openrouter.ai/api/v1/audio/transcriptions';
+// STT supports data policy filters, not chat-only provider pinning/order.
+// ZDR can still allow safety-retention endpoints under account policy; this
+// requests the supported filters, not a guarantee about account configuration.
+const STT_DATA_POLICY = Object.freeze({zdr:true,data_collection:'deny'});
 const OPENROUTER_MODEL = 'openai/whisper-large-v3-turbo';
 export const PARAKEET_MODEL = 'nvidia/parakeet-tdt-0.6b-v3';
 export const MAI_MODEL = 'microsoft/mai-transcribe-2';
@@ -107,7 +111,8 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
       headers['Content-Type'] = 'application/json';
       requestBody = JSON.stringify({model:this.model,input_audio:{data:audioBuffer.toString('base64'),format},
         response_format:'verbose_json',timestamp_granularities:['word','segment'],
-        ...(this.model === PARAKEET_MODEL ? {language:'en'} : {provider:{options:{azure:{enhancedMode:{modelOptions:{transcribeStyle:'verbatim'}},...(options?.diarize ? {diarization:{enabled:true}} : {})}}}}),
+        provider:{...STT_DATA_POLICY,...(this.model===MAI_MODEL?{options:{azure:{enhancedMode:{modelOptions:{transcribeStyle:'verbatim'}},...(options?.diarize?{diarization:{enabled:true}}:{})}}}:{})},
+        ...(this.model === PARAKEET_MODEL ? {language:'en'} : {}),
         ...(options?.prompt ? {prompt:options.prompt} : {})});
     }
 
