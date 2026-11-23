@@ -3,6 +3,8 @@ import sys,json,hashlib,subprocess,time
 import numpy as np
 from pathlib import Path
 from native_geometry_ops import digest_file
+from decoded_clock import decoded_frames,coverage
+from fractions import Fraction
 video,trackfile,out=sys.argv[1:];begun=time.monotonic();track=json.load(open(trackfile));m=track['metadata'];sha=digest_file(video);assert sha==m['analyzed_source_sha256'];start,end=m['analyzed_source_start'],m['analyzed_source_end'];duration=end-start;assert 0<duration<=30
 probe=json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height,r_frame_rate:format=duration','-of','json',video]));stream=probe['streams'][0];w,h=stream['width'],stream['height'];assert w*h<=1920*1080 and end<=float(probe['format']['duration'])+.05
 samples=track['raw_samples'];groups={}
@@ -19,21 +21,16 @@ assert len(anchors)==1,'Need one independently repeated side-anchored region can
 key,fs,flip=anchors[0]
 xs=[(1-f['x']-f['width'] if flip else f['x']) for f in fs];xe=[x+f['width'] for x,f in zip(xs,fs)];ys=[f['y'] for f in fs];ye=[f['y']+f['height'] for f in fs]
 face=(min(xs)*w,min(ys)*h,max(xe)*w,max(ye)*h);fw,fh=face[2]-face[0],face[3]-face[1]
+decoded_times=[]
 def frames():
- p=subprocess.Popen(['ffmpeg','-v','error','-threads','1','-ss',str(start),'-i',video,'-t',str(duration),'-threads','1','-f','rawvideo','-pix_fmt','rgb24','-vsync','0','pipe:1'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
- try:
-  while True:
-   if time.monotonic()-begun>75:raise TimeoutError('Bounded seam budget exceeded')
-   b=p.stdout.read(w*h*3)
-   if not b:break
-   assert len(b)==w*h*3
-   a=np.frombuffer(b,np.uint8).reshape(h,w,3);yield a[:,::-1] if flip else a
-  error=p.stderr.read();assert p.wait()==0,error.decode()
- finally:
-  if p.poll() is None:p.kill();p.wait()
+ for pts,a in decoded_frames(video,start,end,w,h,timeout=max(1.,75-(time.monotonic()-begun))):
+  decoded_times.append(pts)
+  yield a[:,::-1] if flip else a
 V=np.zeros((h,w-1),np.float32);H=np.zeros((h-1,w),np.float32);count=0
 for f in frames():
  a=f.astype(np.int16);V+=np.max(np.abs(a[:,1:]-a[:,:-1]),axis=2);H+=np.max(np.abs(a[1:]-a[:-1]),axis=2);count+=1
+assert count>0,'No decoded frames'
+clock=coverage(decoded_times,start,end,float(Fraction(stream['r_frame_rate'])))
 V/=count;H/=count;VP=np.vstack([np.zeros((1,w-1),np.float32),np.cumsum(V,axis=0)]);HP=np.column_stack([np.zeros(h-1,np.float32),np.cumsum(H,axis=1)])
 ymin=max(0,int(face[1]-max(fh*3,h*.08)));ymax=min(h-2,int(face[1])-2);bmin=max(int(face[3])+2,int(h*.08));bmax=min(h-2,int(face[3]+max(fh*3,h*.12)))
 candidates=[]
@@ -50,5 +47,5 @@ for x in range(max(int(face[2])+2,int(w*.08)),min(w-2,int(w*.45)),2):
 candidates.sort(key=lambda q:q['score'],reverse=True);best=candidates[0] if candidates else None
 runner=next((q for q in candidates if best and max(abs(a-b) for a,b in zip(q['rect'],best['rect']))>min(w,h)*.025),None)
 margin=best['score']/runner['score'] if best and runner and runner['score']>0 else 0
-selected=best if best and best['score']>=6 and margin>=1.12 else None
-result={'status':'candidate' if selected else 'unresolved','sourceSha256':sha,'sourceStart':start,'sourceEnd':end,'sourceWidth':w,'sourceHeight':h,'decodedFrames':count,'sourceFlipX':bool(flip),'anchorTrack':key,'best':best,'distinctRunner':runner,'margin':margin,'selected':selected,'topCandidates':candidates[:25],'elapsedSeconds':time.monotonic()-begun,'scope':'Private temporal pixel-seam discovery anchored to retained face candidates. Not certified boundary, source role, HUD/action or normal Auto proof. No threshold lowered on failure.'};Path(out).write_text(json.dumps(result,indent=2));print(json.dumps({k:v for k,v in result.items() if k!='topCandidates'},indent=2))
+selected=best if clock['clockCoverageVerified'] and best and best['score']>=6 and margin>=1.12 else None
+result={'status':'candidate' if selected else 'unresolved','sourceSha256':sha,'sourceStart':start,'sourceEnd':end,'sourceWidth':w,'sourceHeight':h,'decodedFrames':count,'decodedClock':clock,'sourceFlipX':bool(flip),'anchorTrack':key,'best':best,'distinctRunner':runner,'margin':margin,'selected':selected,'topCandidates':candidates[:25],'elapsedSeconds':time.monotonic()-begun,'scope':'Private temporal pixel-seam discovery anchored to retained face candidates. Not certified boundary, source role, HUD/action or normal Auto proof. No threshold lowered on failure.'};Path(out).write_text(json.dumps(result,indent=2));print(json.dumps({k:v for k,v in result.items() if k!='topCandidates'},indent=2))

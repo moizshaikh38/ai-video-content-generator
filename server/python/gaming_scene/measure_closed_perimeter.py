@@ -5,8 +5,9 @@ frame in the source interval. This is geometry evidence, not camera-role proof.
 """
 import subprocess,json,hashlib,time,sys,math
 import numpy as np
-from native_geometry_ops import lines,candidate_roi,digest_file,presentation_times
+from native_geometry_ops import lines,candidate_roi,digest_file
 from fractions import Fraction
+from decoded_clock import decoded_frames,coverage
 
 def masks(frame):
     f=frame.astype(np.int16);hi=frame.max(2).astype(float);lo=frame.min(2).astype(float)
@@ -49,17 +50,10 @@ def main(video,trackpath,outpath,maxseconds=60):
     sw,sh=info['width'],info['height'];w,h=sw,sh
     assert sw==track['source_width'] and sh==track['source_height'],'Source dimensions do not match retained track'
     assert sw*sh<=1920*1080, 'Native-resolution measurement above 1080p not yet qualified'
-    selected_pts=presentation_times(video,start,end)
-    assert selected_pts and all(b>a for a,b in zip(selected_pts,selected_pts[1:])), 'Missing or unordered presentation timestamps'
-    cmd=['ffmpeg','-v','error','-threads','1','-ss',str(start),'-i',video,'-t',str(duration),'-vf',f'scale={w}:{h}','-threads','1','-f','rawvideo','-pix_fmt','rgb24','-vsync','0','pipe:1']
-    proc=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE);size=w*h*3;count=0;stats=[];seeds=[];roi=None;fps=float(Fraction(info['r_frame_rate']));frame_failures=[]
-    try:
-      while True:
-        if time.monotonic()-begun>maxseconds:raise TimeoutError('Bounded decode budget exceeded')
-        data=proc.stdout.read(size)
-        if not data:break
-        assert len(data)==size,'Partial frame'
-        frame=np.frombuffer(data,dtype=np.uint8).reshape(h,w,3)
+    selected_pts=[]
+    count=0;stats=[];seeds=[];roi=None;fps=float(Fraction(info['r_frame_rate']))
+    for pts,frame in decoded_frames(video,start,end,w,h,timeout=maxseconds):
+        selected_pts.append(pts)
         if count==0:
           grouped={}
           for row in samples:
@@ -75,16 +69,14 @@ def main(video,trackpath,outpath,maxseconds=60):
           a,b=support(region,local,prepared,band_override=max(1,round(min(w,h)*.006)));s['minimumSide']=min(s['minimumSide'],a);s['minimumEdge']=min(s['minimumEdge'],b)
           if a>=.85 and b>=.7:s['supported']+=1
         count+=1
-      stderr=proc.stderr.read().decode();rc=proc.wait();assert rc==0,stderr
-    finally:
-      if proc.poll() is None:proc.kill();proc.wait()
-    clock_complete=selected_pts[0]-start<=1.1/fps and end-selected_pts[-1]<=2.1/fps and all(b-a<=2.1/fps for a,b in zip(selected_pts,selected_pts[1:])) and count==len(selected_pts)
+    clock=coverage(selected_pts,start,end,fps)
+    clock_complete=clock['clockCoverageVerified']
     complete=[s for s in stats if s['supported']==count and count>=8] if clock_complete else []
     assert digest_file(video)==sha,'Source changed during measurement'
     def encloses(a,z):
       a,z=a['rect'],z['rect'];return a!=z and a[0]<=z[0] and a[1]<=z[1] and a[2]>=z[2] and a[3]>=z[3]
     maximal=[s for s in complete if not any(encloses(q,s) for q in complete)]
     # Strict containment removes redundant inner measurements, never unions boxes.
-    result={'status':'unique-full-interval-rectangle' if len(maximal)==1 else 'ambiguous' if maximal else 'unresolved','maximalCandidates':maximal,'selected':maximal[0] if len(maximal)==1 else None,'nativeSupportRoi':list(roi) if roi else None,'maximumPresentationGap':max(b-a for a,b in zip(selected_pts,selected_pts[1:])) if len(selected_pts)>1 else None,'sourceSha256':sha,'sourceStart':start,'sourceEnd':end,'sourceWidth':sw,'sourceHeight':sh,'measurementWidth':w,'measurementHeight':h,'decodedFrames':count,'selectedPresentationFrames':len(selected_pts),'firstPresentationTime':selected_pts[0],'lastPresentationTime':selected_pts[-1],'clockCoverageVerified':clock_complete,'nominalFps':fps,'candidateCount':len(seeds),'completeCandidateCount':len(complete),'candidates':stats,'elapsedSeconds':time.monotonic()-begun,'limitations':['Private geometry-only producer prototype, not normal Auto or a camera-role classifier.','Color-border discovery cannot cover borderless or moving cameras. No box is emitted when missing/ambiguous.','Every decoded frame is checked for candidate perimeter support; role, HUD, action and missed cuts remain independent requirements.']}
+    result={'status':'unique-full-interval-rectangle' if len(maximal)==1 else 'ambiguous' if maximal else 'unresolved','maximalCandidates':maximal,'selected':maximal[0] if len(maximal)==1 else None,'nativeSupportRoi':list(roi) if roi else None,'maximumPresentationGap':max(b-a for a,b in zip(selected_pts,selected_pts[1:])) if len(selected_pts)>1 else None,'sourceSha256':sha,'sourceStart':start,'sourceEnd':end,'sourceWidth':sw,'sourceHeight':sh,'measurementWidth':w,'measurementHeight':h,'decodedFrames':count,'selectedPresentationFrames':len(selected_pts),'firstPresentationTime':selected_pts[0] if selected_pts else None,'lastPresentationTime':selected_pts[-1] if selected_pts else None,'decodedClock':clock,'presentationTimes':selected_pts,'clockCoverageVerified':clock_complete,'nominalFps':fps,'candidateCount':len(seeds),'completeCandidateCount':len(complete),'candidates':stats,'elapsedSeconds':time.monotonic()-begun,'limitations':['Private geometry-only producer prototype, not normal Auto or a camera-role classifier.','Color-border discovery cannot cover borderless or moving cameras. No box is emitted when missing/ambiguous.','Every decoded frame is checked for candidate perimeter support; role, HUD, action and missed cuts remain independent requirements.']}
     json.dump(result,open(outpath,'w'),indent=2);print(json.dumps({k:v for k,v in result.items() if k!='candidates'}))
 if __name__=='__main__':main(*sys.argv[1:])
