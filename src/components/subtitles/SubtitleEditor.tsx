@@ -616,7 +616,11 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
     }
     if (style.shadowEnabled) {
       const depth = typeof style.shadowDepth==='number'&&Number.isFinite(style.shadowDepth)?Math.max(0,style.shadowDepth):3;
-      const shadowColor = style.shadowColor || 'rgba(0,0,0,0.8)';
+      let shadowColor = style.shadowColor || 'rgba(0,0,0,0.8)';
+      if(!style.boxEnabled && typeof style.shadowOpacity==='number' && Number.isFinite(style.shadowOpacity) && /^#[0-9a-fA-F]{6}$/.test(shadowColor)){
+        const rgb=[1,3,5].map(i=>parseInt(shadowColor.slice(i,i+2),16));
+        shadowColor=`rgba(${rgb.join(',')},${Math.min(1,Math.max(0,style.shadowOpacity))})`;
+      }
       if(depth>0)textShadowList.push(`${depth}px ${depth}px ${depth * 2}px ${shadowColor}`);
     }
 
