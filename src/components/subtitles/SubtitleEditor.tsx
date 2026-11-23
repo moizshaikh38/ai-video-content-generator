@@ -605,9 +605,9 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
 
     const textShadowList: string[] = [];
     if (style.strokeEnabled) {
-      const sw = style.strokeWidth || 3;
+      const sw = typeof style.strokeWidth==='number'&&Number.isFinite(style.strokeWidth)?Math.max(0,style.strokeWidth):3;
       const sc = style.strokeColor || '#000000';
-      textShadowList.push(
+      if(sw>0)textShadowList.push(
         `-${sw}px -${sw}px 0 ${sc}`,
         `${sw}px -${sw}px 0 ${sc}`,
         `-${sw}px ${sw}px 0 ${sc}`,
@@ -615,9 +615,9 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
       );
     }
     if (style.shadowEnabled) {
-      const depth = style.shadowDepth || 3;
+      const depth = typeof style.shadowDepth==='number'&&Number.isFinite(style.shadowDepth)?Math.max(0,style.shadowDepth):3;
       const shadowColor = style.shadowColor || 'rgba(0,0,0,0.8)';
-      textShadowList.push(`${depth}px ${depth}px ${depth * 2}px ${shadowColor}`);
+      if(depth>0)textShadowList.push(`${depth}px ${depth}px ${depth * 2}px ${shadowColor}`);
     }
 
     return {
