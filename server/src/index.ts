@@ -1,3 +1,4 @@
+import {startAutopilotContinuationWorker,stopAutopilotContinuationWorker} from './services/autopilotContinuationWorker.js';
 import {DatabaseBootstrapAttempt} from './services/databaseBootstrapAttempt.js';
 import {databaseBootstrapAdmission} from './middleware/databaseBootstrapAdmission.js';
 import {setDatabaseBootstrapState} from './services/databaseBootstrapState.js';
@@ -176,6 +177,7 @@ if (process.env.NODE_ENV !== 'test') {
 
       // Start Phase 10 persistent publishing worker
       if(runsPublishingWorker())startPublishingWorker();
+      startAutopilotContinuationWorker();
 
       // Render job sweep: retries transient render failures, recovers stale leases
       // left by crashes/restarts, and drains jobs deferred by the inline concurrency cap.
@@ -256,6 +258,7 @@ if (process.env.NODE_ENV !== 'test') {
   const shutdown=createShutdown({lifecycle:workLifecycle,timeoutMs:10_000,
     stopPollers:()=>{
       stopPublishingWorker();
+      stopAutopilotContinuationWorker();
       stopRenderWake?.();
       for(const timer of[cleanupTimer,oauthCleanupTimer,renderSweepTimer,multimodalSweepTimer])if(timer)clearInterval(timer);
     },

@@ -127,6 +127,13 @@ export const AutopilotWorkspace: React.FC<AutopilotWorkspaceProps> = ({
     // Settings are inputs only when starting a new run, not a destination change.
   }, [clipId,projectId]);
 
+  useEffect(()=>{
+    if(run?.status!=='RUNNING')return;
+    let active=true;const generation=loadGeneration.current;
+    const timer=setInterval(()=>{void autopilotService.getRun(run.id).then(current=>{if(active&&generation===loadGeneration.current&&current.id===run.id&&current.clip_id===clipId&&current.project_id===projectId)setRun(current);}).catch(()=>{});},3000);
+    return()=>{active=false;clearInterval(timer);};
+  },[run?.id,run?.status,clipId,projectId]);
+
   const handleStartPipeline = async () => {
     if (!run||run.clip_id!==clipId||run.project_id!==projectId) return;
     const generation=++composerGeneration.current;

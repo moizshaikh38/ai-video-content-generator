@@ -4051,6 +4051,8 @@ export interface AutopilotRunRecord {
   settings: AutopilotSettings;
   steps: AutopilotStepResult[];
   producer_plan_id?: string;
+  automatic_continuation?: {version:1;stage:'PREPARING'|'PRODUCER_RENDER_WAIT'|'HOOK_RENDER_WAIT'|'HOOK_RENDER_READY'};
+  automatic_hook_render?: any;
   hook_session_id?: string;
   selected_hook_candidate_id?: string;
   hook_selection_rationale?: string;

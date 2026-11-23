@@ -1,3 +1,10 @@
+import {readAutomaticHookAdmission,commitAutomaticHookAdmission,commitAutomaticReady} from '../db/repositories/autopilotHookAdmissionRepository.js';
+import {automaticSelectedInput,nextRenderContinuation} from '../shared/autopilotSelectedInput.js';
+import {projectHookTextOverlay} from '../shared/hookTextOverlayProjection.js';
+import {assertRenderPlanPreflight} from './renderPlanPreflight.js';
+import {assertRenderAdmissionEnabled} from '../db/repositories/renderAdmissionRepository.js';
+import {ProEditorService} from './proEditorService.js';
+import {launchInlineRender} from './clipRenderService.js';
 import {readAutopilotApproval,commitAutopilotApproval} from '../db/repositories/autopilotApprovalRepository.js';
 import {provenOutput} from '../shared/autopilotHookOutput.js';
 import {headObject} from './objectStorageService.js';
@@ -23,7 +30,6 @@ import {
   AutopilotCapabilityModel,
   ThumbnailConcept,
   HookCandidate,
-  OverlayConfig,
 } from '../types/index.js';
 import { ProducerPlanningService } from './producerPlanningService.js';
 import { ProducerRenderService } from './producerRenderService.js';
@@ -252,6 +258,9 @@ export class AutopilotService {
       // Verify run exists and belongs to user first to enforce strict tenant isolation
       let run = await this.getRun(userId, runId);
 
+      if(run.status==='COMPLETED'||run.status==='APPROVED')return run;
+      if(!['PENDING','RUNNING'].includes(run.status))throw new AppError('This run needs an explicit reviewed retry before execution.',409,'AUTOPILOT_RETRY_REQUIRED');
+
       // Concurrency lock: Acquire lease-based lock atomically
       const lockToken = crypto.randomUUID();
       const now = new Date();
@@ -262,6 +271,8 @@ export class AutopilotService {
         {
           id: runId,
           user_id: userId,
+          status:run.status,
+          updated_at:run.updated_at,
           $or: [
             { execution_lock: { $exists: false } },
             { execution_lock: null },
@@ -274,6 +285,8 @@ export class AutopilotService {
           $set: {
             execution_lock: lockToken,
             execution_lock_expires_at: expiresAt,
+            status:'RUNNING',
+            automatic_continuation:run.automatic_continuation||{version:1,stage:'PREPARING'},
             execution_lock_owner: userId,
             updated_at: now,
           },
@@ -281,6 +294,8 @@ export class AutopilotService {
       );
 
       if (!lockAcquired.matchedCount || !lockAcquired.modifiedCount) {
+        const latest=await this.getRun(userId,runId);
+        if(latest.status==='COMPLETED'||latest.status==='APPROVED')return latest;
         throw new AppError(
           'Pipeline is currently executing another operation. Please wait.',
           409,
@@ -309,11 +324,20 @@ export class AutopilotService {
           return run;
         }
 
-        run = await this.updateRunState(userId, runId, { status: 'RUNNING' }, lockToken);
+        run = await this.updateRunState(userId, runId, { status: 'RUNNING',automatic_continuation:run.automatic_continuation||{version:1,stage:'PREPARING'} }, lockToken);
 
         // Step 1: Producer
         run = await this.executeProducerStep(userId, run, lockToken);
         if (run.status === 'FAILED' || run.status === 'BLOCKED') return run;
+
+        // The Producer Apply already admitted its exact render. Return promptly
+        // while the durable continuation worker waits for that job, never its
+        // older retained output or an arbitrary ready flag.
+        const producerJobId=run.steps.find(s=>s.step==='PRODUCER')?.artifacts?.render_job_id;
+        const producerJob=producerJobId?await db.collection('render_jobs').findOne({id:producerJobId,clip_id:run.clip_id,user_id:userId}):null;
+        if(!producerJob)throw new AppError('Producer render receipt needs review.',409,'AUTOPILOT_PRODUCER_RENDER_REQUIRED');
+        if(['queued','processing','uploading'].includes(producerJob.status))return run;
+        if(producerJob.status!=='completed')throw new AppError('Producer render failed. Review the saved job before continuing.',409,'AUTOPILOT_PRODUCER_RENDER_FAILED');
 
         // Steps 2 & 3: Hook Lab and Thumbnail Lab in parallel (or single if one already completed)
         const hookStep = run.steps.find((s) => s.step === 'HOOK_LAB');
@@ -331,9 +355,19 @@ export class AutopilotService {
         }
         if (run.status === 'FAILED' || run.status === 'BLOCKED') return run;
 
+        if(run.automatic_hook_render&&!run.automatic_continuation)throw new AppError('This run has an old automatic render receipt. Review before retrying.',409,'AUTOPILOT_HOOK_RENDER_REVIEW_REQUIRED');
+        run=await this.continueSelectedHookRender(userId,run,lockToken);
+        if(run.automatic_continuation?.stage!=='HOOK_RENDER_READY')return run;
+
         // Step 4: Content Pack
         run = await this.executeContentPackStep(userId, run, lockToken);
         if (run.status === 'FAILED' || run.status === 'BLOCKED') return run;
+
+        const finalOutput=await readAutopilotApproval(db,userId,run.id);
+        const finalProof=provenOutput({...finalOutput,run:{...finalOutput.run,status:'COMPLETED',execution_lock:null}});
+        await assertSelectionSourceCurrent(userId,run.project_id,finalOutput.clip!.selection_source_receipt,finalOutput.clip!.source_storage_path);
+        const finalHead=await headObject('clips',finalProof.output_storage_path),artifact=finalProof.output_artifact_receipt;
+        if(finalHead.size!==artifact.size||finalHead.etag!==artifact.etag||(artifact.version_id&&finalHead.versionId!==artifact.version_id))throw new AppError('Automatic hook output changed before review readiness.',409,'AUTOPILOT_HOOK_RENDER_REVIEW_REQUIRED');
 
         // Output Verification Guard: Do not mark run successful when its required outputs are missing or invalid
         JobReliabilityService.verifyRequiredOutputs('autopilot', {
@@ -355,13 +389,12 @@ export class AutopilotService {
           return s;
         });
 
-        run = await this.updateRunState(userId, runId, {
-          status: 'COMPLETED',
-          current_step: 'APPROVAL',
-          steps,
-        }, lockToken);
+        run=await commitAutomaticReady(await getMongoClient(),db,{userId,runId,lockToken,steps}) as unknown as AutopilotRunRecord;
 
         return run;
+      } catch(error:any){
+        if(error?.code==='LOCK_LOST')throw error;
+        return await this.updateRunState(userId,runId,{status:'BLOCKED',error:error?.message||'Automatic continuation needs review.',requires_manual_intervention:true,automatic_continuation:undefined},lockToken);
       } finally {
         if (heartbeatTimer) {
           clearInterval(heartbeatTimer);
@@ -386,6 +419,36 @@ export class AutopilotService {
     });
   }
 
+  private static async continueSelectedHookRender(userId:string,run:AutopilotRunRecord,lockToken:string):Promise<AutopilotRunRecord>{
+    const db=await getMongoDb();
+    if(!run.automatic_hook_render){
+      assertRenderAdmissionEnabled();
+      const expected=await readAutomaticHookAdmission(db,userId,run.id);
+      automaticSelectedInput(expected);
+      const editor=expected.editor!;
+      await assertSelectionSourceCurrent(userId,run.project_id,expected.clip!.selection_source_receipt,expected.clip!.source_storage_path);
+      const projected=projectHookTextOverlay(editor as any,expected.candidate as any);
+      const updates=await ProEditorService.prepareEditorRevision(editor as any,userId,{tracks:projected.tracks,version:editor.version});
+      const quotaPolicy=await assertRenderPlanPreflight(userId,undefined,expected.clip!.caption_style);
+      const result=await commitAutomaticHookAdmission(await getMongoClient(),db,{userId,runId:run.id,lockToken,expected,updates,quotaPolicy});
+      if(!result.replayed)launchInlineRender(run.clip_id,userId,result.job!.id);
+      run=await this.getRun(userId,run.id);
+    }
+    const receipt=run.automatic_hook_render!;
+    const current=await readAutopilotApproval(db,userId,run.id),job=await db.collection('render_jobs').findOne({id:receipt.job_id,user_id:userId,clip_id:run.clip_id});
+    const next=nextRenderContinuation(receipt,job,current.clip,current.editor);
+    if(next==='WAIT')return await this.updateRunState(userId,run.id,{automatic_continuation:{version:1,stage:'HOOK_RENDER_WAIT'}},lockToken);
+    if(next!=='READY_FOR_PROOF')throw new AppError('The selected hook render failed or its saved inputs changed. Review before continuing.',409,'AUTOPILOT_HOOK_RENDER_REVIEW_REQUIRED');
+    return await this.updateRunState(userId,run.id,{automatic_continuation:{version:1,stage:'HOOK_RENDER_READY'}},lockToken);
+  }
+
+  public static async processAutomaticContinuations():Promise<number>{
+    const db=await getMongoDb();let count=0;
+    const rows=await db.collection('autopilot_runs').find({status:'RUNNING','automatic_continuation.version':1,$or:[{execution_lock:null},{execution_lock:{$exists:false}},{execution_lock_expires_at:{$lte:new Date()}}]}).sort({updated_at:1}).limit(3).toArray();
+    for(const row of rows){try{await this.executePipeline(row.user_id,row.id);count++;}catch(error:any){if(error?.code!=='PIPELINE_ALREADY_RUNNING')logger.warn('Automatic continuation deferred',{runId:row.id,code:error?.code});}}
+    return count;
+  }
+
   /**
    * Stage 1: Producer Orchestration
    */
@@ -407,15 +470,22 @@ export class AutopilotService {
 
     try {
       // Generate plan
-      const plan = await ProducerPlanningService.generatePlan(run.clip_id, userId, {
+      const plan = run.producer_plan_id
+        ? await (await getMongoDb()).collection('producer_plans').findOne({id:run.producer_plan_id,clip_id:run.clip_id,user_id:userId})
+        : await ProducerPlanningService.generatePlan(run.clip_id, userId, {
         mode: run.settings.producer_mode || 'BALANCED',
         target_platform: run.settings.target_platform || 'tiktok',
         instruction: run.settings.user_instruction,
         target_duration: run.settings.target_duration,
       });
 
-      // Apply non-destructive edits to clip
-      await ProducerRenderService.applyPlanToClip(plan.id, userId);
+      if(!plan)throw new AppError('The saved Producer plan is missing. Review before retrying.',409,'PLAN_NOT_FOUND');
+      if(!run.producer_plan_id){run=await this.updateRunState(userId,run.id,{producer_plan_id:plan.id},lockToken);}
+
+      // Persist the plan key BEFORE admission. Its immutable Apply receipt
+      // recovers the same job after a crash before step completion.
+      const applied=await ProducerRenderService.applyPlanToClip(plan.id, userId);
+      if(!applied.renderJob?.id)throw new AppError('Producer did not return a durable render receipt.',503,'PRODUCER_APPLY_UNVERIFIED');
 
       // Verify required plan deliverable
       JobReliabilityService.verifyRequiredOutputs('producer_step', { plan_id: plan.id });
@@ -430,14 +500,17 @@ export class AutopilotService {
           plan_id: plan.id,
           scores: plan.scores,
           operations_count: plan.operations.length,
+          render_job_id:applied.renderJob.id,
         },
       });
 
       return await this.updateRunState(userId, run.id, {
         producer_plan_id: plan.id,
+        automatic_continuation:{version:1,stage:'PRODUCER_RENDER_WAIT'},
         steps: run.steps,
       }, lockToken);
     } catch (err: any) {
+      if(err?.code==='LOCK_LOST')throw err;
       logger.error(`[Autopilot] Producer step failed for run ${run.id}: ${err.message}`);
       const endTime = new Date();
       const isTransient = JobReliabilityService.isTransientError(err);
@@ -507,36 +580,8 @@ export class AutopilotService {
       // Verify required hook candidate deliverable
       JobReliabilityService.verifyRequiredOutputs('hook_lab_step', { candidate_id: chosen.id });
 
-      // Task 2: Non-destructively sync chosen hook text into clip's opening hook banner (overlay_config)
-      try {
-        const { data: clipData } = await dataRepository
-          .from('clips')
-          .select('overlay_config')
-          .eq('id', run.clip_id)
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        const currentOverlay = (clipData as any)?.overlay_config;
-        const isLocked = currentOverlay?.locked || (currentOverlay?.enabled && currentOverlay?.text && currentOverlay?.user_locked);
-        if (!isLocked) {
-          const updatedOverlay: OverlayConfig = {
-            ...(currentOverlay || {}),
-            enabled: true,
-            text: chosen.text,
-            position: currentOverlay?.position || 'top',
-            size: currentOverlay?.size || 'md',
-          };
-          await dataRepository
-            .from('clips')
-            .update({ overlay_config: updatedOverlay })
-            .eq('id', run.clip_id)
-            .eq('user_id', userId);
-          logger.info(`[Autopilot] Synced winning hook text into clip overlay: "${chosen.text.slice(0, 40)}..."`);
-        }
-      } catch (syncErr: any) {
-        logger.warn(`[Autopilot] Non-fatal: Failed to sync winning hook overlay to clip: ${syncErr.message}`);
-      }
-
+      // The chosen hook is applied only by the source-bound automatic admission
+      // transaction after selection is saved on this run. Never legacy overlay.
       const rationale = locked
         ? `Preserved locked hook: "${chosen.text.slice(0, 50)}..."`
         : `Selected highest overall hook fit (${chosen.overall_hook_fit}/100) for ${chosen.hook_type} hook: "${chosen.text.slice(0, 50)}..."`;
@@ -1063,6 +1108,8 @@ export class AutopilotService {
       }
 
       if (targetStageOrder <= 1) {
+        updates.automatic_hook_render=undefined;
+        updates.automatic_continuation=undefined;
         // Invalidate HOOK_LAB if retrying Producer
         if (targetStageOrder < 1) {
           const hookStep = run.steps.find((s) => s.step === 'HOOK_LAB');
