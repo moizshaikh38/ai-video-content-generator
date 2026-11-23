@@ -290,11 +290,42 @@ export class ShotBoundaryFusionService {
       const safeStart=safeEnd===undefined&&safeEdge(currentEnd)?[expandStart,...sortedWords.map(w=>w.start)]
         .filter(t=>t>=0&&t<=currentStart&&currentEnd-t>=minDur&&currentEnd-t<=maxDur&&safeEdge(t))
         .sort((a,b)=>b-a)[0]:undefined;
+      const beforeExpansion={start:currentStart,end:currentEnd};
       currentStart = Number((safeEnd!==undefined?currentStart:safeStart??expandStart).toFixed(3));
       currentEnd = Number((safeEnd??(safeStart!==undefined?currentEnd:expandEnd)).toFixed(3));
+      // Elapsed-duration padding must not newly stop inside an exactly
+      // word-covered recorded utterance. This is cut integrity, not semantic
+      // completeness. Never infer missing words from punctuation or a label.
+      const lexical=(value:string)=>value.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'');
+      const partials=segments.filter(segment=>Number.isFinite(segment.start)&&Number.isFinite(segment.end)&&segment.end>segment.start&&segment.start>=beforeExpansion.end&&segment.start<currentEnd&&segment.end>currentEnd);
+      const exact=partials.flatMap(segment=>{
+        if(typeof segment.text!=='string')return [];
+        const tokens=segment.text.trim().split(/\s+/).filter(Boolean);
+        const rows=sortedWords.filter(w=>w.start<segment.end&&w.end>segment.start);
+        if(!rows.length||tokens.length!==rows.length||!rows.every((w,i)=>w.start>=segment.start-.001001&&w.end<=segment.end+.001001&&lexical(w.word)!==''&&lexical(w.word)===lexical(tokens[i])))return [];
+        // A one-millisecond container/word endpoint mismatch with no remaining
+        // spoken words is not partial speech and must not alter the interval.
+        if(!rows.some(w=>w.start>=currentEnd&&w.end>currentEnd))return [];
+        return [rows.at(-1)!.end];
+      });
+      if(exact.length>0&&partials.length!==1){
+        // A valid companion cannot authenticate competing overlapping or
+        // malformed containers. Preserve no duration-admissible partial tail.
+        currentStart=beforeExpansion.start;currentEnd=beforeExpansion.end;
+        warnings.push('Competing recorded utterance coverage needs review. Reject this under-minimum proposal rather than selecting a convenient container.');
+      }else if(exact.length===1){
+        const wholeEnd=exact[0];
+        if(wholeEnd-currentStart<=maxDur&&wholeEnd<=totalVideoDuration&&safeEdge(wholeEnd)){
+          currentEnd=wholeEnd;
+          warnings.push('Minimum-duration expansion retained the whole exactly word-covered recorded utterance. Semantic completeness still needs review.');
+        }else{
+          currentStart=beforeExpansion.start;currentEnd=beforeExpansion.end;
+          warnings.push('No whole recorded utterance fits the unchanged duration limits. Reject this under-minimum proposal rather than padding partial speech.');
+        }
+      }
       finalDuration = currentEnd - currentStart;
       wasWordBoundaryAdjusted=safeEnd!==undefined||safeStart!==undefined;
-      warnings.push(`Expanded boundary by ${(finalDuration-(minDur-deficit)).toFixed(1)}s to fulfill minimum clip duration.`);
+      if(finalDuration>=minDur)warnings.push(`Expanded boundary by ${(finalDuration-(minDur-deficit)).toFixed(1)}s to fulfill minimum clip duration.`);
     }
 
     if (finalDuration > maxDur) {
