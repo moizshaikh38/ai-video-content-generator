@@ -213,8 +213,10 @@ test('Mongo repositories, ownership, indexes, and quota concurrency', { timeout:
   assert.equal(confirmationResponse.body.project.video_status, 'uploaded');
   const beforeClaim = await (await getMongoDb()).collection('projects').findOne({ id: projectId });
   assert.ok(beforeClaim?.updated_at);
-  const claims = await Promise.all([0, 1].map(() => claimProjectProcessing(user, projectId,
-    'uploaded', beforeClaim.updated_at)));
+  const claimAttempts=[crypto.randomUUID(),crypto.randomUUID()];
+  await (await getMongoDb()).collection('credit_reservations').insertMany(claimAttempts.map(attempt_id=>({attempt_id,user_id:user,operation_id:'core_video_processing',status:'reserved',amount:1,metadata:{projectId,sourceUrl:beforeClaim.source_url}})));
+  const claims = await Promise.all(claimAttempts.map(attemptId => claimProjectProcessing(user, projectId,
+    'uploaded', beforeClaim.updated_at,{attemptId,sourceUrl:beforeClaim.source_url})));
   assert.equal(claims.filter(Boolean).length, 1);
   await ownerContext.run(user, async () => { await dataRepository.from('projects').update({ video_status: 'uploaded' }).eq('id', projectId); });
   await ownerContext.run(user, async () => {

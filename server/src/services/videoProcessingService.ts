@@ -1,3 +1,6 @@
+import {publishProcessingCompletion,readProcessingCompletion} from './transcription/processingCompletion.js';
+import {assertProcessingOwnership,ownedTranscriptionProvider,processingOwnershipFilter} from './transcription/processingOwnership.js';
+import {processingFailureReceipt,type ProcessingFailureContext} from '../shared/processingFailureReceipt.js';
 import {transcriptReviewCode,type TranscriptReviewCode} from '../shared/transcriptReviewErrors.js';
 import {BorrowedSourceReaders} from './queue/borrowedSourceReaders.js';
 import {newTranscriptSelectionFields} from './transcription/selectionSegments.js';
@@ -7,8 +10,9 @@ import {assertTranscriptReusable} from './transcriptSourceBindingService.js';
 import {audioInputSha256,transcriptContentIdentity} from '../shared/transcriptSourceBinding.js';
 import {sourceObjectReceiptMatches,type SourceObjectReceipt} from '../shared/sourceObjectReceipt.js';
 import {AppError} from '../types/index.js';
+import {validateRecord} from '../db/schemaValidation.js';
 import {assessTranscriptQuality,assertTranscriptUsable,normalizeSourceLanguage} from './transcription/transcriptQuality.js';
-import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
+import { isMongoConfigured, getMongoDb, getMongoClient } from '../db/mongoClient.js';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import os from 'node:os';
 import path from 'node:path';
@@ -39,6 +43,8 @@ export interface ProcessProjectResult {
   transcript?: TranscriptRecord;
   error?: string;
   reviewCode?: TranscriptReviewCode;
+  completionRunToken?:string;
+  completedProject?:Record<string,any>;
 }
 
 /**
@@ -74,6 +80,8 @@ async function executeProjectVideo(
     throw new Error('MongoDB is not configured on the server.');
   }
 
+  if(processingAttemptId){const done=await readProcessingCompletion(await getMongoDb(),userId,projectId,sourceUrl,processingAttemptId);if(done)return{status:'transcribed',transcript:done.transcript as any,completionRunToken:done.runToken,completedProject:done.project};}
+
   if (activeProcessingSet.has(projectId)) {
     throw new Error('Project processing is already in progress.');
   }
@@ -84,19 +92,34 @@ async function executeProjectVideo(
     let downloadedVideoPath: string | null = null;
     let cleanupSafe=true;
     const sourceReaders=new BorrowedSourceReaders();
+    const runToken=crypto.randomUUID();let admitted=false,committed=false;let completedProject:any;
+    const failureContext:ProcessingFailureContext={attemptId:processingAttemptId,stage:'source_validation'};
 
     try {
-    // 1. Update status to 'processing'
-    logger.info(`Starting video processing for project ${projectId}`, { projectId, userId });
-    await dataRepository
-      .from('projects')
-      .update({ video_status: 'processing', error_code: null, error_message: null })
-      .eq('id', projectId)
-      .eq('user_id', userId);
-
     const db = await getMongoDb();
     const currentProject=await db.collection('projects').findOne({id:projectId,user_id:userId});
     if(!currentProject || currentProject.source_url!==sourceUrl)throw new AppError('Project source changed before transcription. Reload the project.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+    if(!['uploaded','uploading','failed','processing','transcribing'].includes(currentProject.video_status)||(!processingAttemptId&&currentProject.processing_attempt_id)||currentProject.processing_run_token||(processingAttemptId&&currentProject.processing_attempt_id!==processingAttemptId))throw new AppError('Processing attempt is no longer current.',409,'PROCESSING_ATTEMPT_CHANGED');
+    const admissionSession=(await getMongoClient()).startSession();
+    try{await admissionSession.withTransaction(async()=>{
+      if(processingAttemptId){
+        const reservations=db.collection('credit_reservations');
+        const r=await reservations.findOne({attempt_id:processingAttemptId,user_id:userId,operation_id:'core_video_processing','metadata.projectId':projectId,'metadata.sourceUrl':sourceUrl},{session:admissionSession});
+        if(!r||r.processing_admission||r.processing_claim_closed||!(['reserved','active'].includes(r.status)||(r.status==='settled'&&r.amount===0&&r.settled_amount===0&&!r.processing_completion)))throw new AppError('Reservation is not available for this processing admission.',409,'PROCESSING_RESERVATION_MISMATCH');
+        await reservations.updateOne({_id:r._id},{$set:{processing_admission:{userId,projectId,sourceUrl,runToken}}},{session:admissionSession});
+      }
+      const admission=await db.collection('projects').updateOne({id:projectId,user_id:userId,source_url:sourceUrl,...(processingAttemptId?{processing_attempt_id:processingAttemptId}:{processing_attempt_id:null,updated_at:currentProject.updated_at??null}),processing_run_token:null,video_status:currentProject.video_status},{$set:{video_status:'processing',error_code:null,error_message:null,processing_failure:null,processing_run_token:runToken}},{session:admissionSession});
+      if(admission.modifiedCount!==1)throw new AppError('Processing attempt or source changed before admission.',409,'PROCESSING_ATTEMPT_CHANGED');
+    })}finally{await admissionSession.endSession()}
+    admitted=true;
+    const ownership={projectId,userId,sourceUrl,attemptId:processingAttemptId,runToken};
+    const assertCurrent=()=>assertProcessingOwnership(db,ownership);
+    const complete=async(transcript:any,payload:Record<string,any>,preferences:unknown,credits:number,metadata:Record<string,unknown>)=>{
+      const publication=async(session:import('mongodb').ClientSession,replay=false)=>{completedProject=await publishProcessingCompletion(db,session,ownership,transcript,payload,preferences,replay);};
+      if(processingAttemptId)await CreditWalletService.settleReservation(processingAttemptId,credits,metadata,publication,{userId,projectId,sourceUrl,runToken,transcriptId:transcript.id});
+      else{const session=(await getMongoClient()).startSession();try{await session.withTransaction(()=>publication(session))}finally{await session.endSession()}}
+      committed=true;
+    };
 
     // 1b. Check if valid transcript already exists for this project and user (Cross-workflow reuse at 0 credits)
     const existingTranscript = await db.collection<TranscriptRecord>('transcripts').findOne({
@@ -105,6 +128,7 @@ async function executeProjectVideo(
     });
 
     if (existingTranscript && (existingTranscript.segments?.length || existingTranscript.transcript_text)) {
+      failureContext.stage='transcript_reuse';
       await assertTranscriptReusable(existingTranscript,sourceUrl);
       logger.info(`Reusing existing transcript for project ${projectId}`, { projectId, userId });
       const effectiveDuration = Number(
@@ -115,12 +139,9 @@ async function executeProjectVideo(
       );
 
       // Validate source duration against plan entitlement limit
+      failureContext.stage='transcript_validation';failureContext.durationSeconds=effectiveDuration;
       const entitlements = await EntitlementService.resolveUserEntitlements(userId);
       if (!entitlements.isUnlimited && effectiveDuration > entitlements.limits.maxUploadDurationSeconds) {
-        if (processingAttemptId) {
-          await CreditWalletService.releaseReservation(processingAttemptId, 'Video duration exceeds plan limit').catch(() => undefined);
-          await UsageService.releaseReservation(processingAttemptId, 'Video duration exceeds plan limit').catch(() => undefined);
-        }
         const durationErr: any = new Error(
           `Video duration (${Math.round(effectiveDuration)}s) exceeds your plan limit of ${entitlements.limits.maxUploadDurationSeconds}s.`
         );
@@ -128,37 +149,13 @@ async function executeProjectVideo(
         throw durationErr;
       }
 
-      // Settle reservation at 0 credits
-      if (processingAttemptId) {
-        await CreditWalletService.settleReservation(
-          processingAttemptId,
-          0,
-          {
-            projectId,
-            provider: 'reused',
-            language: existingTranscript.language,
-            segment_count: existingTranscript.segments?.length || 0,
-            duration_seconds: effectiveDuration,
-            isReusedTranscript: true,
-          }
-        );
-        try {
-          await UsageService.settleReservation(processingAttemptId, 0, { reason: 'Reused transcript' }).catch(() => undefined);
-        } catch {}
-      }
-
-      await dataRepository
-        .from('projects')
-        .update({
-          video_status: 'transcribed',
-          duration_seconds: effectiveDuration,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', projectId)
-        .eq('user_id', userId);
+      failureContext.stage='credit_settlement';
+      await complete(existingTranscript,{duration_seconds:effectiveDuration},currentProject.clip_preferences,0,{projectId,provider:'reused',isReusedTranscript:true,duration_seconds:effectiveDuration});
+      if(processingAttemptId)await UsageService.settleReservation(processingAttemptId,0,{reason:'Reused transcript'}).catch(()=>undefined);
 
       return {
         status: 'transcribed',
+        completionRunToken:runToken,completedProject,
         transcript: existingTranscript as TranscriptRecord,
       };
     }
@@ -177,9 +174,11 @@ async function executeProjectVideo(
     const videoPath = path.join(os.tmpdir(), `vireo-source-${crypto.randomUUID()}${path.extname(originalFileName) || '.mp4'}`);
     downloadedVideoPath = videoPath;
     const snapshot:{receipt?:SourceObjectReceipt}={};
+    failureContext.stage='source_download';
     const sourceResolution = await ClipRenderService.ensureSourceVideo(storagePath, videoPath,{snapshotOut:snapshot});
     logger.info(`Source video resolved for project ${projectId} via ${sourceResolution}: ${videoPath}`);
 
+    failureContext.sourceSha256=snapshot.receipt?.sha256;failureContext.sourceBytes=snapshot.receipt?.size;
     // 2b. HD poster frame for the dashboard while we have the file locally (best-effort, ~100ms).
     const { data: posterRow } = await dataRepository
       .from('projects')
@@ -196,18 +195,16 @@ async function executeProjectVideo(
     // 3. Extract audio via FFmpeg without buffering the video in Node memory.
     // The known duration picks the bitrate up front (one encode), and because long audio is
     // transcribed in parallel windows the full file is not held to the 25 MB single-request cap.
+    failureContext.stage='audio_extraction';
     const extractedAudio = await extractAudioFromVideo(videoPath, originalFileName, {
       durationHintSec: posterRow?.duration_seconds,
       maxAudioBytes: 200 * 1024 * 1024,
     });
     cleanupAudio = extractedAudio.cleanup;
 
-    // 4. Update status to 'transcribing'
-    await dataRepository
-      .from('projects')
-      .update({ video_status: 'transcribing' })
-      .eq('id', projectId)
-      .eq('user_id', userId);
+    // A zero-match ownership write stops before any provider dispatch.
+    const transcribing=await db.collection('projects').updateOne({id:projectId,user_id:userId,source_url:sourceUrl,processing_run_token:runToken,...(processingAttemptId?{processing_attempt_id:processingAttemptId}:{processing_attempt_id:null})},{$set:{video_status:'transcribing'}});
+    if(transcribing.matchedCount!==1)throw new AppError('Processing source or attempt changed before transcription. No new audio request was started.',409,'PROCESSING_ATTEMPT_CHANGED');
 
     // 5. Transcribe audio with the configured provider, failing over to the
     // alternate provider on transient runtime failures (rate limit, 5xx, timeout).
@@ -216,14 +213,18 @@ async function executeProjectVideo(
       const reservation=await db.collection<CreditReservationRecord>('credit_reservations').findOne({attempt_id:processingAttemptId,user_id:userId});
       if(reservation?.metadata?.isReusedTranscript)throw new AppError('The transcript selected for reuse is no longer available. No new transcription was started.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
     }
+    failureContext.stage='transcription_routing';
     const tierSelection = config.tieredTranscriptionEnabled
       ? await freezeTierSelection(db,userId,processingAttemptId,async()=>(await EntitlementService.resolveUserEntitlements(userId)).planId) : undefined;
     // Framing review never changes transcription provider or authorizes a paid STT model.
     const delegate = tierSelection ? createTierTranscriptionProvider(tierSelection) : getTranscriptionProviderWithFailover();
-    const inputs=observeTranscriptionInputs(delegate);
-    const {provider,requests}=inputs;
+    failureContext.provider=delegate.name;failureContext.model=tierSelection?.model;failureContext.tierPolicy=tierSelection?.policy;
+    const inputs=observeTranscriptionInputs(delegate);failureContext.inputRequests=inputs.requests;
+    const requests=inputs.requests,provider=ownedTranscriptionProvider(inputs.provider,assertCurrent);
     const preparedAudioSha256=audioInputSha256(extractedAudio.audioBuffer);
     logger.info(`Using transcription provider: ${provider.name}`, { projectId, provider: provider.name });
+    failureContext.stage='transcription';
+    if(!await db.collection('projects').findOne({id:projectId,user_id:userId,source_url:sourceUrl,processing_run_token:runToken,...(processingAttemptId?{processing_attempt_id:processingAttemptId}:{processing_attempt_id:null})}))throw new AppError('Processing attempt changed before provider dispatch.',409,'PROCESSING_ATTEMPT_CHANGED');
     const transcription = await transcribeAudioFast(
       provider,
       extractedAudio,
@@ -244,24 +245,10 @@ async function executeProjectVideo(
       ).toFixed(2)
     );
 
+    failureContext.durationSeconds=effectiveDuration;failureContext.stage='transcript_validation';
     // 5b. Validate source duration against plan entitlement limit
     const entitlements = await EntitlementService.resolveUserEntitlements(userId);
     if (!entitlements.isUnlimited && effectiveDuration > entitlements.limits.maxUploadDurationSeconds) {
-      if (processingAttemptId) {
-        await CreditWalletService.releaseReservation(processingAttemptId, 'Video duration exceeds plan limit').catch(() => undefined);
-        await UsageService.releaseReservation(processingAttemptId, 'Video duration exceeds plan limit').catch(() => undefined);
-      }
-      try {
-        await dataRepository
-          .from('projects')
-          .update({
-            video_status: 'failed',
-            error_message: `Video duration (${Math.round(effectiveDuration)}s) exceeds your plan limit of ${entitlements.limits.maxUploadDurationSeconds}s.`,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', projectId)
-          .eq('user_id', userId);
-      } catch {}
       const durationErr: any = new Error(
         `Video duration (${Math.round(effectiveDuration)}s) exceeds your plan limit of ${entitlements.limits.maxUploadDurationSeconds}s.`
       );
@@ -269,6 +256,8 @@ async function executeProjectVideo(
       throw durationErr;
     }
 
+    await assertCurrent();
+    failureContext.stage='credit_extension';
     // 5c. Mid-run credit extension check:
     // If measured duration requires more credits than provisionally reserved,
     // extend reservation atomically. If balance is insufficient, abort cleanly and release reservation.
@@ -290,19 +279,6 @@ async function executeProjectVideo(
         );
 
         if (!ext.allowed) {
-          await CreditWalletService.releaseReservation(processingAttemptId, 'Insufficient credits for measured duration mid-run').catch(() => undefined);
-          await UsageService.releaseReservation(processingAttemptId, 'Insufficient credits for measured duration mid-run').catch(() => undefined);
-          try {
-            await dataRepository
-              .from('projects')
-              .update({
-                video_status: 'failed',
-                error_message: `Insufficient credits to process ${Math.ceil(effectiveDuration)}s video. Required ${requiredCredits} credits.`,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', projectId)
-              .eq('user_id', userId);
-          } catch {}
           const creditErr: any = new Error(
             `Insufficient credits for measured video duration: this video requires ${requiredCredits} credits, but wallet has insufficient available balance.`
           );
@@ -312,21 +288,25 @@ async function executeProjectVideo(
       }
     }
 
+    failureContext.stage='source_recheck';
     // Do not promote output if the project pointer or source version moved
     // during extraction/provider work. No replacement provider call is made.
     const latestProject=await db.collection('projects').findOne({id:projectId,user_id:userId});
-    if(latestProject?.source_url!==sourceUrl || (snapshot.receipt && !sourceObjectReceiptMatches(snapshot.receipt,sourceUrl,await headObject('source',sourceUrl))))throw new AppError('Source changed during transcription. Review before requesting another transcription.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+    if(latestProject?.processing_run_token!==runToken||latestProject?.source_url!==sourceUrl || (snapshot.receipt && !sourceObjectReceiptMatches(snapshot.receipt,sourceUrl,await headObject('source',sourceUrl))))throw new AppError('Source changed during transcription. Review before requesting another transcription.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
 
     // Explicit local-review enrichment. Normal production processing has no
     // added model calls; a bounded review never accepts externally supplied boxes.
     if(process.env.VIREO_AUTOMATIC_GAMING_REVIEW==='1'){
+      failureContext.stage='gaming_enrichment';
       const {generateAutomaticGamingReviewEvidence}=await import('./automaticGamingEvidenceReviewService.js');
+      await assertCurrent();
       const enrichment=await generateAutomaticGamingReviewEvidence(videoPath,path.join(os.tmpdir(),'vireo-gaming-evidence-'+crypto.randomUUID()),config.openrouterApiKey||'');
       if(enrichment.evidence.sourceSha256!==snapshot.receipt?.sha256)throw new AppError('Gaming evidence source changed',409,'SOURCE_CHANGED');
       if(!sourceObjectReceiptMatches(snapshot.receipt,sourceUrl,await headObject('source',sourceUrl)))throw new AppError('Source changed during gaming enrichment',409,'SOURCE_CHANGED');
-      const evidenceSaved=await db.collection('projects').updateOne({id:projectId,user_id:userId,source_url:sourceUrl},{$set:{automatic_gaming_evidence:enrichment.evidence}});
+      const evidenceSaved=await db.collection('projects').updateOne(processingOwnershipFilter(ownership),{$set:{automatic_gaming_evidence:enrichment.evidence}});
       if(evidenceSaved.matchedCount!==1)throw new AppError('Project source changed during gaming enrichment',409,'SOURCE_CHANGED');
     }
+    failureContext.stage='transcript_validation';
     // 6. Store transcript in MongoDB (upsert to avoid duplicates)
     const transcriptPayload: any = {
       project_id: projectId,
@@ -363,23 +343,22 @@ async function executeProjectVideo(
       wordCount: transcription.words?.length || 0,
     });
 
-    let { data: savedTranscript, error: saveError } = await dataRepository
-      .from('transcripts')
-      .upsert(transcriptPayload, { onConflict: 'project_id' })
-      .select()
-      .single();
+    failureContext.stage='transcript_persistence';
+    validateRecord('transcripts',transcriptPayload);
+    const transcriptSession=(await getMongoClient()).startSession();let savedTranscript:any;
+    try{await transcriptSession.withTransaction(async()=>{
+      const fence=await db.collection('projects').updateOne(processingOwnershipFilter(ownership),{$inc:{processing_write_serial:1}},{session:transcriptSession});
+      if(fence.matchedCount!==1)throw new AppError('Processing attempt changed before transcript save.',409,'PROCESSING_ATTEMPT_CHANGED');
+      const now=new Date();await db.collection('transcripts').updateOne({project_id:projectId,user_id:userId},{$set:{...transcriptPayload,updated_at:new Date(transcriptPayload.updated_at)},$setOnInsert:{id:crypto.randomUUID(),created_at:now}},{upsert:true,session:transcriptSession});
+      savedTranscript=await db.collection('transcripts').findOne({project_id:projectId,user_id:userId},{session:transcriptSession});
+    })}finally{await transcriptSession.endSession()}
 
-    if (saveError) {
-      logger.error('Failed to save transcript to MongoDB', {
-        projectId,
-        error: saveError.message,
-      });
-      throw new Error(`Failed to save transcript: ${saveError.message}`);
-    }
-
+    failureContext.stage='transcript_validation';
     // Preserve flagged output for inspection, but never promote it into automatic clips.
+    failureContext.stage='transcript_validation';
     assertTranscriptUsable(transcriptPayload);
 
+    failureContext.stage='genre_analysis';
     // 7. Classify video genre locally and enrich project metadata
     const durationMin = Math.max(0.1, effectiveDuration / 60);
     const wordCount = transcription.words?.length || transcription.text.split(/\s+/).filter(Boolean).length;
@@ -402,6 +381,7 @@ async function executeProjectVideo(
       semanticGenreStatus = 'unavailable';
       const reviewDir = path.join(os.tmpdir(), 'vireo-genre-review-' + crypto.randomUUID());
       try {
+        await assertCurrent();
         const { reviewSourceGenreFree } = await import('./sourceGenreReviewService.js');
         const { applySemanticGenreReceipt } = await import('../shared/semanticGenreEvidence.js');
         const receipt = await reviewSourceGenreFree({source:videoPath,transcriptText:transcription.text,transcriptSegments:transcription.segments,out:reviewDir,apiKey:config.openrouterApiKey,model:process.env.VIREO_AUTO_GENRE_MODEL || 'nvidia/nemotron-3.5-super-vl:free'});
@@ -412,7 +392,7 @@ async function executeProjectVideo(
         genreSuggestion = applySemanticGenreReceipt(genreSuggestion,receipt,receipt.sourceSha256,effectiveDuration,transcription.text);
         semanticGenreStatus = genreSuggestion.semanticEvidence?.status === 'suggested' ? 'suggested' : 'review-required';
       } catch (error:any) {
-        if (error?.code === 'TRANSCRIPT_SOURCE_REVIEW_REQUIRED') throw error;
+        if (['PROCESSING_ATTEMPT_CHANGED','TRANSCRIPT_SOURCE_REVIEW_REQUIRED'].includes(error?.code)) throw error;
         logger.warn('Optional semantic genre review unavailable; keeping local evidence.', {code:'GENRE_REVIEW_UNAVAILABLE'});
       } finally { await fs.rm(reviewDir,{recursive:true,force:true}); }
     }
@@ -449,30 +429,10 @@ async function executeProjectVideo(
 
     if (semanticGenreReceipt) updatePayload.semantic_genre_receipt = semanticGenreReceipt;
 
-    const {persistGenreProjectUpdate}=await import('../db/repositories/genreProjectRepository.js');
-    await persistGenreProjectUpdate(userId,projectId,sourceUrl,project?.clip_preferences,updatePayload);
-
-    // 8. Settle credit reservation and legacy usage reservation atomically using measured audio duration.
-    if (processingAttemptId) {
-      const db = await getMongoDb();
-      const resRecord = await db.collection<CreditReservationRecord>('credit_reservations').findOne({ attempt_id: processingAttemptId });
-      const isReused = Boolean(resRecord?.metadata?.isReusedTranscript);
-      const actualCredits = isReused
-        ? 0
-        : CreditPricingService.calculateCoreProcessingCost(effectiveDuration).credits;
-
-      await CreditWalletService.settleReservation(
-        processingAttemptId,
-        actualCredits,
-        {
-          projectId,
-          provider: provider.name,
-          language: transcription.language,
-          segment_count: transcription.segments?.length || 0,
-          duration_seconds: effectiveDuration,
-        }
-      );
-
+    failureContext.stage='credit_settlement';
+    const actualCredits=CreditPricingService.calculateCoreProcessingCost(effectiveDuration).credits;
+    await complete(savedTranscript,updatePayload,project?.clip_preferences,actualCredits,{projectId,provider:provider.name,language:transcription.language,segment_count:transcription.segments?.length||0,duration_seconds:effectiveDuration});
+    if(processingAttemptId){
       // Shadow legacy usage settle for minute tracking audits
       try {
         await UsageService.extendReservationToMeasuredDuration(processingAttemptId, effectiveDuration).catch((err) => {
@@ -492,81 +452,52 @@ async function executeProjectVideo(
 
     logger.info(`Project ${projectId} successfully transcribed via ${provider.name}!`, { projectId, provider: provider.name });
 
-    // Genre roadmap Phase 2 (audit F1): optionally build the multimodal timeline
-    // (scene cuts, silence, faces, OCR) so clip selection receives real visual and
-    // audio signals instead of constants. Fire-and-forget: transcription success
-    // must never fail because enrichment did; analyze-clips also works
-    // transcript-only when this has not completed yet.
-    // Gaming advantage: for gaming-genre projects with the flag on, run VLM
-    // game-event detection on the local source (HUD reads + reaction spikes).
-    // Fire-and-forget — absence of events never affects clipping.
-    try {
-      const { data: prefsRow } = await dataRepository
-        .from('projects')
-        .select('clip_preferences')
-        .eq('id', projectId)
-        .eq('user_id', userId)
-        .maybeSingle();
-      const genre = prefsRow?.clip_preferences?.genre;
-      if (config.gameEventsAuto && (genre === 'gaming' || genre === 'sports')) {
-        const { GameEventService } = await import('./gameEventService.js');
-        const duration = effectiveDuration > 0 ? effectiveDuration : 60;
-        workLifecycle.run('source-game-events',()=>GameEventService.analyzeLocalVideo(projectId, userId, videoPath, 0, Math.min(duration, 600),[],sourceReaders))
-          .catch(() => undefined);
-      }
-    } catch {
-      // Optional enrichment.
-    }
-
-    if (config.multimodalAutoAnalysis) {
-      try {
-        const { VideoAnalysisWorker } = await import('./multimodal/videoAnalysisWorker.js');
-        const job = await VideoAnalysisWorker.enqueueJob(projectId, userId);
-        logger.info(`[MultimodalAuto] Enqueued timeline analysis job ${job?.id ?? '(unknown)'} for project ${projectId}`);
-        setImmediate(async () => {
-          try {
-            await VideoAnalysisWorker.processNext();
-          } catch (e: any) {
-            logger.warn(`[MultimodalAuto] Background analysis run notice for project ${projectId}: ${e.message}`);
-          }
-        });
-      } catch (mmErr: any) {
-        logger.warn(`[MultimodalAuto] Could not enqueue multimodal analysis for project ${projectId}: ${mmErr.message}`);
-      }
-    }
+    // Optional timeline/game-event enrichment is deferred here until its own
+    // job admission and publication can bind this immutable source/run identity.
 
     return {
       status: 'transcribed',
       transcript: savedTranscript as TranscriptRecord,
+      completionRunToken:runToken,completedProject,
     };
   } catch (err: unknown) {
+    if(processingAttemptId)try{const done=await readProcessingCompletion(await getMongoDb(),userId,projectId,sourceUrl,processingAttemptId);if(done){committed=true;return{status:'transcribed',transcript:done.transcript as any,completionRunToken:done.runToken,completedProject:done.project};}}catch{}
     if((err as any)?.code==='PROCESS_STOP_UNVERIFIED')cleanupSafe=false;
     const message = err instanceof Error ? err.message : String(err);
     const reviewCode=transcriptReviewCode((err as any)?.code);
+    const failure=processingFailureReceipt(failureContext,err);
     logger.error(`Video processing failed for project ${projectId}`, {
       projectId,
       userId,
       error: message,
     });
 
-    // Safely release the credit and usage quota reservation so failed jobs never consume credits/quota
-    if (processingAttemptId) {
-      await CreditWalletService.releaseReservation(processingAttemptId, message || 'Processing failed').catch(() => undefined);
-      await UsageService.releaseReservation(processingAttemptId, message || 'Processing failed').catch(() => undefined);
+    // A refund is not proof child processes stopped. Close borrowed readers
+    // before deciding whether this run is safe to release/retry.
+    cleanupSafe=cleanupSafe&&await sourceReaders.closeAndWait();
+
+    // An unadmitted duplicate must not release the rightful active run's reservation.
+    // An obsolete different attempt may release only its own reservation.
+    try { if (processingAttemptId&&!committed&&cleanupSafe) {
+      const current=await (await getMongoDb()).collection('projects').findOne({id:projectId,user_id:userId});
+      const ownsCurrent=admitted&&current?.processing_attempt_id===processingAttemptId&&current?.processing_run_token===runToken;
+      const isObsolete=current?.processing_attempt_id!==processingAttemptId;
+      if(admitted&&(ownsCurrent||isObsolete)){
+        await CreditWalletService.releaseReservation(processingAttemptId, message || 'Processing failed').catch(() => undefined);
+        await UsageService.releaseReservation(processingAttemptId, message || 'Processing failed').catch(() => undefined);
+      }
+    }
+
+    } catch {
+      // Ownership could not be verified. Fail closed on release and preserve the
+      // original processing failure, rather than masking it with a lookup error.
+      logger.warn('Failure cleanup ownership unavailable; reservation left for reconciliation',{projectId});
     }
 
     // Mark project status as 'failed' in database
     try {
-      await dataRepository
-        .from('projects')
-        .update({
-          video_status: 'failed',
-          error_message: message || 'Video processing failed.',
-          error_code: reviewCode ?? null,
-          ...(reviewCode ? {transcript_quality_status:'needs_review'} : {}),
-        })
-        .eq('id', projectId)
-        .eq('user_id', userId);
+      if(admitted&&!committed)await (await getMongoDb()).collection('projects').updateOne({id:projectId,user_id:userId,source_url:sourceUrl,processing_run_token:runToken,processing_attempt_id:processingAttemptId??null,video_status:{$in:['processing','transcribing']}},{$set:{video_status:'failed',error_message:message||'Video processing failed.',error_code:reviewCode??null,processing_failure:failure,...(reviewCode?{transcript_quality_status:'needs_review'}:{})}});
+
     } catch (updateErr) {
       logger.error('Failed to set video_status to failed', {
         projectId,
@@ -591,6 +522,7 @@ async function executeProjectVideo(
       }
     }
     if (cleanupSafe&&downloadedVideoPath) await fs.rm(downloadedVideoPath, { force: true }).catch(() => undefined);
+    if(cleanupSafe&&admitted)try{await (await getMongoDb()).collection('projects').updateOne({id:projectId,user_id:userId,processing_run_token:runToken},{$unset:{processing_run_token:''}})}catch{}
     if(cleanupSafe)activeProcessingSet.delete(projectId);
     else logger.error('Source processing guard/files quarantined until child exit is proved',{projectId,source:downloadedVideoPath});
   }

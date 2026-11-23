@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import {transcriptContentIdentity} from '../../shared/transcriptSourceBinding.js';
 import { ClientSession, MongoServerError } from 'mongodb';
 import { getMongoClient, getMongoDb, assertTransactionalTopology } from '../mongoClient.js';
 import {
@@ -14,6 +15,8 @@ import {
 } from '../../types/index.js';
 import { ConcurrencySlotRepository } from './concurrencySlotRepository.js';
 import { logger } from '../../utils/logger.js';
+
+export interface ProcessingSettlementIdentity {userId:string;projectId:string;sourceUrl:string;runToken:string;transcriptId:string}
 
 export function getCurrentBillingPeriod(): string {
   const now = new Date();
@@ -1011,7 +1014,7 @@ export class CreditRepository {
     const wallets = db.collection<CreditWalletRecord>('credit_wallets');
     const transactions = db.collection<CreditTransactionRecord>('credit_transactions');
 
-    const reservation = await reservations.findOne({ attempt_id: attemptId });
+    let reservation = await reservations.findOne({ attempt_id: attemptId });
     if (!reservation) {
       return { allowed: false, errorCode: 'RESERVATION_NOT_FOUND', errorMessage: `Reservation not found for attempt ${attemptId}` };
     }
@@ -1021,6 +1024,8 @@ export class CreditRepository {
     }
 
     return withFinancialTransaction(async (session) => {
+      reservation=await reservations.findOne({attempt_id:attemptId},{session});
+      if(!reservation||!['active','reserved'].includes(reservation.status))throw new AppError('Reservation changed before extension.',409,'INVALID_RESERVATION_STATE');
       const wallet = await this.getOrCreateWallet(reservation.user_id, reservation.workspace_id);
 
       const updateResult = await wallets.updateOne(
@@ -1051,8 +1056,8 @@ export class CreditRepository {
       }
 
       const now = new Date();
-      await reservations.updateOne(
-        { _id: reservation._id || `${reservation.user_id}:${attemptId}` },
+      const extended=await reservations.updateOne(
+        { _id: reservation._id || `${reservation.user_id}:${attemptId}`,status:{$in:['reserved','active']},amount:reservation.amount },
         {
           $inc: { amount: additionalAmount },
           $set: { updated_at: now },
@@ -1060,6 +1065,7 @@ export class CreditRepository {
         { session }
       );
 
+      if(extended.matchedCount!==1)throw new AppError('Reservation changed before extension.',409,'INVALID_RESERVATION_STATE');
       const balanceBefore = wallet.available_credits;
       const balanceAfter = balanceBefore - additionalAmount;
       const reservedBefore = wallet.reserved_credits;
@@ -1112,7 +1118,9 @@ export class CreditRepository {
     attemptId: string,
     actualAmount?: number,
     metadata?: Record<string, unknown>,
-    fencingParams?: { workerId?: string; expectedFencingToken?: number; slotId?: string; slotToken?: string }
+    fencingParams?: { workerId?: string; expectedFencingToken?: number; slotId?: string; slotToken?: string },
+    commitCompletion?: (session:ClientSession,replay?:boolean)=>Promise<void>,
+    completionIdentity?:ProcessingSettlementIdentity
   ): Promise<{
     idempotent?: boolean;
     settledAmount: number;
@@ -1125,10 +1133,12 @@ export class CreditRepository {
     const transactions = db.collection<CreditTransactionRecord>('credit_transactions');
     const idempotency = db.collection<IdempotencyKeyRecord>('idempotency_keys');
 
-    const reservation = await reservations.findOne({ attempt_id: attemptId });
+    let reservation = await reservations.findOne({ attempt_id: attemptId });
     if (!reservation) {
       throw new AppError(`Reservation not found for attempt ${attemptId}`, 404, 'RESERVATION_NOT_FOUND');
     }
+
+    if(commitCompletion&&(!completionIdentity||reservation.user_id!==completionIdentity.userId||reservation.operation_id!=='core_video_processing'||reservation.metadata?.projectId!==completionIdentity.projectId||reservation.metadata?.sourceUrl!==completionIdentity.sourceUrl))throw new AppError('Processing reservation identity does not match completion.',409,'PROCESSING_RESERVATION_MISMATCH');
 
     const canonicalIdempKey = buildCanonicalIdempotencyKey(reservation.user_id, reservation.operation_id, attemptId);
 
@@ -1138,7 +1148,7 @@ export class CreditRepository {
       throw new AppError(`Idempotency record missing for reservation attempt ${attemptId}. Settlement aborted for financial consistency.`, 409, 'IDEMPOTENCY_RECORD_MISSING');
     }
 
-    if (reservation.status === 'settled') {
+    if (reservation.status === 'settled' && !commitCompletion) {
       if (preCheckIdemp.status !== 'committed') {
         throw new AppError(`Reservation is settled but idempotency record status is '${preCheckIdemp.status}'. Reconciliation required.`, 409, 'STATE_MISMATCH_RECONCILIATION_REQUIRED');
       }
@@ -1155,7 +1165,7 @@ export class CreditRepository {
       throw new AppError(`Cannot settle reservation ${attemptId} because it was already released or refunded.`, 409, 'RESERVATION_ALREADY_RELEASED');
     }
 
-    if (preCheckIdemp.status === 'committed') {
+    if (preCheckIdemp.status === 'committed' && reservation.status !== 'settled') {
       throw new AppError(`Idempotency record is committed but reservation status is '${reservation.status}'. Reconciliation required.`, 409, 'STATE_MISMATCH_RECONCILIATION_REQUIRED');
     }
 
@@ -1167,7 +1177,7 @@ export class CreditRepository {
       throw new AppError(`Reservation ${attemptId} is flagged for reconciliation. Settlement rejected.`, 409, 'RECONCILIATION_IN_PROGRESS');
     }
 
-    if (preCheckIdemp.status !== 'in_progress') {
+    if (preCheckIdemp.status !== 'in_progress' && !(commitCompletion && reservation.status === 'settled' && preCheckIdemp.status === 'committed')) {
       throw new AppError(`Invalid idempotency record status '${preCheckIdemp.status}' for settlement.`, 409, 'INVALID_IDEMPOTENCY_STATE');
     }
 
@@ -1183,13 +1193,36 @@ export class CreditRepository {
       throw new AppError(`Settled amount must be a non-negative safe integer: ${rawSettled}`, 400, 'INVALID_SETTLEMENT_AMOUNT');
     }
 
-    const settledAmount = Math.min(reservation.amount, rawSettled);
-    const unusedCredits = reservation.amount - settledAmount;
+    let settledAmount = Math.min(reservation.amount, rawSettled);
+    let unusedCredits = reservation.amount - settledAmount;
 
     const canonicalKey = reservation._id || `${reservation.user_id}:${attemptId}`;
 
     return withFinancialTransaction(async (session) => {
       const now = new Date();
+      const latest=await reservations.findOne({_id:canonicalKey},{session});
+      if(!latest)throw new AppError('Reservation missing during settlement.',409,'RESERVATION_NOT_FOUND');
+      reservation=latest;
+      settledAmount=Math.min(reservation.amount,actualAmount===undefined?reservation.amount:rawSettled);
+      unusedCredits=reservation.amount-settledAmount;
+      // Caller-owned project publication is part of this same transaction.
+      // Any owner mismatch or settlement failure rolls both writes back.
+      if(commitCompletion){
+        const current=await reservations.findOne({_id:canonicalKey},{session});
+        const admission=(current as any)?.processing_admission;
+        if(!admission||['userId','projectId','sourceUrl','runToken'].some(key=>admission[key]!== (completionIdentity as any)[key]))throw new AppError('Reservation admission does not match completion.',409,'PROCESSING_RESERVATION_MISMATCH');
+        const recorded=(current as any)?.processing_completion;
+        const same=recorded&&Object.keys(completionIdentity!).every(key=>recorded[key]===(completionIdentity as any)[key]);
+        if(recorded&&!same)throw new AppError('This reservation already belongs to another completion.',409,'PROCESSING_RESERVATION_MISMATCH');
+        if(!recorded&&current?.status==='settled'&&!(current.amount===0&&current.settled_amount===0))throw new AppError('A settled reservation cannot authorize new processing completion.',409,'PROCESSING_RESERVATION_MISMATCH');
+        await commitCompletion(session,Boolean(recorded));
+        if(!recorded){
+          const completedProject=await db.collection('projects').findOne({id:completionIdentity!.projectId,user_id:completionIdentity!.userId},{session});
+          const completedTranscript=await db.collection('transcripts').findOne({id:completionIdentity!.transcriptId,project_id:completionIdentity!.projectId,user_id:completionIdentity!.userId},{session});
+          if(!completedProject||!completedTranscript)throw new AppError('Completion snapshot unavailable.',409,'PROCESSING_COMPLETION_REVIEW_REQUIRED');
+          await reservations.updateOne({_id:canonicalKey},{$set:{processing_completion:completionIdentity,processing_completion_receipt:{project:completedProject,transcript:completedTranscript,transcriptContentSha256:transcriptContentIdentity(completedTranscript as any),sourceReceipt:completedTranscript.source_binding?.source_receipt??null}} as any},{session});
+        }
+      }
 
       // 1. Strict intra-transaction idempotency validation under session lock
       const idempRecord = await idempotency.findOne({ _id: canonicalIdempKey, user_id: reservation.user_id }, { session });
@@ -1273,7 +1306,7 @@ export class CreditRepository {
 
       // 6 & 7. Mutate wallet balances & consumption metrics
       const wallet = await this.getOrCreateWallet(reservation.user_id, reservation.workspace_id);
-      await wallets.updateOne(
+      const walletDebit=await wallets.updateOne(
         { id: wallet.id, reserved_credits: { $gte: reservation.amount } },
         {
           $inc: {
@@ -1289,6 +1322,8 @@ export class CreditRepository {
         },
         { session }
       );
+
+      if(walletDebit.matchedCount!==1)throw new AppError('Reserved wallet balance changed before settlement. No completion or ledger entry committed.',409,'WALLET_RESERVED_BALANCE_MISMATCH');
 
       const balanceBefore = wallet.available_credits;
       const balanceAfter = balanceBefore + unusedCredits;
@@ -1368,7 +1403,8 @@ export class CreditRepository {
   public static async releaseReservation(
     attemptId: string,
     reason: string,
-    fencingParams?: { recoveryWorkerId?: string; recoveryToken?: number; slotId?: string; slotToken?: string }
+    fencingParams?: { recoveryWorkerId?: string; recoveryToken?: number; slotId?: string; slotToken?: string },
+    beforeRelease?:(session:ClientSession)=>Promise<void>
   ): Promise<{
     idempotent?: boolean;
     releasedAmount: number;
@@ -1381,7 +1417,7 @@ export class CreditRepository {
     const transactions = db.collection<CreditTransactionRecord>('credit_transactions');
     const idempotency = db.collection<IdempotencyKeyRecord>('idempotency_keys');
 
-    const reservation = await reservations.findOne({ attempt_id: attemptId });
+    let reservation = await reservations.findOne({ attempt_id: attemptId });
     if (!reservation) {
       throw new AppError(`Reservation not found for attempt ${attemptId}`, 404, 'RESERVATION_NOT_FOUND');
     }
@@ -1431,6 +1467,11 @@ export class CreditRepository {
 
     return withFinancialTransaction(async (session) => {
       const now = new Date();
+      const latest=await reservations.findOne({_id:canonicalKey},{session});
+      if(!latest)throw new AppError('Reservation unavailable during refund.',409,'RESERVATION_NOT_FOUND');
+      reservation=latest;
+      if(fencingParams?.recoveryWorkerId&&(reservation as any).processing_admission)throw new AppError('Admitted worker needs stopped-worker reconciliation.',409,'PROCESSING_STOP_REVIEW_REQUIRED');
+      if(beforeRelease)await beforeRelease(session);
 
       // 1. Strict intra-transaction idempotency validation under session lock
       const idempRecord = await idempotency.findOne({ _id: canonicalIdempKey, user_id: reservation.user_id }, { session });
@@ -1515,7 +1556,7 @@ export class CreditRepository {
       const wallet = await this.getOrCreateWallet(reservation.user_id, reservation.workspace_id);
 
       // Refund reserved credits back to available balance
-      await wallets.updateOne(
+      const refund=await wallets.updateOne(
         { id: wallet.id, reserved_credits: { $gte: reservation.amount } },
         {
           $inc: {
@@ -1530,6 +1571,7 @@ export class CreditRepository {
         { session }
       );
 
+      if(refund.matchedCount!==1)throw new AppError('Reserved wallet balance changed before refund.',409,'WALLET_RESERVED_BALANCE_MISMATCH');
       const balanceBefore = wallet.available_credits;
       const balanceAfter = balanceBefore + reservation.amount;
       const reservedBefore = wallet.reserved_credits;
@@ -1628,6 +1670,12 @@ export class CreditRepository {
 
     for (const item of expiredList) {
       try {
+        if((item as any).processing_admission){
+          // This producer has no transport cancellation lease. Age is not proof
+          // it stopped. A stopped-worker reconciliation must own this release.
+          logger.warn('Admitted processing reservation requires stopped-worker reconciliation',{attemptId:item.attempt_id});
+          continue;
+        }
         // If hard deadline reached, must refund unconditionally
         const isPastHardDeadline = item.hard_deadline_at && item.hard_deadline_at <= now;
         if (isPastHardDeadline) {
@@ -1661,7 +1709,7 @@ export class CreditRepository {
         if (isJobActive) {
           logger.info(`[CreditRepository] Reservation ${item.attempt_id} expired but associated job is still active; extending expiration by 30 minutes.`);
           await reservations.updateOne(
-            { _id: item._id || `${item.user_id}:${item.attempt_id}` },
+            { _id: item._id || `${item.user_id}:${item.attempt_id}`,processing_admission:{$exists:false},status:item.status,updated_at:item.updated_at },
             { $set: { expires_at: new Date(now.getTime() + 30 * 60 * 1000), updated_at: now } }
           );
           continue;
@@ -1670,6 +1718,7 @@ export class CreditRepository {
         // Claim recovery status atomically
         const claimResult = await reservations.updateOne(
           {
+            processing_admission:{$exists:false},
             _id: item._id || `${item.user_id}:${item.attempt_id}`,
             status: { $in: ['active', 'reserved'] },
           },

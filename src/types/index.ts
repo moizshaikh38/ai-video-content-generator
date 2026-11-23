@@ -61,6 +61,8 @@ export interface ContentOutput {
 
 export interface Project {
   error_code?: string | null;
+  processing_run_token?:string|null;
+  processing_failure?:{version?:number;stage?:string;code?:string;attemptId?:string}|null;
   transcript_quality_status?: 'unverified' | 'needs_review' | null;
   retention_policy?: import('../../server/src/shared/projectRetention').ProjectRetentionPolicy | null;
   id: string;

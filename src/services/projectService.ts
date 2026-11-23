@@ -61,6 +61,8 @@ class ProjectService {
       video_url: row.source_url || null, notes: row.notes || '',
       clip_preferences: row.clip_preferences,
       error_code: row.error_code ?? null,
+      processing_failure:row.processing_failure??null,
+      processing_run_token:typeof row.processing_run_token==='string'?row.processing_run_token:null,
       duration_seconds: row.duration_seconds ?? null,
       metadata: row.metadata ?? null,
       retention_policy: row.retention_policy ?? null,

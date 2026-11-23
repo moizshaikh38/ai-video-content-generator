@@ -1,0 +1,7 @@
+const STAGES:Record<string,string>={source_validation:'Checking the source',transcript_reuse:'Checking the saved transcript',source_download:'Reading the source video',audio_extraction:'Extracting audio',transcription_routing:'Selecting transcription settings',transcription:'Transcribing audio',transcript_validation:'Checking transcript quality',transcript_persistence:'Saving the transcript',genre_analysis:'Analysing content type',credit_settlement:'Finalising processing credits',credit_extension:'Checking processing credits',source_recheck:'Rechecking the source video',gaming_enrichment:'Analysing gaming content'};
+export function ProcessingFailureDetails({receipt}:{receipt?:{version?:number;stage?:string;code?:string;attemptId?:string}|null}){
+ if(receipt?.version!==1||!receipt.stage||!STAGES[receipt.stage])return null;
+ const code=typeof receipt.code==='string'&&/^[A-Z][A-Z0-9_]{2,95}$/.test(receipt.code)?receipt.code:undefined;
+ const attempt=typeof receipt.attemptId==='string'&&/^[a-f0-9-]{36}$/i.test(receipt.attemptId)?receipt.attemptId:undefined;
+ return <div className="mx-auto mt-3 max-w-md rounded-xl border border-rose-500/20 bg-black/15 px-4 py-3 text-left text-xs text-zinc-300" data-testid="processing-failure-details"><p>Failed at: <span className="font-medium text-white">{STAGES[receipt.stage]}</span></p>{code&&<p className="mt-1 break-all font-mono text-zinc-400">{code}</p>}{attempt&&<p className="mt-1 break-all font-mono text-zinc-500">Attempt: {attempt}</p>}</div>;
+}

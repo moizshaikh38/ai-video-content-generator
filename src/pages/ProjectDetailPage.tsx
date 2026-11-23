@@ -1,3 +1,4 @@
+import {ProcessingFailureDetails} from '../components/ProcessingFailureDetails';
 import { projectTranscriptReviewRequired } from '../lib/clippingRecovery';
 import React, { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
@@ -314,7 +315,7 @@ export const ProjectDetailPage: React.FC = () => {
   }, [id, project?.video_status, project?.status]);
 
   const handleRetryProcessing = async () => {
-    if (!id || activeProjectId.current !== id || projectTranscriptReviewRequired(project, reviewOnly)) return;
+    if (!id || activeProjectId.current !== id || project?.processing_run_token || projectTranscriptReviewRequired(project, reviewOnly)) return;
     setIsRetrying(true);
     setActionError(null);
     setQuotaError(null);
@@ -486,9 +487,11 @@ export const ProjectDetailPage: React.FC = () => {
             <p className="text-sm text-zinc-300 max-w-md mx-auto mt-1">
               {actionError || project.error_message || (transcriptNeedsReview ? 'Automatic captions are blocked by the transcript quality check. Check the source audio and language. Opening or copying this text does not approve it for export.' : 'The video processing or transcription failed. Please verify your video audio or try again.')}
             </p>
+            <ProcessingFailureDetails receipt={project.processing_failure} />
+            {project.processing_run_token&&<p className="mx-auto mt-3 max-w-md text-sm text-amber-200" role="status">Processing may still own running work. Retry and credit release are paused until its stop is verified. Reloading this page does not restart it.</p>}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            {!transcriptNeedsReview && <Button
+            {!transcriptNeedsReview && !project.processing_run_token && <Button
               variant="primary"
               disabled={isRetrying}
               onClick={handleRetryProcessing}

@@ -1,3 +1,4 @@
+import {AppError} from '../types/index.js';
 import {transcriptReviewCode} from '../shared/transcriptReviewErrors.js';
 import {insertProjectWithinQuota, projectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
 import {workLifecycle} from '../services/queue/workLifecycle.js';
@@ -19,7 +20,7 @@ import { UploadLifecycleService } from '../services/uploadLifecycleService.js';
 import { ProjectPosterService } from '../services/projectPosterService.js';
 import { deleteProjectRecords } from '../db/repositories/deletionRepository.js';
 import { admitProjectDeletion, DELETION_MARKER_FIELD } from '../services/deletionAdmissionService.js';
-import { claimProjectProcessing } from '../db/repositories/projectRepository.js';
+import { claimProjectProcessing,releaseUnadmittedProcessing } from '../db/repositories/projectRepository.js';
 import { UrlIngestionService } from '../services/urlIngestionService.js';
 import { registerPublicId } from '../middleware/publicIdMiddleware.js';
 import { GenreIntelligenceService } from '../services/genreIntelligenceService.js';
@@ -818,19 +819,6 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
     return;
   }
 
-  const selectedProvider = (config.transcriptionProvider || 'groq').toLowerCase().trim();
-  const isProviderConfigured =
-    selectedProvider === 'openrouter' ? Boolean(config.openrouterApiKey) : Boolean(config.groqApiKey);
-
-  if (!isProviderConfigured) {
-    const keyName = selectedProvider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'GROQ_API_KEY';
-    res.status(503).json({
-      status: 'error',
-      code: 'TRANSCRIPTION_PROVIDER_NOT_CONFIGURED',
-      message: `Transcription provider "${selectedProvider}" is not configured. Please set ${keyName} in server environment.`,
-    });
-    return;
-  }
 
   try {
     // 1. Fetch project and verify ownership
@@ -857,14 +845,36 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
+    const resumeAttempt=req.headers['x-processing-attempt-id'] as string;
+    if(resumeAttempt&&isValidUUID(resumeAttempt)&&project.source_url){const {readProcessingCompletion}=await import('../services/transcription/processingCompletion.js');const done=await readProcessingCompletion(await getMongoDb(),userId,projectId,project.source_url,resumeAttempt);if(done){res.status(200).json({status:'ok',message:'Processing attempt completed.',projectId,processingAttemptId:resumeAttempt,video_status:'transcribed',completionIsCurrent:done.completionIsCurrent,credits_charged:done.settledAmount});return;}}
+
+    // Explicit reconciliation never starts work or spends another reservation.
+    // No-token claims can be fenced safely; admitted worker stop is not inferred.
+    if(req.body?.recover_only===true){
+      if(!resumeAttempt||!isValidUUID(resumeAttempt)||project.processing_attempt_id!==resumeAttempt){res.status(409).json({status:'error',code:'PROCESSING_ATTEMPT_CHANGED',message:'Recovery requires the current processing attempt.'});return;}
+      try{const reconciled=await releaseUnadmittedProcessing(userId,projectId,project.source_url,resumeAttempt);res.status(200).json({status:'ok',message:'Unstarted reservation reconciled. No new processing started.',projectId,processingAttemptId:resumeAttempt,projectChanged:reconciled.changed,video_status:reconciled.project?.video_status??null});}catch{res.status(409).json({status:'error',code:'PROCESSING_STOP_REVIEW_REQUIRED',message:'This attempt may own active work. Stop and reconcile its worker before recovery; no new processing was started.'});}return;
+    }
+
+  const selectedProvider = (config.transcriptionProvider || 'groq').toLowerCase().trim();
+  const isProviderConfigured =
+    selectedProvider === 'openrouter' ? Boolean(config.openrouterApiKey) : Boolean(config.groqApiKey);
+
+  if (!isProviderConfigured) {
+    const keyName = selectedProvider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'GROQ_API_KEY';
+    res.status(503).json({
+      status: 'error',
+      code: 'TRANSCRIPTION_PROVIDER_NOT_CONFIGURED',
+      message: `Transcription provider "${selectedProvider}" is not configured. Please set ${keyName} in server environment.`,
+    });
+    return;
+  }
+
+
     // 2. State machine & concurrency checks (H6, H9)
     const currentStatus = project.video_status;
-    const updatedAt = new Date(project.updated_at || project.created_at).getTime();
-    const staleThresholdMs = config.processingStaleMinutes * 60 * 1000;
-    const isStale = Date.now() - updatedAt > staleThresholdMs;
 
     if (currentStatus === 'processing' || currentStatus === 'transcribing') {
-      if (!isStale) {
+      {
         res.status(409).json({
           status: 'error',
           code: 'PROCESSING_ACTIVE',
@@ -874,7 +884,6 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
         });
         return;
       }
-      logger.warn(`Project ${projectId} was stuck in '${currentStatus}' for > ${config.processingStaleMinutes}m. Allowing recovery run.`);
     } else if (!PROCESSABLE_STATUSES.includes(currentStatus as any) && currentStatus !== 'transcribed' && currentStatus !== 'completed') {
       res.status(400).json({
         status: 'error',
@@ -943,6 +952,9 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
         if (sourceTranscript && (sourceTranscript.segments?.length || sourceTranscript.transcript_text)) {
           await assertTranscriptReusable(sourceTranscript,project.source_url);
           // Clone transcript to this project so subsequent queries find it
+          const session=(await (await import('../db/mongoClient.js')).getMongoClient()).startSession();try{await session.withTransaction(async()=>{
+          const target=await db.collection('projects').updateOne({id:projectId,user_id:userId,source_url:project.source_url,processing_run_token:null,video_status:{$nin:['processing','transcribing']}},{$inc:{processing_write_serial:1}},{session});
+          if(target.matchedCount!==1)throw new AppError('Project changed before transcript reuse.',409,'PROCESSING_ATTEMPT_CHANGED');
           await db.collection('transcripts').updateOne(
             { project_id: projectId, user_id: userId },
             {
@@ -965,8 +977,9 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
                 updated_at: new Date(),
               },
             },
-            { upsert: true }
+            { upsert: true,session }
           );
+          })}finally{await session.endSession()}
           existingTranscript = sourceTranscript;
         }
       }
@@ -992,6 +1005,7 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
       ttlMinutes: 60,
       metadata: {
         projectId,
+        sourceUrl:project.source_url,
         sourceDurationSeconds: project.duration_seconds || null,
         isReusedTranscript,
       },
@@ -1039,14 +1053,14 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
     let claimed: boolean;
     try {
       claimed = await claimProjectProcessing(userId, projectId, currentStatus,
-        new Date(project.updated_at || project.created_at));
+        new Date(project.updated_at || project.created_at),{attemptId,sourceUrl:project.source_url,previousAttemptId:(project as any).processing_attempt_id??null,previousRunToken:(project as any).processing_run_token??null});
     } catch (error) {
-      await CreditWalletService.releaseReservation(attemptId, 'Project processing claim failed');
+      await releaseUnadmittedProcessing(userId,projectId,project.source_url,attemptId).catch(()=>undefined);
       await UsageService.releaseReservation(attemptId, 'Project processing claim failed').catch(() => undefined);
       throw error;
     }
     if (!claimed) {
-      await CreditWalletService.releaseReservation(attemptId, 'Another processing run started first');
+      await releaseUnadmittedProcessing(userId,projectId,project.source_url,attemptId).catch(()=>undefined);
       await UsageService.releaseReservation(attemptId, 'Another processing run started first').catch(() => undefined);
       res.status(409).json({ status: 'error', code: 'PROCESSING_ACTIVE', message: 'Video processing has already started.' });
       return;
@@ -1063,7 +1077,8 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
         }
       })
       .catch(async(err) => {
-        await Promise.all([CreditWalletService.releaseReservation(attemptId, 'Processing could not start').catch(() => undefined),UsageService.releaseReservation(attemptId, 'Processing could not start').catch(() => undefined)]);
+        // The processing service owns release after admission. An outer duplicate
+        // rejection is not permission to release the current worker's reservation.
         logger.error(`Background pipeline unexpected error for project ${projectId} (attempt: ${attemptId})`, {
           projectId,
           error: err instanceof Error ? err.message : String(err),

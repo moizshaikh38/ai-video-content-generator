@@ -198,14 +198,16 @@ export class CreditWalletService {
   public static async settleReservation(
     attemptId: string,
     actualCredits?: number,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
+    commitCompletion?: (session:import('mongodb').ClientSession,replay?:boolean)=>Promise<void>,
+    completionIdentity?:import('../db/repositories/creditRepository.js').ProcessingSettlementIdentity
   ): Promise<{
     idempotent?: boolean;
     settledAmount: number;
     reservation: CreditReservationRecord;
     wallet: CreditWalletRecord;
   }> {
-    return CreditRepository.settleReservation(attemptId, actualCredits, metadata);
+    return CreditRepository.settleReservation(attemptId, actualCredits, metadata,undefined,commitCompletion,completionIdentity);
   }
 
   /**

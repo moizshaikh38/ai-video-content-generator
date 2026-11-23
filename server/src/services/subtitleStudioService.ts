@@ -17,7 +17,7 @@ import { ClipRenderService } from './clipRenderService.js';
 import { processProjectVideo } from './videoProcessingService.js';
 import { signObjectGet, uploadFile } from './objectStorageService.js';
 import { logger } from '../utils/logger.js';
-import { getMongoDb } from '../db/mongoClient.js';
+import { getMongoDb,getMongoClient } from '../db/mongoClient.js';
 import { CreditWalletService } from './creditWalletService.js';
 import { CreditPricingService } from './billing/creditPricingService.js';
 import { EntitlementService } from './entitlementService.js';
@@ -145,31 +145,7 @@ export class SubtitleStudioService {
       .eq('user_id', userId)
       .maybeSingle();
 
-    // If project is transcribed but subtitle_cues is empty, initialize them from transcript
-    if (
-      project.video_status === 'transcribed' &&
-      transcript &&
-      (!project.subtitle_cues || project.subtitle_cues.length === 0)
-    ) {
-      try {
-        const duration = Number(project.duration_seconds || transcript.duration_seconds || 86400);
-        const { cues } = CaptionService.extractClipCues(transcript, 0, duration, 0, 0, {
-          maxWordsPerCue: 5,
-          maxCharsPerLine: 36,
-          uppercase: false,
-        });
-        if (cues.length > 0) {
-          await dataRepository
-            .from('projects')
-            .update({ subtitle_cues: cues, updated_at: new Date().toISOString() })
-            .eq('id', projectId)
-            .eq('user_id', userId);
-          project.subtitle_cues = cues;
-        }
-      } catch (err: any) {
-        logger.warn(`Failed to auto-initialize cues from transcript: ${err.message}`);
-      }
-    }
+    // Cue initialization is a processing completion mutation, never a GET side effect.
 
     return {
       project: watermarkRerenderRequired ? ({ ...project, watermark_rerender_required: true } as any) : (project as SubtitleProjectRecord),
@@ -218,6 +194,9 @@ export class SubtitleStudioService {
         if (sourceTranscript && (sourceTranscript.segments?.length || sourceTranscript.transcript_text)) {
           await assertTranscriptReusable(sourceTranscript,sourceUrl || "");
           // Clone to current project for fast subsequent access
+          const session=(await getMongoClient()).startSession();try{await session.withTransaction(async()=>{
+          const target=await db.collection('projects').updateOne({id:projectId,user_id:userId,source_url:sourceUrl,processing_run_token:null,video_status:{$nin:['processing','transcribing']}},{$inc:{processing_write_serial:1}},{session});
+          if(target.matchedCount!==1)throw new AppError('Project changed before transcript reuse.',409,'PROCESSING_ATTEMPT_CHANGED');
           await db.collection('transcripts').updateOne(
             { project_id: projectId, user_id: userId },
             {
@@ -242,8 +221,9 @@ export class SubtitleStudioService {
                 updated_at: new Date(),
               },
             },
-            { upsert: true }
+            { upsert: true,session }
           );
+          })}finally{await session.endSession()}
           return sourceTranscript;
         }
       }
@@ -266,12 +246,15 @@ export class SubtitleStudioService {
     creditsCharged: number;
     isReusedTranscript: boolean;
     attemptId: string;
+    completionIsCurrent?:boolean;
   }> {
     const { project } = await this.getProject(projectId, userId);
 
     if (!project.source_url) {
       throw new AppError('Project does not have an uploaded source video yet.', 400, 'SOURCE_VIDEO_MISSING');
     }
+
+    if(processingAttemptId){const {readProcessingCompletion}=await import('./transcription/processingCompletion.js');const done=await readProcessingCompletion(await getMongoDb(),userId,projectId,project.source_url,processingAttemptId);if(done)return{project:done.project as unknown as SubtitleProjectRecord,cues:done.project.subtitle_cues||[],creditsCharged:done.settledAmount,isReusedTranscript:done.settledAmount===0,attemptId:processingAttemptId,completionIsCurrent:done.completionIsCurrent};}
 
     // Validate duration against plan entitlement if known
     const entitlements = await EntitlementService.resolveUserEntitlements(userId, userEmail);
@@ -289,77 +272,17 @@ export class SubtitleStudioService {
 
     const attemptId = processingAttemptId || crypto.randomUUID();
 
+
+
+    // Never reclaim on updated_at age: long provider work may not write metadata.
+    if(['processing','transcribing'].includes(project.video_status)||(project as any).processing_run_token)throw new AppError('Transcription is already in progress. Recovery requires the old worker to be stopped and reconciled.',409,'PROCESSING_ACTIVE');
+
     // Check for existing reusable transcript (0 credits if present)
     const reusableTranscript = await this.findReusableTranscript(userId, projectId, project.source_url);
 
-    if (reusableTranscript) {
-      logger.info(`Reusing existing transcript for Subtitle Studio project ${projectId}`, { userId, projectId });
-      const duration = Number(reusableTranscript.duration_seconds || project.duration_seconds || 86400);
-
-      const { cues: initialCues } = CaptionService.extractClipCues(reusableTranscript, 0, duration, 0, 0, {
-        maxWordsPerCue: 5,
-        maxCharsPerLine: 36,
-        uppercase: false,
-      });
-
-      const now = new Date().toISOString();
-      const updatePayload: Record<string, any> = {
-        subtitle_cues: initialCues,
-        video_status: 'transcribed',
-        duration_seconds: duration,
-        updated_at: now,
-      };
-
-      if (!project.subtitle_style) {
-        updatePayload.subtitle_style = {
-          preset: 'hormozi',
-          fontFamily: 'Montserrat',
-          fontSize: 54,
-          fontWeight: 'bold',
-          textColor: '#FFFFFF',
-          highlightColor: '#FACC15',
-          boxEnabled: false,
-          position: 'bottom',
-          alignment: 'center',
-        };
-      }
-
-      await dataRepository
-        .from('projects')
-        .update(updatePayload)
-        .eq('id', projectId)
-        .eq('user_id', userId);
-
-      // If attemptId was supplied, settle reservation with 0 credits
-      await CreditWalletService.settleReservation(attemptId, 0, {
-        projectId,
-        isReusedTranscript: true,
-        workflow: 'subtitle_studio',
-        duration_seconds: duration,
-      }).catch(() => undefined);
-
-      const { project: updatedProject } = await this.getProject(projectId, userId);
-      return {
-        project: updatedProject,
-        cues: initialCues,
-        creditsCharged: 0,
-        isReusedTranscript: true,
-        attemptId,
-      };
-    }
-
-    // Concurrency check: If already transcribing and not stale
-    if (project.video_status === 'transcribing') {
-      const updatedAt = new Date(project.updated_at || project.created_at).getTime();
-      const isStale = Date.now() - updatedAt > 10 * 60 * 1000;
-      if (!isStale) {
-        throw new AppError('Transcription is already in progress.', 409, 'PROCESSING_ACTIVE');
-      }
-    }
-
     // Calculate provisional cost (1 credit per 15s, rounded up, min 1 credit floor)
     const durationForEstimate = Number(project.duration_seconds) > 0 ? Number(project.duration_seconds) : 60;
-    const creditEstimate = CreditPricingService.calculateCoreProcessingCost(durationForEstimate);
+    const creditEstimate = reusableTranscript?{credits:0}:CreditPricingService.calculateCoreProcessingCost(durationForEstimate);
     const creditsToReserve = creditEstimate.credits;
 
     // Atomically reserve credits
@@ -372,8 +295,9 @@ export class SubtitleStudioService {
       ttlMinutes: 60,
       metadata: {
         projectId,
+        sourceUrl:project.source_url,
         sourceDurationSeconds: project.duration_seconds || null,
-        isReusedTranscript: false,
+        isReusedTranscript: Boolean(reusableTranscript),
         workflow: 'subtitle_studio',
       },
     });
@@ -386,70 +310,38 @@ export class SubtitleStudioService {
       );
     }
 
+    // reserveCredits may return another caller's existing attempt. Do not claim
+    // or release that reservation, even if this request read an idle snapshot.
+    if(creditReservation.idempotent)throw new AppError('Processing attempt already accepted.',409,'PROCESSING_ACTIVE');
+
+    const {claimProjectProcessing,releaseUnadmittedProcessing}=await import('../db/repositories/projectRepository.js');
+    let claimed;try{claimed=await claimProjectProcessing(userId,projectId,project.video_status,new Date(project.updated_at||project.created_at),{attemptId,sourceUrl:project.source_url,previousAttemptId:(project as any).processing_attempt_id??null,previousRunToken:(project as any).processing_run_token??null});}catch(error){await releaseUnadmittedProcessing(userId,projectId,project.source_url,attemptId).catch(()=>undefined);throw error}
+    if(!claimed){await releaseUnadmittedProcessing(userId,projectId,project.source_url,attemptId).catch(()=>undefined);throw new AppError('Video processing has already started or source changed.',409,'PROCESSING_ACTIVE');}
+
     logger.info(`Starting transcription for subtitle project ${projectId}`, { userId, projectId, attemptId, creditsToReserve });
 
     let result;
     try {
       result = await processProjectVideo(projectId, userId, project.source_url, attemptId);
     } catch (procErr: any) {
-      // Safely ensure reservation release if processing failed
-      await CreditWalletService.releaseReservation(attemptId, procErr.message || 'Transcription failed').catch(() => undefined);
+      // The processing service owns admitted failure release. A rejection before
+      // admission may be a duplicate of the rightful worker and cannot release it.
       throw procErr;
     }
 
     if (result.status !== 'transcribed' || !result.transcript) {
-      await CreditWalletService.releaseReservation(attemptId, 'Transcription failed to generate output').catch(() => undefined);
+      // Processing service owns failure release after admission; do not release a rightful duplicate run here.
       const reviewCode=transcriptReviewCode(result.reviewCode);
       throw new AppError(result.error || 'Transcription failed to generate output.', reviewCode?409:500, reviewCode||'TRANSCRIPTION_FAILED');
     }
 
-    const transcript = result.transcript;
-    const duration = Number(project.duration_seconds || transcript.duration_seconds || 86400);
-
-    const { cues: initialCues } = CaptionService.extractClipCues(transcript, 0, duration, 0, 0, {
-      maxWordsPerCue: 5,
-      maxCharsPerLine: 36,
-      uppercase: false,
-    });
-
-    const now = new Date().toISOString();
-    const updatePayload: Record<string, any> = {
-      subtitle_cues: initialCues,
-      video_status: 'transcribed',
-      duration_seconds: duration,
-      updated_at: now,
-    };
-
-    if (!project.subtitle_style) {
-      updatePayload.subtitle_style = {
-        preset: 'hormozi',
-        fontFamily: 'Montserrat',
-        fontSize: 54,
-        fontWeight: 'bold',
-        textColor: '#FFFFFF',
-        highlightColor: '#FACC15',
-        boxEnabled: false,
-        position: 'bottom',
-        alignment: 'center',
-      };
-    }
-
-    await dataRepository
-      .from('projects')
-      .update(updatePayload)
-      .eq('id', projectId)
-      .eq('user_id', userId);
-
-    const actualSettledCredits = CreditPricingService.calculateCoreProcessingCost(duration).credits;
-
-    const { project: updatedProject } = await this.getProject(projectId, userId);
-    return {
-      project: updatedProject,
-      cues: initialCues,
-      creditsCharged: actualSettledCredits,
-      isReusedTranscript: false,
-      attemptId,
-    };
+    // Cues/status were published with settlement while the run token was owned.
+    // This caller is read-only after producer finally clears its token.
+    const db=await getMongoDb();
+    const updatedProject=await db.collection('projects').findOne({id:projectId,user_id:userId,source_url:project.source_url,processing_attempt_id:attemptId,processing_completed_run_token:result.completionRunToken,processing_completed_transcript_id:result.transcript.id,video_status:'transcribed'});
+    const completed=updatedProject??result.completedProject;
+    if(!completed)throw new AppError('Processing completed but its receipt is unavailable. Reload before retrying.',409,'PROCESSING_COMPLETION_REVIEW_REQUIRED');
+    return{completionIsCurrent:Boolean(updatedProject),project:completed as unknown as SubtitleProjectRecord,cues:completed.subtitle_cues||[],creditsCharged:reusableTranscript?0:CreditPricingService.calculateCoreProcessingCost(Number(result.transcript.duration_seconds)).credits,isReusedTranscript:Boolean(reusableTranscript),attemptId};
   }
 
   /**
@@ -464,7 +356,9 @@ export class SubtitleStudioService {
       throw new AppError('Cues must be an array.', 400, 'INVALID_CUES');
     }
 
-    await this.getProject(projectId, userId);
+    const {project,transcript}=await this.getProject(projectId,userId);
+    if(!transcript)throw new AppError('Transcript unavailable for cue binding.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+    await assertTranscriptReusable(transcript,project.source_url||'');
 
     const sanitized: TimedCaptionCue[] = cues
       .map((cue, index) => {
@@ -496,14 +390,15 @@ export class SubtitleStudioService {
       })
       .sort((a, b) => a.start - b.start);
 
-    await dataRepository
-      .from('projects')
-      .update({
-        subtitle_cues: sanitized,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', projectId)
-      .eq('user_id', userId);
+    const {transcriptContentIdentity}=await import('../shared/transcriptSourceBinding.js');
+    const binding={kind:'manual',sourceUrl:project.source_url,sourceSha256:transcript.source_binding.source_receipt.sha256,transcriptContentSha256:transcriptContentIdentity(transcript)};
+    const db=await getMongoDb(),session=(await getMongoClient()).startSession();
+    try{await session.withTransaction(async()=>{
+      const saved=await db.collection('transcripts').findOne({id:transcript.id,project_id:projectId,user_id:userId},{session});
+      if(!saved||transcriptContentIdentity(saved as any)!==binding.transcriptContentSha256)throw new AppError('Transcript changed while saving cues.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+      const changed=await db.collection('projects').updateOne({id:projectId,user_id:userId,source_url:project.source_url,processing_run_token:null,video_status:'transcribed',processing_completed_transcript_id:(project as any).processing_completed_transcript_id??null},{$set:{subtitle_cues:sanitized,subtitle_cues_binding:binding,updated_at:new Date()}},{session});
+      if(changed.matchedCount!==1)throw new AppError('Project changed while saving cues.',409,'PROCESSING_ATTEMPT_CHANGED');
+    })}finally{await session.endSession()}
 
     return sanitized;
   }
