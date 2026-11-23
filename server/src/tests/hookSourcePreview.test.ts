@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {planHookSourcePreview as plan,fitHookSourcePreviewText as fit} from '../services/hookLab/hookSourcePreview.js';
+const clip=()=>({start_seconds:10,end_seconds:24,trim_start_offset:3,trim_end_offset:3});
+const candidate=()=>({delivery_mode:'TEXT_OVERLAY',text:"It's 20%: real source",text_overlay_plan:{text:'STALE GENERATED',start_time:0,end_time:3,position_y:.7,font_family:'Inter',font_size:48,color:'#FFFFFF'}}as any);
+test('effective source clock and manually edited words retained',()=>{const p=plan(clip(),candidate());assert.equal(p.sourceStart,13);assert.equal(p.sourceEnd,21);assert.equal(p.duration,3);assert.equal(p.text,"It's 20%: real source");});
+test('later planned overlay remains in source excerpt',()=>{const c=candidate();c.text_overlay_plan.start_time=2;c.text_overlay_plan.end_time=6;assert.equal(plan(clip(),c).duration,6);});
+test('short complete clip can preview',()=>assert.equal(plan({start_seconds:0,end_seconds:2}, {...candidate(),text_overlay_plan:{...candidate().text_overlay_plan,end_time:2}}).duration,2));
+for(const mode of ['SPOKEN_REWRITE','COMBINED','EDITORIAL_TRIM','REORDER_EXISTING','CAPTION_OPEN'])test('never convert '+mode+' to text',()=>assert.throws(()=>plan(clip(),{...candidate(),delivery_mode:mode})));
+for(const field of ['start_seconds','end_seconds','trim_start_offset','trim_end_offset'])test('invalid clip '+field,()=>assert.throws(()=>plan({...clip(),[field]:'3'},candidate())));
+for(const [field,value]of [['start_time',-1],['start_time','0'],['end_time',11],['end_time',0],['position_y',1],['position_y','0.7'],['font_size',0],['font_size',Infinity],['font_family','unknown'],['color','white']])test('invalid overlay '+field+' '+value,()=>{const c=candidate();c.text_overlay_plan[field]=value;assert.throws(()=>plan(clip(),c));});
+for(const field of ['trim_plan','reorder_plan'])test('mixed '+field+' refuses',()=>assert.throws(()=>plan(clip(),{...candidate(),[field]:{}})));
+test('text preserved including punctuation, no substitution',()=>assert.equal(fit("It's 20%: real source",'Inter',16,600),"It's 20%: real source"));
+test('wrap preserves all words',()=>{const s='One two three four five six seven eight';assert.equal(fit(s,'Inter',20,200).replace(/\n/g,' '),s);});
+test('never truncate wide token',()=>assert.throws(()=>fit('W'.repeat(100),'Inter',20,100)));
+test('never truncate excessive lines',()=>assert.throws(()=>fit('hello '.repeat(20),'Inter',20,100)));
+test('source trim cannot invert window',()=>assert.throws(()=>plan({...clip(),trim_start_offset:15},candidate())));

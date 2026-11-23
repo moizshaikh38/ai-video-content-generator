@@ -1,10 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
+import {renderHookSourcePreview} from './hookSourcePreview.js';
 import crypto from 'node:crypto';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import ffmpegStatic from 'ffmpeg-static';
 import { dataRepository, ownerContext } from '../../db/repositories/dataRepository.js';
 import { ProEditorService } from '../proEditorService.js';
 import { logger } from '../../utils/logger.js';
@@ -19,8 +14,6 @@ import {
   SafeEditorFont,
 } from '../../types/index.js';
 
-const execFileAsync = promisify(execFile);
-const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
 
 export interface ApplyHookResult {
   updatedProject: EditorProject;
@@ -230,103 +223,8 @@ export class HookEditorIntegration {
     });
   }
 
-  /**
-   * Generates a lightweight, non-destructive 3-second preview MP4 of the hook.
-   * Verified via ffprobe to guarantee valid video playback.
-   */
-  public static async renderHookPreview(
-    userId: string,
-    clipId: string,
-    candidate: HookCandidate
-  ): Promise<{ previewUrl: string; duration: number; verified: boolean }> {
-    return await ownerContext.run(userId, async () => {
-      const { data: clip, error: clipErr } = await dataRepository
-        .from('clips')
-        .select('*')
-        .eq('id', clipId)
-        .eq('user_id', userId)
-        .single();
-
-      if (clipErr || !clip) {
-        throw new AppError('Clip not found.', 404, 'CLIP_NOT_FOUND');
-      }
-
-      const clipRec = clip as ClipRecord;
-      const mediaPath = (clipRec as any).storage_path || (clipRec as any).video_url;
-
-      // Look for a local video file
-      let localVideo = mediaPath;
-      if (!localVideo || !fs.existsSync(localVideo)) {
-        // Fall back to sample demo video in workspace if path is not local
-        const demoPath = path.resolve(process.cwd(), 'public/demo/vireo-launch-preview-1080p.mp4');
-        const rootDemoPath = path.resolve(process.cwd(), '../public/demo/vireo-launch-preview-1080p.mp4');
-        if (fs.existsSync(demoPath)) localVideo = demoPath;
-        else if (fs.existsSync(rootDemoPath)) localVideo = rootDemoPath;
-      }
-
-      if (!localVideo || !fs.existsSync(localVideo)) {
-        // Return structured preview info if no local video file exists in environment
-        return {
-          previewUrl: `/api/clips/${clipId}/preview-hook-${candidate.id}.mp4`,
-          duration: 3.0,
-          verified: true,
-        };
-      }
-
-      const tmpDir = path.join(os.tmpdir(), `vireo-hook-preview-${crypto.randomUUID()}`);
-      fs.mkdirSync(tmpDir, { recursive: true });
-      const outputPath = path.join(tmpDir, 'hook_preview.mp4');
-
-      const trimStart = clipRec.start_seconds || 0;
-      const previewDuration = 3.0;
-
-      // Build safe drawtext filter if text overlay hook
-      let filterComplex = 'null';
-      const cleanText = candidate.text.replace(/[:\\']/g, ' ').slice(0, 80);
-      if (candidate.delivery_mode === 'TEXT_OVERLAY' || candidate.text_overlay_plan) {
-        filterComplex = `drawtext=text='${cleanText}':fontcolor=white:fontsize=36:x=(w-text_w)/2:y=h*0.7:box=1:boxcolor=black@0.6:boxborderw=8`;
-      }
-
-      const ffmpegArgs = [
-        '-y',
-        '-ss', String(trimStart),
-        '-t', String(previewDuration),
-        '-i', localVideo,
-        '-vf', filterComplex,
-        '-c:v', 'libx264',
-        '-preset', 'ultrafast',
-        '-c:a', 'aac',
-        '-b:a', '128k',
-        outputPath,
-      ];
-
-      try {
-        await execFileAsync(ffmpegBin, ffmpegArgs, { timeout: 25000 });
-
-        // Probe generated output
-        const probeArgs = [
-          '-v', 'error',
-          '-show_entries', 'format=duration',
-          '-of', 'json',
-          outputPath,
-        ];
-        const { stdout } = await execFileAsync('ffprobe', probeArgs, { timeout: 10000 });
-        const probeData = JSON.parse(stdout);
-        const duration = parseFloat(probeData.format?.duration || '3.0');
-
-        return {
-          previewUrl: outputPath,
-          duration,
-          verified: true,
-        };
-      } catch (err: any) {
-        logger.warn('Lightweight FFmpeg hook preview render skipped or failed', { err: err.message });
-        return {
-          previewUrl: `/previews/hook-${candidate.id}.mp4`,
-          duration: 3.0,
-          verified: false,
-        };
-      }
-    });
+  /** Read-only source excerpt. Saved Studio changes are not part of this preview. */
+  public static async renderHookPreview(userId:string,clipId:string,candidate:HookCandidate):Promise<{previewUrl:string;duration:number;verified:boolean}>{
+    return renderHookSourcePreview(userId,clipId,candidate);
   }
 }

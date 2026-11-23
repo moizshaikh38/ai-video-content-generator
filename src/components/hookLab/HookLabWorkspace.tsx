@@ -658,12 +658,12 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
         )}
       </div>
 
-      {/* Preview Modal */}
+      {/* Read-only source excerpt, not a saved Studio render. */}
       {previewData && (
         <div className="fixed inset-0 z-50 glass-scrim flex items-center justify-center p-4">
           <div className="glass-float rounded-3xl max-w-md w-full p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-white">Opening Hook Preview</h3>
+              <h3 className="text-sm font-semibold text-white">Hook Source Preview</h3>
               <button
                 onClick={() => setPreviewData(null)}
                 className="text-neutral-400 hover:text-white text-sm"
@@ -672,12 +672,13 @@ export const HookLabWorkspace: React.FC<HookLabWorkspaceProps> = ({
               </button>
             </div>
 
+            <p className="text-xs text-zinc-400">Source excerpt with this text overlay. Saved Studio edits, captions and layout are not shown.</p>
             <div className="rounded-lg overflow-hidden bg-black aspect-[9/16] max-h-96 flex items-center justify-center border border-neutral-800">
               <video
                 src={previewData.url}
                 controls
                 autoPlay
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             </div>
 
