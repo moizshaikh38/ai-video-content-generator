@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';import{framingStrategyState as state}from'../../../src/lib/framingStrategyState.js';
+const smart=(id='v'):any=>({id,type:'VIDEO',source_start:0,source_end:8,timeline_start:0,timeline_end:8,crop_mode:'smart',crop_config:{layout_mode_source:'auto'}});
+const p=(items:any[],locked=false):any=>({tracks:[{type:'VIDEO',locked,items}]});
+test('all-video uniform and mixed states, not first item',()=>{assert.equal(state(p([smart(),smart('b')])).mode,'smart');assert.equal(state(p([smart(),{...smart('b'),crop:{mode:'fill'}}])).mode,'mixed');assert.equal(state(p([{...smart(),crop:{mode:'fill'}}])).mode,'manual')});
+test('locked counts reflect items in locked tracks, keep mixed state',()=>{assert.deepEqual(state(p([smart(),{...smart('b'),locked:true,crop:{mode:'fill'}}])),{mode:'mixed',editable:1,locked:1});assert.equal(state(p([smart(),smart('b')],true)).editable,0);assert.equal(state(p([smart(),smart('b')],true)).locked,2)});
+test('scene overrides affect mode, center requires no overriding manual channels',()=>{assert.equal(state(p([{...smart(),scene_layout_overrides:[{start:2,end:4,layout:'fit',patch:{crop:{mode:'blur'}}}]}])).mode,'mixed');const center={...smart(),crop_mode:'center',crop:{mode:'fill',focusX:.5,focusY:.5,scale:1},crop_config:{layout_mode_source:'user'}};assert.equal(state(p([center])).mode,'center');assert.equal(state(p([{...center,panels:{layout:'gameplay'}}])).mode,'manual')});
+test('non-video and empty projects do not appear smart',()=>{assert.deepEqual(state({tracks:[]}),{mode:'none',editable:0,locked:0});assert.equal(state({tracks:[{type:'CAPTION',items:[smart()]}]}).editable,0)});
+
+test('malformed scene layout never appears verified Smart',()=>{assert.equal(state(p([{...smart(),scene_layout_overrides:[{start:2,end:4,layout:'invalid',patch:{}}]}])).mode,'review')});
