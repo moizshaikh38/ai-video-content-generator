@@ -41,14 +41,18 @@ export function buildClipEditorUpdatePayload(
   // (Split/Screencast/Blur/Solo buttons), but the render path reads
   // clip.crop_config.layout_mode - carry it (and its split/screencast
   // geometry) or the export silently ignores the studio's layout pick.
-  // An explicit panel pick is a user choice, so stamp provenance 'user'.
+  // Recorded item ownership survives ordinary saves. Only legacy layout-only
+  // items default to user; serializing a fresh Auto item is not a manual pick.
   const itemLayoutMode = (primaryVideo as any)?.layout_mode;
+  const itemLayoutSource = ['auto', 'genre_recommendation', 'user', 'legacy_unknown'].includes(itemCropConfig?.layout_mode_source)
+    ? itemCropConfig.layout_mode_source : undefined;
   const cropConfig = {
     mode: itemCropMode || (clip as any).crop_config?.mode || 'center',
     focusX: itemCropConfig?.focusX ?? (clip as any).crop_config?.focusX ?? 0.5,
     focusY: itemCropConfig?.focusY ?? (clip as any).crop_config?.focusY ?? 0.5,
     ...(itemCropConfig?.smart ? { smart: itemCropConfig.smart } : {}),
-    ...(itemLayoutMode ? { layout_mode: itemLayoutMode, layout_mode_source: 'user' } : {}),
+    ...(itemLayoutMode ? { layout_mode: itemLayoutMode, layout_mode_source: itemLayoutSource ?? 'user' }
+      : itemLayoutSource === 'auto' ? { layout_mode_source: 'auto' } : {}),
     ...(itemCropConfig?.split ? { split: itemCropConfig.split } : {}),
     ...(itemCropConfig?.screencast ? { screencast: itemCropConfig.screencast } : {}),
   };

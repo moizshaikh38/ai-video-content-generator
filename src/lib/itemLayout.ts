@@ -114,7 +114,9 @@ export function applyFramingStrategy(project: EditorProject, mode: 'center'|'fit
     if(mode==='smart'){
       delete next.crop;delete next.tracker;delete next.layout_mode;
       const cfg={...next.crop_config};
-      delete cfg.layout_mode;delete cfg.layout_mode_source;delete cfg.split;delete cfg.screencast;
+      delete cfg.layout_mode;delete cfg.split;delete cfg.screencast;
+      // Deliberate Smart action releases the clip mirror's former manual layout.
+      cfg.layout_mode_source='auto';
       next.crop_config=cfg;
     }else{
       next.layout_mode='track';

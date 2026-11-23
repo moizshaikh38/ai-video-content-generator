@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const source=fs.readFileSync('src/lib/editorSavePayload.ts','utf8');
+const ast=ts.createSourceFile('payload.ts',source,ts.ScriptTarget.Latest,true);let body;
+function visit(n){if(ts.isFunctionDeclaration(n)&&n.name?.text==='buildClipEditorUpdatePayload')body=n.getText(ast).replace('export function','function');ts.forEachChild(n,visit);}visit(ast);assert(body);
+const js=ts.transpileModule(`export function make(){const getEditorCaptionPresetId=()=>null;const editorCaptionToPresetOverrides=()=>({});${body};return buildClipEditorUpdatePayload;}`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+const build=(await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'))).make();
+const project=(item)=>({canvas:{aspect_ratio:'9:16'},tracks:[{type:'VIDEO',items:[{id:'v',source_start:0,source_end:8,...item}]}]});
+const clip={id:'c',start_seconds:0,end_seconds:8,crop_config:{mode:'smart',layout_mode_source:'auto'}};
+test('fresh producer Auto layout retains ownership on unrelated save',()=>{const p=build(project({layout_mode:'track',crop_config:{mode:'smart',layout_mode:'track',layout_mode_source:'auto'}}),clip);assert.equal(p.cropConfig.layout_mode_source,'auto');assert.equal(p.cropConfig.layout_mode,'track')});
+test('explicit Auto without layout serializes release marker',()=>{const p=build(project({crop_config:{layout_mode_source:'auto'}}),clip);assert.equal(p.cropConfig.layout_mode_source,'auto');assert.equal(p.cropConfig.layout_mode,undefined)});
+test('manual and recorded nonAuto ownership never upgraded',()=>{for(const source of ['user','legacy_unknown','genre_recommendation'])assert.equal(build(project({layout_mode:'split',crop_config:{layout_mode_source:source}}),clip).cropConfig.layout_mode_source,source)});
+test('legacy layout-only and invalid provenance remain manual',()=>{for(const source of [undefined,'invalid'])assert.equal(build(project({layout_mode:'split',crop_config:{layout_mode_source:source}}),clip).cropConfig.layout_mode_source,'user')});
