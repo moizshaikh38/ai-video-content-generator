@@ -12,7 +12,7 @@ interface Props {
   sourceTime: number;
   /** Timeline item at the playhead. */
   activeItemId: string | null;
-  onSetTracker: (target: { itemId: string | null }, tracker: EditorSubjectTracker | null) => void;
+  onSetTracker: (target: { itemId: string | null; isCurrent?:()=>boolean }, tracker: EditorSubjectTracker | null) => void;
 }
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -43,6 +43,16 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
   const active = videoItems.find((i) => i.id === activeItemId) || videoItems[0];
   const anyOn = videoItems.some((i) => i.tracker?.enabled);
   const activeOn = Boolean(active?.tracker?.enabled);
+  // A tracking reply belongs to the exact source and destination state selected
+  // at Apply, never a later clip, edited scene, canceled dialog or newer request.
+  const requestIdentity=JSON.stringify([clipId,project.id,videoSrc,project.canvas,videoItems,activeItemId,scope,box,pickSourceTime]);
+  const requestState=useRef({identity:requestIdentity,version:0});
+  if(requestState.current.identity!==requestIdentity)requestState.current={identity:requestIdentity,version:requestState.current.version+1};
+  const requestSequence=useRef(0);
+  useEffect(()=>{setBusy(false)},[requestIdentity]);
+  useEffect(()=>()=>{requestState.current.version++;requestSequence.current++},[]);
+  const closeDialog=()=>{requestSequence.current++;setDialog(false);setBusy(false)};
+
 
   const norm = (e: React.PointerEvent) => {
     const r = stageRef.current!.getBoundingClientRect();
@@ -51,23 +61,28 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
 
   const apply = async () => {
     if (!box || !active) return;
+    const identityVersion=requestState.current.version,sequence=++requestSequence.current;
+    const currentRequest=()=>requestState.current.version===identityVersion&&requestSequence.current===sequence;
     setBusy(true); setError(null); setNote(null);
     try {
       const startSec = scope === 'scene' ? active.source_start : Math.min(...videoItems.map((i) => i.source_start));
       const endSec = scope === 'scene' ? active.source_end : Math.max(...videoItems.map((i) => i.source_end));
       const res = await clipRenderService.trackClipSubject(clipId, { refTime: pickSourceTime, box, startSec, endSec });
+      if(!currentRequest())return;
       const tracker: EditorSubjectTracker = {
         enabled: true, scope, ref_time: pickSourceTime, box,
         source_width: res.source_width, source_height: res.source_height,
         tracked_from:res.tracked_from,tracked_to:res.tracked_to,lost_before:res.lost_before,lost_after:res.lost_after,
         keyframes: res.keyframes.map((k) => ({ time: k.time, centerX: k.centerX, centerY: k.centerY })),
       };
-      onSetTracker({ itemId: scope === 'scene' ? active.id : null }, tracker);
+      onSetTracker({ itemId: scope === 'scene' ? active.id : null,isCurrent:currentRequest }, tracker);
       setNote(`Tracked ${res.tracked_from.toFixed(1)}s to ${res.tracked_to.toFixed(1)}s${res.lost_after != null || res.lost_before != null ? ' (stopped at a scene change or when the subject was lost)' : ''}.`);
-      setDialog(false); setBox(null);
+      // Keep the submitted box until the next explicit selection. Clearing it
+      // here would invalidate this response before a queued updater can apply.
+      setDialog(false);
     } catch (e: any) {
-      setError(e?.message || 'Tracking failed.');
-    } finally { setBusy(false); }
+      if(currentRequest())setError(e?.message || 'Tracking failed.');
+    } finally { if(currentRequest())setBusy(false); }
   };
 
   return (
@@ -89,11 +104,11 @@ export const TrackerControl: React.FC<Props> = ({ clipId, project, videoSrc, sou
         </div>
       )}
       {dialog && createPortal(
-        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center overflow-y-auto p-4" onClick={() => setDialog(false)}>
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center overflow-y-auto p-4" onClick={closeDialog}>
           <div role="dialog" aria-modal="true" aria-label="Select object / subject" className="bg-vc-surface1 border border-white/10 rounded-2xl p-5 w-[560px] max-w-[92vw] max-h-[94dvh] overflow-y-auto text-neutral-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-sm font-semibold text-white">Select object / subject</h3>
-              <button onClick={() => setDialog(false)} aria-label="Close"><X className="w-4 h-4" /></button>
+              <button onClick={closeDialog} aria-label="Close"><X className="w-4 h-4" /></button>
             </div>
             <p className="text-[11px] text-neutral-400 mb-3">Drag a box around the subject you want to follow. Tracking stops at a scene change or if the subject is lost.</p>
             <div ref={stageRef} className="relative bg-black rounded-lg overflow-hidden select-none touch-none" style={{ cursor: 'crosshair' }}

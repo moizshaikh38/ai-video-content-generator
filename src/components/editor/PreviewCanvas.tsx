@@ -92,7 +92,7 @@ interface PreviewCanvasProps {
   onPickWholeClipLayout?:(layout:SceneLayout)=>void;
   onUpdateCanvas?: (patch: Partial<EditorProject['canvas']>) => void;
   clipId?: string;
-  onSetTracker?: (target: { itemId: string | null }, tracker: import('../../types').EditorSubjectTracker | null) => void;
+  onSetTracker?: (target: { itemId: string | null; isCurrent?:()=>boolean }, tracker: import('../../types').EditorSubjectTracker | null) => void;
   /**
    * Smart-reframe track for the base video (clip-level, mode 'smart'). When
    * present and the item carries no manual crop override, the base video pans

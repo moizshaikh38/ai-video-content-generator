@@ -2165,8 +2165,8 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               }));
             }}
             clipId={clip.id}
-            onSetTracker={({ itemId }, tracker) => {
-              onUpdateProject((prev) => ({
+            onSetTracker={({ itemId,isCurrent }, tracker) => {
+              onUpdateProject((prev) => isCurrent&&!isCurrent()?prev:({
                 ...prev,
                 tracks: prev.tracks.map((t) => t.type !== 'VIDEO'||t.locked ? t : {
                   ...t,
