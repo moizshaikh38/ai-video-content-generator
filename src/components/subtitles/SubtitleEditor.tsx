@@ -255,6 +255,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
 
+  const cueRevision=useRef(0),styleRevision=useRef(0);
   // Subtitle cues state
   const [cues, setCues] = useState<TimedCaptionCue[]>(project.subtitle_cues || []);
   const [searchFilter, setSearchFilter] = useState('');
@@ -274,6 +275,8 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   // Burn export state
   const [showBurnModal, setShowBurnModal] = useState(false);
   const [burnStatus, setBurnStatus] = useState<BurnStatusResponse | null>(null);
+  const burnPollRef=useRef<ReturnType<typeof setInterval>|null>(null);
+  useEffect(()=>()=>{if(burnPollRef.current)clearInterval(burnPollRef.current);burnPollRef.current=null;},[project.id]);
   const [isStartingBurn, setIsStartingBurn] = useState(false);
   const [entitlements, setEntitlements] = useState<PlanEntitlements | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -341,6 +344,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
       copy[index] = { ...copy[index], text };
       return copy;
     });
+    cueRevision.current++;
     setHasUnsavedCues(true);
   };
 
@@ -361,6 +365,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
       copy[index] = cue;
       return copy;
     });
+    cueRevision.current++;
     setHasUnsavedCues(true);
   };
 
@@ -378,11 +383,13 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
       const updated = [...prev, newCue].sort((a, b) => a.start - b.start);
       return updated;
     });
+    cueRevision.current++;
     setHasUnsavedCues(true);
   };
 
   const handleDeleteCue = (index: number) => {
     setCues((prev) => prev.filter((_, i) => i !== index));
+    cueRevision.current++;
     setHasUnsavedCues(true);
   };
 
@@ -407,6 +414,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
       copy.splice(index, 1, cue1, cue2);
       return copy;
     });
+    cueRevision.current++;
     setHasUnsavedCues(true);
   };
 
@@ -427,23 +435,28 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
       copy.splice(index, 2, merged);
       return copy;
     });
+    cueRevision.current++;
     setHasUnsavedCues(true);
   };
 
   // Save Cues to backend
-  const handleSaveCues = async () => {
-    if (isSavingCues) return;
+  const handleSaveCues = async (requireSuccess=false) => {
+    if (isSavingCues){if(requireSuccess)throw new Error('Subtitle cues are still saving. Wait before exporting.');return;}
+    const revision=cueRevision.current;
     setIsSavingCues(true);
     setExportError(null);
     try {
       const res = await SubtitleService.updateCues(project.id, cues);
+      if(revision!==cueRevision.current)throw new Error('Subtitle cues changed while saving. Save the current edits before exporting.');
       setCues(res.cues);
       setHasUnsavedCues(false);
+      setBurnStatus(null);
       if (onProjectUpdated) {
         onProjectUpdated({ ...project, subtitle_cues: res.cues });
       }
     } catch (err: any) {
       setExportError(err.message || 'Failed to save subtitle cues.');
+      if(requireSuccess)throw err;
     } finally {
       setIsSavingCues(false);
     }
@@ -452,28 +465,34 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   // Style change handler
   const handleStyleChange = (updates: Partial<SubtitleStyleConfig>) => {
     setStyle((prev) => ({ ...prev, ...updates }));
+    styleRevision.current++;
     setHasUnsavedStyle(true);
   };
 
   const handleApplyPreset = (presetConfig: SubtitleStyleConfig) => {
     setStyle(presetConfig);
+    styleRevision.current++;
     setHasUnsavedStyle(true);
   };
 
   // Save style to backend
-  const handleSaveStyle = async () => {
-    if (isSavingStyle) return;
+  const handleSaveStyle = async (requireSuccess=false) => {
+    if (isSavingStyle){if(requireSuccess)throw new Error('Subtitle style is still saving. Wait before exporting.');return;}
+    const revision=styleRevision.current;
     setIsSavingStyle(true);
     setExportError(null);
     try {
       const res = await SubtitleService.updateStyle(project.id, style);
+      if(revision!==styleRevision.current)throw new Error('Subtitle style changed while saving. Save the current edits before exporting.');
       setStyle(res.style);
       setHasUnsavedStyle(false);
+      setBurnStatus(null);
       if (onProjectUpdated) {
         onProjectUpdated({ ...project, subtitle_style: res.style });
       }
     } catch (err: any) {
       setExportError(err.message || 'Failed to save subtitle style.');
+      if(requireSuccess)throw err;
     } finally {
       setIsSavingStyle(false);
     }
@@ -501,29 +520,36 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
     setIsStartingBurn(true);
     setExportError(null);
     setShowBurnModal(true);
+    setBurnStatus(null);
     try {
+      if(isSavingCues||isSavingStyle)throw new Error('Subtitle changes are still saving. Wait before exporting.');
+      const cueVersion=cueRevision.current,styleVersion=styleRevision.current;
       // First persist unsaved cues or style if needed
-      if (hasUnsavedCues) await handleSaveCues();
-      if (hasUnsavedStyle) await handleSaveStyle();
+      if (hasUnsavedCues) await handleSaveCues(true);
+      if (hasUnsavedStyle) await handleSaveStyle(true);
 
+      if(cueVersion!==cueRevision.current||styleVersion!==styleRevision.current)throw new Error('Subtitle changes were made while saving. Save the current edits before exporting.');
       await SubtitleService.startBurn(project.id);
       pollBurnStatus();
     } catch (err: any) {
       setExportError(err.message || 'Failed to start video rendering.');
+      setBurnStatus({status:'failed',progress:0,stage:'save_or_start_failed',error:err.message || 'Video rendering did not start.'});
       setIsStartingBurn(false);
     }
   };
 
   // Poll burn status
   const pollBurnStatus = useCallback(() => {
-    let cancelled = false;
+    if(burnPollRef.current)clearInterval(burnPollRef.current);
     const interval = setInterval(async () => {
-      if (cancelled) return;
+      if (burnPollRef.current!==interval) return;
       try {
         const res = await SubtitleService.getBurnStatus(project.id);
+        if(burnPollRef.current!==interval)return;
         setBurnStatus(res.burnStatus);
-        if (res.burnStatus.status === 'ready' || res.burnStatus.status === 'failed') {
+        if (['ready','failed','idle'].includes(res.burnStatus.status)) {
           clearInterval(interval);
+          burnPollRef.current=null;
           setIsStartingBurn(false);
         }
       } catch (err) {
@@ -531,10 +557,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
       }
     }, 2000);
 
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
+    burnPollRef.current=interval;
   }, [project.id]);
 
   // Filtered cues
@@ -1272,7 +1295,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                 <Button
                   variant="brand"
                   size="sm"
-                  onClick={handleSaveStyle}
+                  onClick={()=>void handleSaveStyle()}
                   disabled={isSavingStyle}
                   className="w-full text-xs font-bold"
                 >
@@ -1327,7 +1350,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
             )}
 
             {/* Render Status & Progress */}
-            {burnStatus?.status === 'ready' ? (
+            {burnStatus?.status === 'ready' && !hasUnsavedCues && !hasUnsavedStyle ? (
               <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center space-y-3">
                 <CheckCircle2 className="size-10 mx-auto text-emerald-400" />
                 <div>
@@ -1362,18 +1385,25 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
               <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center space-y-3">
                 <AlertCircle className="size-10 mx-auto text-red-400" />
                 <div>
-                  <h4 className="text-sm font-bold text-white">Rendering Failed</h4>
+                  <h4 className="text-sm font-bold text-white">{burnStatus.stage==='save_or_start_failed'?'Export Not Started':'Rendering Failed'}</h4>
                   <p className="text-xs text-red-300/80">{burnStatus.error || 'FFmpeg process failed'}</p>
                 </div>
                 <Button
                   variant="brand"
                   size="sm"
                   onClick={handleStartBurn}
+                  disabled={burnStatus?.retryBlocked}
                   className="text-xs font-bold"
                 >
                   <RotateCw className="size-3.5 mr-1.5" />
                   Retry Export
                 </Button>
+              </div>
+            ) : burnStatus?.status==='idle' ? (
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center space-y-3">
+                <h4 className="text-sm font-bold text-white">Export Needs Rendering</h4>
+                <p className="text-xs text-amber-200">Subtitle settings changed. Render the current version before downloading.</p>
+                <Button variant="brand" size="sm" onClick={handleStartBurn} disabled={burnStatus.retryBlocked}>Render Current Version</Button>
               </div>
             ) : (
               <div className="p-6 rounded-xl bg-zinc-950/80 border border-zinc-800 text-center space-y-4">

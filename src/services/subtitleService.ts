@@ -8,6 +8,7 @@ export interface BurnStatusResponse {
   error?: string | null;
   downloadUrl?: string | null;
   is_watermarked?: boolean;
+  retryBlocked?:boolean;
 }
 
 export class SubtitleService {

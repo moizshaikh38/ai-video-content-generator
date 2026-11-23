@@ -470,7 +470,7 @@ describe('VireoClip Phase F: Server-Side Watermark Enforcement & Commercial Gate
       assert.equal((result.project as any).watermark_rerender_required, true, 'Project must flag watermark_rerender_required');
     });
 
-    // When re-exported with watermark (is_watermarked: true), download URL is provided
+    // A watermark flag alone cannot prove a legacy output matches current inputs.
     await db.collection('projects').updateOne(
       { id: subProjectId },
       { $set: { is_watermarked: true, updated_at: new Date() } }
@@ -478,7 +478,8 @@ describe('VireoClip Phase F: Server-Side Watermark Enforcement & Commercial Gate
 
     await ownerContext.run(downgradedUserId, async () => {
       const resultWatermarked = await SubtitleStudioService.getProject(subProjectId, downgradedUserId);
-      assert.ok(resultWatermarked.exportDownloadUrl !== null, 'Watermarked export download URL must be provided');
+      assert.equal(resultWatermarked.exportDownloadUrl,null,'Legacy watermark flag cannot mint a missing output freshness receipt');
+      assert.equal(resultWatermarked.project.subtitle_export_status,'idle','Legacy output requires explicit rerender');
     });
   });
 

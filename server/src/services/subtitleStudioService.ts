@@ -1,3 +1,4 @@
+import {subtitleBurnIdentity,subtitleBurnCurrent,subtitleBurnInvalidation} from '../shared/subtitleBurnIdentity.js';
 import {transcriptReviewCode} from '../shared/transcriptReviewErrors.js';
 import {insertProjectWithinQuota, projectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
 import {subtitleProjectDefaults} from '../shared/subtitleProjectDefaults.js';
@@ -7,8 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { promisify } from 'node:util';
-import { execFile } from 'node:child_process';
+import {supervisedExecFile} from './queue/supervisedExecFile.js';
 import ffmpegStatic from 'ffmpeg-static';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { CaptionService } from './captionService.js';
@@ -29,7 +29,6 @@ import {
   SubtitleProjectRecord,
 } from '../types/index.js';
 
-const execFileAsync = promisify(execFile);
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
 
 export class SubtitleStudioService {
@@ -119,14 +118,26 @@ export class SubtitleStudioService {
     }
 
     let exportDownloadUrl: string | null = null;
-    let watermarkRerenderRequired = false;
-    if (project.subtitle_export_path) {
+    let watermarkRerenderRequired = false,sourceExportVerified=true;
+    if(project.subtitle_export_path){
+      const entitlements=await EntitlementService.resolveUserEntitlements(userId);
+      watermarkRerenderRequired=Boolean(entitlements.watermarkRequired&&project.is_watermarked===false);
+    }
+    if (project.subtitle_export_path && subtitleBurnCurrent(project)) {
+      const {headObject}=await import('./objectStorageService.js');
+      const {sourceObjectReceiptMatches}=await import('../shared/sourceObjectReceipt.js');
+      try{sourceExportVerified=sourceObjectReceiptMatches((project as any).subtitle_export_source_receipt,project.source_url,await headObject('source',project.source_url));}catch{sourceExportVerified=false;}
       const entitlements = await EntitlementService.resolveUserEntitlements(userId);
       if (entitlements.watermarkRequired && project.is_watermarked === false) {
         watermarkRerenderRequired = true;
         logger.info(`[SubtitleStudio] Clean export download suppressed for downgraded user ${userId} on project ${projectId}`);
-      } else {
+      } else if(sourceExportVerified) {
+      const current=await (await getMongoDb()).collection('projects').findOne({id:projectId,user_id:userId});
+      sourceExportVerified=sourceExportVerified&&!!current&&subtitleBurnCurrent(current)&&
+        current.subtitle_export_identity===project.subtitle_export_identity&&current.subtitle_export_path===project.subtitle_export_path&&
+        current.subtitle_export_run_token===project.subtitle_export_run_token;
         try {
+          if(!sourceExportVerified)throw new Error('Subtitle export settings changed while checking source.');
           exportDownloadUrl = await signObjectGet(
             'clips',
             project.subtitle_export_path,
@@ -147,8 +158,9 @@ export class SubtitleStudioService {
 
     // Cue initialization is a processing completion mutation, never a GET side effect.
 
+    const currentProject=project.subtitle_export_status==='ready'&&(!subtitleBurnCurrent(project)||!sourceExportVerified)?{...project,subtitle_export_status:'idle',subtitle_export_progress:0,subtitle_export_stage:'settings_changed'}:project;
     return {
-      project: watermarkRerenderRequired ? ({ ...project, watermark_rerender_required: true } as any) : (project as SubtitleProjectRecord),
+      project: watermarkRerenderRequired ? ({ ...currentProject, watermark_rerender_required: true } as any) : (currentProject as SubtitleProjectRecord),
       previewUrl,
       transcript: transcript || null,
       exportDownloadUrl,
@@ -248,7 +260,7 @@ export class SubtitleStudioService {
     attemptId: string;
     completionIsCurrent?:boolean;
   }> {
-    const { project } = await this.getProject(projectId, userId);
+    const { project,transcript } = await this.getProject(projectId, userId);
 
     if (!project.source_url) {
       throw new AppError('Project does not have an uploaded source video yet.', 400, 'SOURCE_VIDEO_MISSING');
@@ -396,7 +408,7 @@ export class SubtitleStudioService {
     try{await session.withTransaction(async()=>{
       const saved=await db.collection('transcripts').findOne({id:transcript.id,project_id:projectId,user_id:userId},{session});
       if(!saved||transcriptContentIdentity(saved as any)!==binding.transcriptContentSha256)throw new AppError('Transcript changed while saving cues.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
-      const changed=await db.collection('projects').updateOne({id:projectId,user_id:userId,source_url:project.source_url,processing_run_token:null,video_status:'transcribed',processing_completed_transcript_id:(project as any).processing_completed_transcript_id??null},{$set:{subtitle_cues:sanitized,subtitle_cues_binding:binding,updated_at:new Date()}},{session});
+      const changed=await db.collection('projects').updateOne({id:projectId,user_id:userId,source_url:project.source_url,processing_run_token:null,video_status:'transcribed',processing_completed_transcript_id:(project as any).processing_completed_transcript_id??null},{$set:{subtitle_cues:sanitized,subtitle_cues_binding:binding,...subtitleBurnInvalidation(),updated_at:new Date()}},{session});
       if(changed.matchedCount!==1)throw new AppError('Project changed while saving cues.',409,'PROCESSING_ATTEMPT_CHANGED');
     })}finally{await session.endSession()}
 
@@ -473,6 +485,7 @@ export class SubtitleStudioService {
       .from('projects')
       .update({
         subtitle_style: sanitized,
+        ...subtitleBurnInvalidation(),
         updated_at: new Date().toISOString(),
       })
       .eq('id', projectId)
@@ -512,7 +525,7 @@ export class SubtitleStudioService {
     projectId: string,
     userId: string
   ): Promise<{ message: string; exportStatus: string }> {
-    const { project } = await this.getProject(projectId, userId);
+    const { project,transcript } = await this.getProject(projectId, userId);
 
     if (!project.source_url) {
       throw new AppError('Source video is missing.', 400, 'SOURCE_VIDEO_MISSING');
@@ -523,6 +536,13 @@ export class SubtitleStudioService {
       throw new AppError('No subtitle cues found to burn into video.', 400, 'NO_SUBTITLES');
     }
 
+    if (project.subtitle_export_status === 'rendering' || (project as any).subtitle_export_run_token) {
+      return { message: 'Render is already in progress.', exportStatus: 'rendering' };
+    }
+    if(!transcript)throw new AppError('A source-bound transcript is required before burning subtitles.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+    await assertTranscriptReusable(transcript,project.source_url);
+    const binding=(project as any).subtitle_cues_binding;
+    if(!binding||binding.sourceUrl!==project.source_url||binding.sourceSha256!==transcript.source_binding.source_receipt.sha256)throw new AppError('Subtitle cues must be reviewed and saved for the current source before export.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
     const currentPreset = project.subtitle_style?.preset;
     if (currentPreset) {
       const entitlements = await EntitlementService.resolveUserEntitlements(userId);
@@ -535,24 +555,16 @@ export class SubtitleStudioService {
       }
     }
 
-    if (project.subtitle_export_status === 'rendering') {
-      return { message: 'Render is already in progress.', exportStatus: 'rendering' };
-    }
 
-    await dataRepository
-      .from('projects')
-      .update({
-        subtitle_export_status: 'rendering',
-        subtitle_export_progress: 5,
-        subtitle_export_stage: 'initializing',
-        subtitle_export_error: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', projectId)
-      .eq('user_id', userId);
-
-    this.runBurnWorker(projectId, userId).catch((err) => {
-      logger.error('Background subtitle burn failed', { projectId, userId, error: err.message });
+    const runToken=crypto.randomUUID(),identity=subtitleBurnIdentity(project);
+    const admitted=await (await getMongoDb()).collection('projects').updateOne({id:projectId,user_id:userId,
+      source_url:project.source_url,subtitle_cues:project.subtitle_cues,subtitle_style:project.subtitle_style,
+      subtitle_cues_binding:(project as any).subtitle_cues_binding??{$exists:false},
+      subtitle_export_status:{$ne:'rendering'},subtitle_export_run_token:null},{$set:{subtitle_export_status:'rendering',subtitle_export_progress:5,
+      subtitle_export_stage:'initializing',subtitle_export_error:null,subtitle_export_run_token:runToken,updated_at:new Date()}});
+    if(admitted.matchedCount!==1)throw new AppError('Subtitle settings changed or rendering is already active. Reload before exporting.',409,'SUBTITLE_EXPORT_CHANGED');
+    this.runBurnWorker(projectId,userId,runToken,identity,project).catch((err)=>{
+      logger.error('Background subtitle burn failed',{projectId,userId,error:err.message});
     });
 
     return { message: 'Subtitle burn rendering started.', exportStatus: 'rendering' };
@@ -561,16 +573,17 @@ export class SubtitleStudioService {
   /**
    * Background execution worker for full-video subtitle burning via FFmpeg
    */
-  private static async runBurnWorker(projectId:string,userId:string):Promise<void>{return workLifecycle.run('subtitle-burn',()=>this.executeBurnWorker(projectId,userId));}
-  private static async executeBurnWorker(projectId: string, userId: string): Promise<void> {
+  private static async runBurnWorker(projectId:string,userId:string,runToken:string,identity:string,project:SubtitleProjectRecord):Promise<void>{
+    let entered=false;
+    try{return await workLifecycle.run('subtitle-burn',()=>{entered=true;return this.executeBurnWorker(projectId,userId,runToken,identity,project);});}
+    catch(error){if(!entered)await (await getMongoDb()).collection('projects').updateOne({id:projectId,user_id:userId,subtitle_export_run_token:runToken},{$set:{subtitle_export_run_token:null,subtitle_export_status:'failed',subtitle_export_stage:'not_started',subtitle_export_error:'Rendering did not start. Try again when the server is available.'}});throw error;}
+  }
+  private static async executeBurnWorker(projectId: string, userId: string,runToken:string,identity:string,project:SubtitleProjectRecord): Promise<void> {
     return ownerContext.run(userId, async () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `vireo-subtitles-${projectId.slice(0, 8)}-`));
-      const sourceLocalPath = path.join(tempDir, 'source.mp4');
-      const assPath = path.join(tempDir, 'subtitles.ass');
-      const outputMp4Path = path.join(tempDir, 'burned_output.mp4');
-
+      let tempDir:string|undefined,cleanupSafe=true;
       try {
-        const { project } = await this.getProject(projectId, userId);
+        tempDir=fs.mkdtempSync(path.join(os.tmpdir(),`vireo-subtitles-${projectId.slice(0,8)}-`));
+        const sourceLocalPath=path.join(tempDir,'source.mp4'),assPath=path.join(tempDir,'subtitles.ass'),outputMp4Path=path.join(tempDir,'burned_output.mp4');
         const cues = project.subtitle_cues || [];
         const style = project.subtitle_style || {};
 
@@ -583,9 +596,12 @@ export class SubtitleStudioService {
             updated_at: new Date().toISOString(),
           })
           .eq('id', projectId)
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .eq('subtitle_export_run_token',runToken);
 
-        await ClipRenderService.ensureSourceVideo(project.source_url, sourceLocalPath, { projectId });
+        const snapshot:{receipt?:import('../shared/sourceObjectReceipt.js').SourceObjectReceipt}={};
+        await ClipRenderService.ensureSourceVideo(project.source_url, sourceLocalPath, { projectId,snapshotOut:snapshot });
+        if(!snapshot.receipt||snapshot.receipt.sha256!==(project as any).subtitle_cues_binding?.sourceSha256)throw new AppError('Downloaded source no longer matches the subtitle cues.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
 
         // 2. Stage: Build ASS Subtitles Script
         await dataRepository
@@ -596,7 +612,8 @@ export class SubtitleStudioService {
             updated_at: new Date().toISOString(),
           })
           .eq('id', projectId)
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .eq('subtitle_export_run_token',runToken);
 
         const assContent = CaptionService.buildAssScript(cues, {
           style: (style.preset as any) || 'hormozi',
@@ -632,7 +649,8 @@ export class SubtitleStudioService {
             updated_at: new Date().toISOString(),
           })
           .eq('id', projectId)
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .eq('subtitle_export_run_token',runToken);
 
         const safeAss = assPath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
         const watermarkRequired = await WatermarkService.shouldWatermark(userId);
@@ -644,7 +662,7 @@ export class SubtitleStudioService {
 
         logger.info(`[SubtitleStudio] Burning subtitles with FFmpeg for project ${projectId} (watermark=${watermarkRequired})`);
 
-        await execFileAsync(
+        await supervisedExecFile(
           ffmpegBin,
           [
             '-y',
@@ -668,7 +686,7 @@ export class SubtitleStudioService {
             '+faststart',
             outputMp4Path,
           ],
-          { timeout: 600000, maxBuffer: 16 * 1024 * 1024 }
+          { timeoutMs: 600000, maxBuffer: 16 * 1024 * 1024 }
         );
 
         // 4. Stage: Validate Output
@@ -687,25 +705,20 @@ export class SubtitleStudioService {
             updated_at: new Date().toISOString(),
           })
           .eq('id', projectId)
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .eq('subtitle_export_run_token',runToken);
 
         const exportKey = `users/${userId}/projects/${projectId}/subtitles/burned_${Date.now()}.mp4`;
         await uploadFile('clips', exportKey, outputMp4Path, fileSize, 'video/mp4');
 
-        // 6. Complete
-        await dataRepository
-          .from('projects')
-          .update({
-            subtitle_export_status: 'ready',
-            subtitle_export_progress: 100,
-            subtitle_export_stage: 'completed',
-            subtitle_export_path: exportKey,
-            is_watermarked: watermarkRequired,
-            subtitle_export_error: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', projectId)
-          .eq('user_id', userId);
+        const {headObject}=await import('./objectStorageService.js');
+        const {sourceObjectReceiptMatches}=await import('../shared/sourceObjectReceipt.js');
+        if(!sourceObjectReceiptMatches(snapshot.receipt,project.source_url||'',await headObject('source',project.source_url||'')))throw new AppError('Source changed during subtitle rendering.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+        // Publication is transactional with the current input identity. Edits
+        // preserve the active lease until this worker really stops.
+        const {publishSubtitleBurn}=await import('../db/repositories/subtitleBurnRepository.js');
+        const published=await publishSubtitleBurn(await getMongoClient(),await getMongoDb(),{projectId,userId,runToken,identity,exportKey,watermarkRequired,sourceReceipt:snapshot.receipt});
+        if(!published)logger.info(`[SubtitleStudio] Obsolete subtitle burn not published for ${projectId}`);
 
         logger.info(`[SubtitleStudio] Subtitle burn successfully completed for project ${projectId}`, {
           projectId,
@@ -713,6 +726,7 @@ export class SubtitleStudioService {
           sizeBytes: fileSize,
         });
       } catch (err: any) {
+        if(err?.code==='PROCESS_STOP_UNVERIFIED'){cleanupSafe=false;await (await getMongoDb()).collection('projects').updateOne({id:projectId,user_id:userId,subtitle_export_run_token:runToken},{$set:{subtitle_export_status:'failed',subtitle_export_stage:'stop_unverified',subtitle_export_error:'Rendering stop could not be verified. Retry is blocked pending review.'}});throw err;}
         logger.error(`[SubtitleStudio] Subtitle burn failed for project ${projectId}: ${err.message}`, {
           projectId,
           error: err.message,
@@ -722,15 +736,18 @@ export class SubtitleStudioService {
           .from('projects')
           .update({
             subtitle_export_status: 'failed',
+            subtitle_export_run_token:null,
             subtitle_export_stage: 'failed',
             subtitle_export_error: err.message || 'Subtitle rendering failed.',
             updated_at: new Date().toISOString(),
           })
           .eq('id', projectId)
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .eq('subtitle_export_run_token',runToken);
       } finally {
+        if(cleanupSafe)await (await getMongoDb()).collection('projects').updateOne({id:projectId,user_id:userId,subtitle_export_run_token:runToken},{$set:{subtitle_export_run_token:null,subtitle_export_status:'failed',subtitle_export_progress:0,subtitle_export_stage:'settings_changed',subtitle_export_error:'Subtitle settings changed during rendering. Render again to export the current version.'}});
         try {
-          fs.rmSync(tempDir, { recursive: true, force: true });
+          if(cleanupSafe&&tempDir)fs.rmSync(tempDir, { recursive: true, force: true });
         } catch {}
       }
     });
@@ -744,18 +761,23 @@ export class SubtitleStudioService {
     userId: string
   ): Promise<{
     exportStatus: string;
+    status: string;
     progress: number;
     stage: string;
     error: string | null;
     downloadUrl: string | null;
     is_watermarked?: boolean;
+    retryBlocked?:boolean;
   }> {
     const { project, exportDownloadUrl } = await this.getProject(projectId, userId);
+    const status=(project as any).subtitle_export_run_token&&project.subtitle_export_status!=='rendering'?'failed':project.subtitle_export_status==='ready'&&!subtitleBurnCurrent(project)?'idle':project.subtitle_export_status || 'idle';
     return {
-      exportStatus: project.subtitle_export_status || 'idle',
+      status,
+      retryBlocked:Boolean((project as any).subtitle_export_run_token),
+      exportStatus: status,
       progress: project.subtitle_export_progress || 0,
       stage: project.subtitle_export_stage || 'idle',
-      error: project.subtitle_export_error || null,
+      error: (project as any).subtitle_export_run_token&&project.subtitle_export_status!=='rendering'?'Previous rendering is still stopping or needs review. Retry is blocked until its worker stops.':project.subtitle_export_error || null,
       downloadUrl: exportDownloadUrl,
       is_watermarked: project.is_watermarked ?? false,
     };
