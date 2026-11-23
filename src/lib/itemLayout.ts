@@ -59,7 +59,7 @@ export function applyItemLayout(
         items: t.items.map((i) => {
           if (i.locked || i.id !== itemId) return i;
           if(layout==='auto'){
-            const next:any={...i,crop_config:{...((i as any).crop_config||{}),layout_mode_source:'auto'}};
+            const next:any={...i,crop_mode:'smart',crop_config:{...((i as any).crop_config||{}),mode:'smart',layout_mode_source:'auto'}};
             delete next.crop;delete next.panels;delete next.framing_window;delete next.layout_mode;delete next.scene_layout_overrides;delete next.manual_placement;delete next.manual_source_crop;
             delete next.crop_config.layout_mode;delete next.crop_config.split;delete next.crop_config.screencast;
             // Manual object tracking and camera-motion hold are independent settings.
