@@ -1,3 +1,4 @@
+import {sourceWindowReframeWords} from '../shared/sourceWindowReframeWords.js';
 export type ReframeRuntimeCapability={available:boolean;pythonPath:string;detail?:string;base?:string;face?:{kind:string;status:string};person?:{kind:string;status:string};scope?:string};
 import{transcriptContentIdentity}from'../shared/transcriptSourceBinding.js';
 import{resolveClipReframeGenre,reframeGenreContextKey,genreTrackStale}from'../shared/effectiveClipGenre.js';
@@ -3135,6 +3136,7 @@ export class SmartReframeService {
       // 6. Gather scene cuts and speech intervals for audio-visual shot-aware reframe
       let clipSceneCuts = options.sceneCuts ? [...options.sceneCuts] : [];
       let timelineCutJoin:ReturnType<typeof sourceWindowSceneCuts>['audit']={status:'unavailable',reason:'EXPLICIT_LOCAL_CUTS_OR_NOT_REQUESTED'};
+      let wordJoin:ReturnType<typeof sourceWindowReframeWords>['audit']={status:'unavailable',reason:options.speechIntervals?'EXPLICIT_LOCAL_SPEECH_INTERVALS':'TRANSCRIPT_NOT_READ'};
       let speechIntervals = options.speechIntervals;
       let wordTimings: Array<{ start: number; end: number; word?: string }> = [];
 
@@ -3152,21 +3154,13 @@ export class SmartReframeService {
         if (!speechIntervals) {
           const { data: transcriptRec } = await dataRepository
             .from('transcripts')
-            .select('words')
+            .select('*')
             .eq('project_id', clip.project_id)
             .maybeSingle();
 
-          const words = (transcriptRec as any)?.words;
-          if (Array.isArray(words)) {
-            wordTimings = words
-              .filter((w: any) => Number(w.end) >= startSec && Number(w.start) <= startSec + durationSec)
-              .map((w: any) => ({
-                start: Math.max(0, Number((Number(w.start) - startSec).toFixed(3))),
-                end: Math.min(durationSec, Number((Number(w.end) - startSec).toFixed(3))),
-                word: typeof w.word === 'string' ? w.word : undefined,
-              }));
-            speechIntervals = wordTimings.map((w: any) => ({ start: w.start, end: w.end }));
-          }
+          const joined=sourceWindowReframeWords(transcriptRec,{sourceReceipt,sourceSha256:analyzedSourceSha256,start:startSec,end:endSec});
+          wordTimings=joined.words;wordJoin=joined.audit;
+          speechIntervals=wordTimings.map(w=>({start:w.start,end:w.end}));
         }
       } catch (ctxErr: any) {
         logger.warn(`[SmartReframe] Optional timeline/transcript enrichment skipped: ${ctxErr.message}`);
@@ -3228,8 +3222,8 @@ export class SmartReframeService {
         speechIntervals,
       });
 
-      // 8b. Word-energy diarization fusion: speaker switches only at word
-      // boundaries — never mid-word. No-op without word timings.
+      // 8b. Optional current-source word-boundary timing alignment. This is
+      // not diarization or verified voice-to-face identity. No-op without words.
       const fusedKeyframes = applyWordEnergyFusion(smoothedKeyframes, wordTimings, { sourceCutTimes: clipSceneCuts });
 
       // 9. Persist to public.reframe_tracks table
@@ -3306,6 +3300,7 @@ export class SmartReframeService {
           clip_duration: durationSec,
           scene_cuts: clipSceneCuts,
           scene_cut_timeline_join: timelineCutJoin,
+          transcript_word_join:wordJoin,
           scene_cut_evidence: cvResult.scene_cut_evidence || [],
           person_detector: cvResult.person_detector ?? null,
           face_resolution_passes: cvResult.face_resolution_passes ?? null,
