@@ -1,3 +1,4 @@
+import {SecondaryVideoPreview} from './SecondaryVideoPreview';
 import{previewWheelCrop}from'../../../server/src/shared/previewWheelCrop';
 import{InlineSourceCrop}from'./InlineSourceCrop';
 import {dragPlacement,placementSupported,placementPixels,materializeFit,sourcePreviewStyle,type ManualVideoPlacement,type ManualSourceCrop} from '../../../server/src/shared/manualVideoPlacement';
@@ -462,12 +463,14 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     };
   }, [captionItem, project.canvas.aspect_ratio]);
 
+  const primaryVideoTrack=project.tracks.find(t=>t.type==='VIDEO'&&!t.hidden);
+  const secondaryVideoItems:EditorTrackItem[]=[];
   for (const track of suppressStaleCaptionEmojis(project).tracks) {
     if (track.hidden) continue;
     for (const item of track.items) {
       if (item.hidden) continue;
       if (playhead >= item.timeline_start && (playhead < item.timeline_end || (playhead === project.canvas.duration && playhead === item.timeline_end))) {
-        if (track.type === 'VIDEO') activeVideoItems.push(resolveSceneLayoutItem(item,item.source_start+(playhead-item.timeline_start)*(item.speed?.speed||1)));
+        if (track.type === 'VIDEO') {if(track===primaryVideoTrack)activeVideoItems.push(resolveSceneLayoutItem(item,item.source_start+(playhead-item.timeline_start)*(item.speed?.speed||1)));else secondaryVideoItems.push(item);}
         else if (track.type === 'TEXT') activeTextItems.push(item);
         else if (track.type === 'IMAGE' || track.type === 'OVERLAY') activeOverlayItems.push(item);
       }
@@ -478,7 +481,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const layoutBtnRef = React.useRef<HTMLButtonElement>(null);
   const [layoutAnchor, setLayoutAnchor] = React.useState<DOMRect | null>(null);
   const [mobileFramingToolsOpen, setMobileFramingToolsOpen] = useState(false);
-  const baseVideoItem: EditorTrackItem | undefined = activeVideoItems[0] ?? project.tracks.find((t) => t.type === 'VIDEO')?.items[0];
+  const baseVideoItem: EditorTrackItem | undefined = activeVideoItems[0] ?? primaryVideoTrack?.items.find(i=>!i.hidden);
   // Resolve the current local scene, not a saved-project map. Pending manual
   // choices take priority immediately; the source-bound plan keeps its clock.
   const shotComposition: PreviewCanvasProps['shotComposition'] = bareSmartSplitReviewForItem(baseVideoItem,bareSmartSplitReview,compositionClipStart) ?? incomingShotComposition;
@@ -1729,6 +1732,8 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
             filter={cssColorFilters(baseVideoItem)}
           />
         ) : null}
+
+        {!isUsingRenderedPreview&&secondaryVideoItems.map(item=><SecondaryVideoPreview key={item.id} item={item} playhead={playhead} isPlaying={Boolean(isPlaying)} onSelect={()=>onSelectItem(item.id)}/>)}
 
         {/* WATERMARK BADGE: mirrors the export's animated VireoClip badge
             (slide-in from the right, then gentle opacity breathing) while the

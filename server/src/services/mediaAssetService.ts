@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import {headObject,signObjectGet} from './objectStorageService.js';
 import {isAllowedClientEditorSourcePath} from '../utils/editorAssetValidator.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 import {
@@ -105,6 +106,37 @@ export class MediaAssetService {
     if (error || !clip || clip.render_status !== 'ready' || typeof output !== 'string' ||
         !output.startsWith(`users/${userId}/`) || !isAllowedClientEditorSourcePath(userId, output) || output === clip.source_storage_path) return null;
     return { ...asset, storage_path: output };
+  }
+
+  /** Exact selected owned library preview, without changing saved references.
+   * A short-lived URL identifies this output, not latest-editor freshness.
+   */
+  public static async selectedVideoPreview(id:string,userId:string,expectedKey:string):Promise<{signedUrl:string;expiresInSeconds:number}> {
+    const resolve=async()=>{
+      const asset=await this.getAsset(id,userId);
+      if(!asset||asset.media_type!=='VIDEO'||!['PROJECT_SOURCE','GENERATED_CLIP'].includes(asset.source_type)||
+         asset.storage_path!==expectedKey||!expectedKey.startsWith(`users/${userId}/`)||!isAllowedClientEditorSourcePath(userId,expectedKey))
+        throw new AppError('Selected media is no longer available. Choose it again.',409,'ASSET_NOT_AVAILABLE');
+      if(asset.source_type==='PROJECT_SOURCE'){
+        const {data:project,error}=await dataRepository.from('projects').select('*').eq('id',asset.project_id).eq('user_id',userId).maybeSingle();
+        if(error||!project||project.source_storage_path!==expectedKey)throw new AppError('Selected project source changed.',409,'ASSET_NOT_AVAILABLE');
+      }
+      return asset.source_type==='GENERATED_CLIP'?'clips' as const:'source' as const;
+    };
+    const bucket=await resolve();
+    const head=await headObject(bucket,expectedKey);
+    if(!Number.isSafeInteger(head.size)||head.size<=0||head.size>16*1024*1024||!head.etag||head.etag.startsWith('W/'))throw new AppError('Selected media is outside the bounded preview scope.',409,'ASSET_NOT_AVAILABLE');
+    if(await resolve()!==bucket)throw new AppError('Selected media changed.',409,'ASSET_NOT_AVAILABLE');
+    if(bucket==='clips'){
+      const asset=await this.getAsset(id,userId);
+      if(!asset?.clip_id||asset.storage_path!==expectedKey)throw new AppError('Selected clip changed.',409,'ASSET_NOT_AVAILABLE');
+      const {ClipRenderService}=await import('./clipRenderService.js');
+      // Keep existing source, freshness-rollout and export entitlement checks.
+      const preview=await ClipRenderService.getSignedPreviewUrl(asset.clip_id,userId,undefined,expectedKey);
+      if(await resolve()!==bucket)throw new AppError('Selected clip changed.',409,'ASSET_NOT_AVAILABLE');
+      return preview;
+    }
+    return {signedUrl:await signObjectGet(bucket,expectedKey,undefined,{versionId:head.versionId}),expiresInSeconds:300};
   }
 
   /**

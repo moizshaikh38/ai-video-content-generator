@@ -77,6 +77,7 @@ import {
   searchMedia,
   listMediaAssets,
   getMediaAsset,
+  getSelectedMediaVideoPreview,
   getSimilarMediaAssets,
   importRemoteMedia,
   detectClipBrollOpportunities,
@@ -174,6 +175,7 @@ router.get('/media/capabilities', requireAuth, asyncHandler(getMediaCapabilities
 router.post('/media/search', requireAuth, asyncHandler(searchMedia));
 router.get('/media/assets', requireAuth, asyncHandler(listMediaAssets));
 router.get('/media/assets/:id', requireAuth, asyncHandler(getMediaAsset));
+router.post('/media/assets/:id/selected-video-preview', requireAuth, asyncHandler(getSelectedMediaVideoPreview));
 router.get('/media/assets/:id/similar', requireAuth, asyncHandler(getSimilarMediaAssets));
 router.post('/media/import', requireAuth, expensiveLimiter, asyncHandler(importRemoteMedia));
 

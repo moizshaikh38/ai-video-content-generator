@@ -59,6 +59,11 @@ class MediaService {
   /**
    * Retrieves an individual media asset by ID.
    */
+  async selectedVideoPreview(id:string,sourcePath:string):Promise<{signedUrl:string;expiresInSeconds:number}>{
+    const res=await backendRequest<ApiResponse<{signedUrl:string;expiresInSeconds:number}>>(`/media/assets/${id}/selected-video-preview`,{method:'POST',body:JSON.stringify({source_path:sourcePath})});
+    return res.data;
+  }
+
   async getMediaAsset(id: string): Promise<MediaAssetRecord> {
     const res = await backendRequest<ApiResponse<MediaAssetRecord>>(`/media/assets/${id}`);
     return res.data;

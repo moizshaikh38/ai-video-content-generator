@@ -343,3 +343,12 @@ export const insertDirectBroll = async (
     sendSafeControllerError(res, err, { code: 'INSERTION_FAILED', message: 'Failed to insert B-roll asset.' });
   }
 };
+
+/** POST exact selected owned VIDEO preview. Never accepts a client URL to sign. */
+export const getSelectedMediaVideoPreview=async(req:AuthenticatedRequest,res:Response):Promise<void>=>{
+ const userId=req.user?.id,id=req.params.id,key=req.body?.source_path;
+ if(!userId){res.status(401).json({status:'error',code:'AUTH_REQUIRED',message:'User not authenticated.'});return;}
+ if(!isValidUUID(id)||typeof key!=='string'||key.length>1000){res.status(400).json({status:'error',code:'INVALID_INPUT',message:'Selected media identity is required.'});return;}
+ try{res.status(200).json({status:'ok',data:await MediaAssetService.selectedVideoPreview(id,userId,key)});}
+ catch(error){sendSafeControllerError(res,error,{status:500,message:'Media preview failed.'});}
+};

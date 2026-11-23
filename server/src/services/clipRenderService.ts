@@ -2045,7 +2045,7 @@ export class ClipRenderService {
   /**
    * Generates a short-lived signed URL for previewing the rendered MP4.
    */
-  public static async getSignedPreviewUrl(clipId: string, userId: string, expected?: {renderVersion: number; editorVersion: number; jobId: string}): Promise<SignedUrlResult> {
+  public static async getSignedPreviewUrl(clipId: string, userId: string, expected?: {renderVersion: number; editorVersion: number; jobId: string}, selectedStoragePath?:string): Promise<SignedUrlResult> {
     const clip = await ClipRenderService.getClip(clipId, userId);
     await assertSelectionSourceCurrent(userId,clip.project_id,(clip as any).selection_source_receipt,clip.source_storage_path);
 
@@ -2067,6 +2067,7 @@ export class ClipRenderService {
     WatermarkService.assertExportAccess(entitlements, clip);
 
     const expiresIn = 300;
+    if(selectedStoragePath!==undefined&&clip.output_storage_path!==selectedStoragePath)throw new AppError('Selected output changed.',409,'RENDER_INPUT_CHANGED');
     const signedUrl = await signObjectGet('clips', clip.output_storage_path);
 
     return {
