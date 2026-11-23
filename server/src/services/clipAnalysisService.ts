@@ -1042,8 +1042,28 @@ export class ClipAnalysisService {
         const isShortVideo = Boolean(transcript.duration_seconds && transcript.duration_seconds < 15);
         const {min:minDurationLimit,max:maxDurationLimit} = effectiveClipDurationBounds(genreProfile.targetDuration,transcript.duration_seconds);
 
+        // Preserve an already-adjacent recorded question before elapsed-time
+        // minimum padding can enter the NEXT exchange. This uses the existing
+        // Q/A heuristic, not a new claim of semantic linkage or highlight quality.
+        // Only under-minimum proposals with usable, safe source word evidence
+        // take this path. Original raw proposal bounds still invalidate ranking.
+        let questionBeforePadding: ReturnType<typeof tryIncludeQuestion> = null;
+        if (scored.end_seconds-scored.start_seconds<minDurationLimit &&
+            (isQaCriticalGenre(genreProfile.genre)||potentialDependentOpening(candidateText))) {
+          const proposed=tryIncludeQuestion({start_seconds:scored.start_seconds,end_seconds:scored.end_seconds,candidateText},
+            precedingSeg ? {start:Number(precedingSeg.start),end:Number(precedingSeg.end),text:precedingSeg.text}:null,
+            {minDurationSec:minDurationLimit,maxDurationSec:maxDurationLimit});
+          if(proposed && proposed.start_seconds>=0 && proposed.end_seconds<=(transcript.duration_seconds||Infinity)) {
+            const scope=compareFinalSpeechScope({words:rawWords,originalStart:raw_start,originalEnd:raw_end,
+              finalStart:proposed.start_seconds,finalEnd:proposed.end_seconds});
+            const questionWords=finalSpokenText(rawWords,proposed.start_seconds,scored.start_seconds);
+            const tokens=(value:string)=>value.normalize('NFKC').toLowerCase().split(/\s+/).map(w=>w.replace(/[^\p{L}\p{N}]+/gu,'')).filter(Boolean);
+            const recorded=tokens(precedingSeg?.text||''),actual=tokens(questionWords);
+            if(scope.finalWordBoundarySafe===true && recorded.length>0 && JSON.stringify(recorded)===JSON.stringify(actual)) questionBeforePadding=proposed;
+          }
+        }
         const wordSnapped = ClipAnalysisService.refineWordBoundaries({
-          start_seconds: scored.start_seconds,
+          start_seconds: questionBeforePadding?.start_seconds ?? scored.start_seconds,
           end_seconds: scored.end_seconds,
           words: rawWords,
           maxAdjustmentMs: 150,
@@ -1203,7 +1223,7 @@ export class ClipAnalysisService {
             genre_evidence: localSuggestion.evidence,
             genre_semantic_evidence: localSuggestion.semanticEvidence,
             cold_open,
-            question_included: questionInclusion,
+            question_included: questionInclusion || (questionBeforePadding && start_seconds<=questionBeforePadding.start_seconds && end_seconds>=questionBeforePadding.end_seconds ? {extendedBySec:questionBeforePadding.extendedBySec,includedQuestionText:questionBeforePadding.includedQuestionText}:null),
             was_snapped: scored.was_snapped || wordSnapped.was_snapped,
             silence_snapped: scored.was_snapped,
             word_snapped: wordSnapped.was_snapped,
