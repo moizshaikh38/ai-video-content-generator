@@ -1,3 +1,8 @@
+import {hookTranscriptScope,exactHookEvidence} from '../shared/hookGenerationScope.js';
+import {assertSelectionSourceCurrent} from './selectionSourceGuardService.js';
+import {commitHookGeneration} from '../db/repositories/hookGenerationRepository.js';
+import {getMongoClient,getMongoDb} from '../db/mongoClient.js';
+import {transcriptContentIdentity} from '../shared/transcriptSourceBinding.js';
 import crypto from 'node:crypto';
 import { dataRepository, ownerContext } from '../db/repositories/dataRepository.js';
 import { logger } from '../utils/logger.js';
@@ -78,6 +83,7 @@ export class HookLabService {
     clipId: string,
     dto: CreateHookSessionDTO = { clip_id: clipId }
   ): Promise<HookLabSession> {
+    if(dto.opening_window_sec!==undefined&&(typeof dto.opening_window_sec!=='number'||!Number.isFinite(dto.opening_window_sec)||dto.opening_window_sec<1||dto.opening_window_sec>10))throw new AppError('Choose an opening window from one to ten seconds.',400,'INVALID_OPENING_WINDOW');
     if (!isValidUUID(clipId)) {
       throw new AppError('Invalid clip ID.', 400, 'INVALID_UUID');
     }
@@ -106,10 +112,6 @@ export class HookLabService {
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (existingSession) {
-        return existingSession as HookLabSession;
-      }
-
       // 3. Fetch transcript
       const { data: transcriptDoc } = await dataRepository
         .from('transcripts')
@@ -119,19 +121,14 @@ export class HookLabService {
         .maybeSingle();
 
       const transcript = transcriptDoc as TranscriptRecord | null;
-      const allSegments: TranscriptSegment[] = transcript?.segments || [];
-
-      // Bound segments to clip timestamps
-      const clipStart = clipRec.start_seconds || 0;
-      const clipEnd = clipRec.end_seconds || 30;
-      const clipSegments = allSegments.filter(
-        (s) => s.end >= clipStart && s.start <= clipEnd
-      );
+      if(!transcript)throw new AppError('A source-bound transcript is required.',409,'HOOK_SOURCE_REVIEW_REQUIRED');
+      await assertSelectionSourceCurrent(userId,projectId,(clipRec as any).selection_source_receipt,clipRec.source_storage_path);
+      const scope=hookTranscriptScope(clipRec,transcript),clipStart=scope.start,clipEnd=scope.end,clipSegments=scope.segments as TranscriptSegment[];
 
       // Window duration
       const windowSec = Math.min(
         HOOK_LAB_LIMITS.MAX_OPENING_WINDOW_SEC,
-        Math.max(HOOK_LAB_LIMITS.MIN_OPENING_WINDOW_SEC, dto.opening_window_sec || HOOK_LAB_LIMITS.DEFAULT_OPENING_WINDOW_SEC)
+        Math.max(HOOK_LAB_LIMITS.MIN_OPENING_WINDOW_SEC, dto.opening_window_sec || existingSession?.opening_window?.end_seconds || HOOK_LAB_LIMITS.DEFAULT_OPENING_WINDOW_SEC)
       );
 
       // 4. Run Opening Analysis
@@ -139,9 +136,17 @@ export class HookLabService {
         clipStartSeconds: clipStart,
         clipEndSeconds: clipEnd,
         segments: clipSegments,
-        words: (transcript as any)?.words || [],
+        words: scope.words,
         window: { start_seconds: 0, end_seconds: windowSec },
       });
+
+      if(existingSession){
+        const receipt={version:1,clock:'effective-clip-relative',source_key:clipRec.source_storage_path,source_sha256:(clipRec as any).selection_source_receipt.source_receipt.sha256,transcript_content_sha256:transcriptContentIdentity(transcript),effective_source_start:clipStart,effective_source_end:clipEnd,scoped_input_digest:scope.digest,method:'opening-analysis-input',semantic_truth_verified:false};
+        await assertSelectionSourceCurrent(userId,projectId,(clipRec as any).selection_source_receipt,clipRec.source_storage_path);
+        await commitHookGeneration(await getMongoClient(),await getMongoDb(),{userId,session:existingSession,clip:clipRec,transcript,analysis,receipt,candidates:[],openingWindow:{start_seconds:0,end_seconds:windowSec}});
+        const {data:refreshed}=await dataRepository.from('hook_lab_sessions').select('*').eq('id',existingSession.id).eq('user_id',userId).single();
+        return refreshed as HookLabSession;
+      }
 
       // Fetch active Brand Brain profile if any
       const brandProfile = await BrandBrainService.getProfile(userId).catch(() => null);
@@ -166,17 +171,9 @@ export class HookLabService {
         updated_at: new Date().toISOString(),
       };
 
-      const { data: created, error: insertErr } = await dataRepository
-        .from('hook_lab_sessions')
-        .insert(sessionRecord)
-        .select('*')
-        .single();
-
-      if (insertErr || !created) {
-        throw new AppError('Failed to create Hook Lab session.', 500, 'DATABASE_ERROR');
-      }
-
-      return created as HookLabSession;
+      const receipt={version:1,clock:'effective-clip-relative',source_key:clipRec.source_storage_path,source_sha256:(clipRec as any).selection_source_receipt.source_receipt.sha256,transcript_content_sha256:transcriptContentIdentity(transcript),effective_source_start:clipStart,effective_source_end:clipEnd,scoped_input_digest:scope.digest,method:'opening-analysis-input',semantic_truth_verified:false};
+      await assertSelectionSourceCurrent(userId,projectId,(clipRec as any).selection_source_receipt,clipRec.source_storage_path);
+      return await commitHookGeneration(await getMongoClient(),await getMongoDb(),{userId,session:sessionRecord,clip:clipRec,transcript,analysis,receipt,candidates:[],create:true}) as HookLabSession;
     });
   }
 
@@ -237,6 +234,7 @@ export class HookLabService {
       );
     }
 
+    if(dto.candidate_count!==undefined&&(!Number.isSafeInteger(dto.candidate_count)||dto.candidate_count<1||dto.candidate_count>HOOK_LAB_LIMITS.MAX_HOOK_CANDIDATES))throw new AppError('Choose a supported number of hook candidates.',400,'INVALID_CANDIDATE_COUNT');
     return await ownerContext.run(userId, async () => {
       const { session } = await this.getSession(sessionId, userId);
 
@@ -249,22 +247,14 @@ export class HookLabService {
         .single();
 
       const clipRec = clip as ClipRecord;
-      const clipStart = clipRec.start_seconds || 0;
-      const clipEnd = clipRec.end_seconds || 30;
-
-      const { data: transcriptDoc } = await dataRepository
-        .from('transcripts')
-        .select('*')
-        .eq('project_id', session.project_id)
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      const transcript = transcriptDoc as TranscriptRecord | null;
-      const allSegments: TranscriptSegment[] = transcript?.segments || [];
-      const clipSegments = allSegments.filter(
-        (s) => s.end >= clipStart && s.start <= clipEnd
-      );
-      const sourceTranscriptText = clipSegments.map((s) => s.text.trim()).join(' ');
+      if(!clipRec||clipRec.project_id!==session.project_id)throw new AppError('Hook source clip changed.',409,'HOOK_SOURCE_REVIEW_REQUIRED');
+      const {data:transcriptDoc}=await dataRepository.from('transcripts').select('*').eq('project_id',session.project_id).eq('user_id',userId).single();
+      if(!transcriptDoc)throw new AppError('A source-bound transcript is required.',409,'HOOK_SOURCE_REVIEW_REQUIRED');
+      await assertSelectionSourceCurrent(userId,clipRec.project_id,(clipRec as any).selection_source_receipt,clipRec.source_storage_path);
+      const transcript=transcriptDoc as TranscriptRecord,scope=hookTranscriptScope(clipRec,transcript);
+      const clipStart=scope.start,clipEnd=scope.end,clipSegments=scope.segments as TranscriptSegment[],sourceTranscriptText=scope.speech;
+      const analysis=HookOpeningAnalyzer.analyzeOpening({clipStartSeconds:clipStart,clipEndSeconds:clipEnd,segments:clipSegments,words:scope.words,window:{start_seconds:0,end_seconds:Math.min(session.opening_window.end_seconds,clipEnd-clipStart)}});
+      const generationReceipt={version:1,generation_id:crypto.randomUUID(),clock:'effective-clip-relative',source_key:clipRec.source_storage_path,source_sha256:(clipRec as any).selection_source_receipt.source_receipt.sha256,transcript_content_sha256:transcriptContentIdentity(transcript),effective_source_start:clipStart,effective_source_end:clipEnd,scoped_input_digest:scope.digest,method:'deterministic-template-suggestion',semantic_truth_verified:false};
 
       // Brand context
       const brandContext = await BrandContextService.getBrandContext({
@@ -283,7 +273,7 @@ export class HookLabService {
         .eq('hook_lab_session_id', sessionId)
         .eq('user_id', userId);
 
-      const lockedCandidates = (existingCandidates || []).filter((c: any) => c.locked);
+      const lockedCandidates = (existingCandidates || []).filter((c: any) => c.locked||c.manual_edit||c.approved||c.applied);
 
       // 1. Discover existing source lines from later in clip
       const existingLines = HookLineSearchService.findStrongestExistingLines(
@@ -304,9 +294,9 @@ export class HookLabService {
       }> = [];
 
       // Include editorial trim if leading silence/filler detected
-      if (session.analysis.has_leading_silence || session.analysis.has_leading_filler) {
-        const trimDuration = session.analysis.time_to_first_meaningful_speech_sec || 0.8;
-        const cleanOpeningText = session.analysis.current_hook_text
+      if ((analysis.has_leading_silence || analysis.has_leading_filler)&&scope.segments.some((segment:any)=>segment.start<clipStart+session.opening_window.end_seconds)) {
+        const trimDuration = analysis.time_to_first_meaningful_speech_sec || 0.8;
+        const cleanOpeningText = analysis.current_hook_text
           .replace(/^(um|uh|you know|like|so|basically)\s*,?\s*/i, '')
           .trim();
 
@@ -315,14 +305,7 @@ export class HookLabService {
             text: cleanOpeningText,
             hook_type: 'DIRECT',
             delivery_mode: 'EDITORIAL_TRIM',
-            source_evidence: [
-              {
-                start_seconds: trimDuration,
-                end_seconds: trimDuration + 3.0,
-                text: cleanOpeningText,
-                reason: 'Trims leading latency and conversational hesitation',
-              },
-            ],
+            source_evidence: scope.segments.filter((segment:any)=>segment.start<clipStart+session.opening_window.end_seconds).map((segment:any)=>exactHookEvidence(scope,segment,'Exact opening input; trim suggestion needs separate source-bound edit review')),
             trim_plan: {
               trim_start: 0,
               trim_end: trimDuration,
@@ -334,6 +317,11 @@ export class HookLabService {
 
       // Include existing lines as REORDER_EXISTING
       for (const el of existingLines) {
+        // The discovery helper rounds display clocks. Recover its unique exact
+        // input segment before persisting evidence or a source edit plan.
+        const matches=scope.segments.filter((segment:any)=>segment.text.trim()===el.text&&Number((segment.start-clipStart).toFixed(2))===el.start_seconds&&Number((segment.end-clipStart).toFixed(2))===el.end_seconds);
+        if(matches.length!==1)throw new AppError('The discovered source line is ambiguous.',409,'HOOK_SOURCE_REVIEW_REQUIRED');
+        const exactEvidence=exactHookEvidence(scope,matches[0],el.reason);
         let hType: HookType = 'DIRECT';
         if (el.text.includes('?')) hType = 'QUESTION';
         else if (/\b\d+\b/.test(el.text)) hType = 'NUMBER';
@@ -344,16 +332,8 @@ export class HookLabService {
           text: el.text,
           hook_type: hType,
           delivery_mode: 'REORDER_EXISTING',
-          source_evidence: [
-            {
-              start_seconds: el.start_seconds,
-              end_seconds: el.end_seconds,
-              text: el.text,
-              segment_id: el.segment_id,
-              reason: el.reason,
-            },
-          ],
-          reorder_plan: el.reorder_plan,
+          source_evidence: [exactEvidence],
+          reorder_plan: {...el.reorder_plan,source_start:exactEvidence.start_seconds,source_end:exactEvidence.end_seconds},
         });
       }
 
@@ -366,6 +346,9 @@ export class HookLabService {
       );
 
       for (const sv of synthesizedVariants) {
+        // References document the exact input used by this deterministic
+        // suggestion, not entailment of the template's editorial wording.
+        sv.source_evidence=scope.segments.map((segment:any)=>exactHookEvidence(scope,segment,'Exact generation input; template wording is not verified as a source claim'));
         rawCandidates.push(sv);
       }
 
@@ -382,7 +365,7 @@ export class HookLabService {
       }
 
       // Limit to target count
-      const targetCount = dto.candidate_count || HOOK_LAB_LIMITS.DEFAULT_CANDIDATE_COUNT;
+      const targetCount = dto.candidate_count ?? HOOK_LAB_LIMITS.DEFAULT_CANDIDATE_COUNT;
       const toPersist = uniqueCandidates.slice(0, targetCount);
 
       // Score each candidate
@@ -401,7 +384,7 @@ export class HookLabService {
           preferredHookTypes,
         });
 
-        const rec: HookCandidate = {
+        const rec: HookCandidate & {generation_input_receipt:unknown} = {
           id: crypto.randomUUID(),
           hook_lab_session_id: sessionId,
           user_id: userId,
@@ -412,13 +395,13 @@ export class HookLabService {
           source_evidence: item.source_evidence,
           brand_rules_used: brandContext ? ['Creator Voice', 'Brand Hook DNA'] : [],
           analysis_signals_used: [
-            session.analysis.latency_label,
-            ...session.analysis.issues,
-            ...session.analysis.strengths,
+            analysis.latency_label,
+            ...analysis.issues,
+            ...analysis.strengths,
           ],
           scores: scoring.scores,
           overall_hook_fit: scoring.overallHookFit,
-          explanation: scoring.explanation,
+          explanation: {summary:'Deterministic hook suggestion scored with lexical and formatting heuristics. Review its wording against the source.',positives:['Generation input is linked to the current verified source transcript and effective clip interval.'],cautions:['Source references describe input coverage, not semantic truth, narrative completeness or measured hook performance.'],source_reference:item.source_evidence.map(e=>`${e.start_seconds.toFixed(3)}s–${e.end_seconds.toFixed(3)}s`).join(', ')},
           reorder_plan: item.reorder_plan,
           trim_plan: item.trim_plan,
           text_overlay_plan: item.text_overlay_plan,
@@ -427,31 +410,16 @@ export class HookLabService {
           manual_edit: false,
           approved: false,
           applied: false,
-          validation_warnings: scoring.validationWarnings,
+          generation_input_receipt:generationReceipt,
+          validation_warnings: [...scoring.validationWarnings,'Deterministic template suggestion. Source references record input coverage, not semantic truth or hook quality.'],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
 
-        const { data: created } = await dataRepository
-          .from('hook_candidates')
-          .insert(rec)
-          .select('*')
-          .single();
-
-        if (created) {
-          generatedCandidateRecords.push(created as HookCandidate);
-        }
+        generatedCandidateRecords.push(rec);
       }
-
-      // Update session status and timestamp
-      await dataRepository
-        .from('hook_lab_sessions')
-        .update({
-          status: 'READY',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', sessionId)
-        .eq('user_id', userId);
+      await assertSelectionSourceCurrent(userId,clipRec.project_id,(clipRec as any).selection_source_receipt,clipRec.source_storage_path);
+      await commitHookGeneration(await getMongoClient(),await getMongoDb(),{userId,session,clip:clipRec,transcript,analysis,receipt:generationReceipt,candidates:generatedCandidateRecords,existingCandidates:existingCandidates||[]});
 
       return [...lockedCandidates, ...generatedCandidateRecords];
     });
