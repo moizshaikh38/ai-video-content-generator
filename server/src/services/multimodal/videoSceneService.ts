@@ -1,3 +1,4 @@
+import {multimodalKeyframeTimes} from '../../shared/multimodalKeyframeTimes.js';
 import type {SignalExecutionReceipt} from '../../shared/multimodalSignalEvidence.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -162,25 +163,8 @@ export class VideoSceneService {
     // Resolve canonical path to prevent symlink resolution issues on macOS /tmp -> /private/tmp
     const tempDir = fs.realpathSync(rawTempDir);
 
-    // Determine target sample timestamps
-    let sampleTimes: number[] = [];
-    if (timestamps && timestamps.length > 0) {
-      sampleTimes = [...timestamps].filter((t) => t >= 0 && t <= videoDuration);
-    }
-
-    // If too few scene cuts or not provided, sample evenly across duration
-    if (sampleTimes.length === 0) {
-      const step = Math.max(1, videoDuration / Math.min(maxKeyframes, 12));
-      for (let t = 0.5; t < videoDuration; t += step) {
-        sampleTimes.push(Math.round(t * 100) / 100);
-      }
-    }
-
-    // Cap to maxKeyframes
-    if (sampleTimes.length > maxKeyframes) {
-      const stride = Math.ceil(sampleTimes.length / maxKeyframes);
-      sampleTimes = sampleTimes.filter((_, idx) => idx % stride === 0).slice(0, maxKeyframes);
-    }
+    // Retain bounded head-to-tail sampling even when scene cuts exist.
+    const sampleTimes=multimodalKeyframeTimes(videoDuration,maxKeyframes,timestamps);
 
     const keyframes: VideoKeyframe[] = [];
 

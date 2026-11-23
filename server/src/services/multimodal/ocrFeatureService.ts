@@ -1,3 +1,4 @@
+import {boundedKeyframeRows} from '../../shared/multimodalKeyframeTimes.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -127,7 +128,7 @@ export class OcrFeatureService {
       };
     }
 
-    const framesToScan = keyframes.slice(0, maxFramesToScan);
+    const framesToScan = boundedKeyframeRows(keyframes,maxFramesToScan);
     const results: KeyframeOcrResult[] = [];
     const uniqueLines = new Set<string>();
 
