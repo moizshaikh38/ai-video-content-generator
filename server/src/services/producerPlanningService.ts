@@ -200,7 +200,7 @@ export class ProducerPlanningService {
     }
 
     // Code-enforced plan limits: clamp/drop out-of-range operations before saving.
-    const reviseSanitize = sanitizePlanOperations(operations, clipSpanSeconds(clip));
+    const reviseSanitize = sanitizePlanOperations(operations, clipSpanSeconds(clip), clip.start_seconds);
     operations = reviseSanitize.operations;
     for (const w of reviseSanitize.warnings) {
       logger.warn(`[ProducerSafety] revised plan ${planId}: ${w}`);

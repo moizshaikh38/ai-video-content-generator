@@ -1,3 +1,4 @@
+import {producerItemPunch} from '../shared/producerItemPunch.js';
 import {getMongoDb,getMongoClient} from '../db/mongoClient.js';
 import {commitProducerApply,findProducerApply} from '../db/repositories/producerApplyRepository.js';
 import {assertRenderAdmissionEnabled} from '../db/repositories/renderAdmissionRepository.js';
@@ -11,7 +12,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
 import { dataRepository } from '../db/repositories/dataRepository.js';
-import { adaptPunchInToWordTimings, buildPunchInZoompan } from '../utils/punchInTiming.js';
+import { buildPunchInZoompan } from '../utils/punchInTiming.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 import {
@@ -98,7 +99,7 @@ export class ProducerRenderService {
     }
 
     // Code-enforced plan limits: clamp/drop out-of-range operations before render.
-    const previewSanitize = sanitizePlanOperations(plan.operations, clipSpanSeconds(clip));
+    const previewSanitize = sanitizePlanOperations(plan.operations, clipSpanSeconds(clip), clip.start_seconds);
     plan.operations = previewSanitize.operations;
     for (const w of previewSanitize.warnings) {
       logger.warn(`[ProducerSafety] plan ${plan.id}: ${w}`);
@@ -350,7 +351,7 @@ export class ProducerRenderService {
 
     // Code-enforced plan limits: clamp/drop out-of-range operations before
     // persisting anything derived from them to the clip.
-    const applySanitize = sanitizePlanOperations(plan.operations, clipSpanSeconds(clip));
+    const applySanitize = sanitizePlanOperations(plan.operations, clipSpanSeconds(clip), clip.start_seconds);
     plan.operations = applySanitize.operations;
     for (const w of applySanitize.warnings) {
       logger.warn(`[ProducerSafety] plan ${plan.id}: ${w}`);
@@ -415,51 +416,28 @@ export class ProducerRenderService {
     const videoTrack = editorProject.tracks.find((t) => t.type === 'VIDEO');
     const videoItem = videoTrack?.items[0];
 
-    // Sync PUNCH_IN keyframe. Word-timing parity with the producer
-    // preview path: snap the synced keyframe to speech boundaries and
-    // suppress (drop any existing synced keyframe) when the producer
-    // would suppress, so editor export and producer preview agree on
-    // WHERE the punch lands. The pro compiler still renders it as a
-    // fixed 2.5s step zoom - easing parity is a separate change.
+    // A reviewed punch belongs to one main source slice, never a teaser or a
+    // guessed manual scale channel. Refusal reaches the existing visible409 UI.
     const punchInOp = plan.operations.find((o: ProducerOperation) => o.type === 'PUNCH_IN' && o.enabled);
-    if (videoItem && punchInOp && punchInOp.parameters.punch_in_start_sec !== undefined) {
-      let syncWordTimings: Array<{ start: number; end: number }> | undefined;
-      const rawWords=Array.isArray(transcript.words)?transcript.words:[];
-      const wt=rawWords.map((w:any)=>({start:Number(w?.start)-clip.start_seconds,end:Number(w?.end)-clip.start_seconds})).filter((w:any)=>Number.isFinite(w.start)&&Number.isFinite(w.end)&&w.end>w.start);
-      if(wt.length>0)syncWordTimings=wt;
-      const rawPunchStart = Math.max(0, punchInOp.parameters.punch_in_start_sec - clip.start_seconds);
-      const adaptedSync = adaptPunchInToWordTimings(
-        {
-          startSec: rawPunchStart,
-          durationSec: punchInOp.parameters.punch_in_duration_sec || 2.5,
-          scale: punchInOp.parameters.scale || 1.06,
-        },
-        syncWordTimings
-      );
-      if (!videoItem.keyframes) videoItem.keyframes = [];
-      const existingKfIdx = videoItem.keyframes.findIndex((k) => k.property === 'scale');
-      if (adaptedSync.suppressed) {
-        if (existingKfIdx >= 0) {
-          videoItem.keyframes.splice(existingKfIdx, 1);
-
-        }
-        logger.info(`[ProducerRender] Editor-sync punch-in suppressed (${adaptedSync.reason})`);
-      } else {
-      const punchTime = adaptedSync.startSec;
-      const punchKf = {
-        id: crypto.randomUUID(),
-        time: Number(punchTime.toFixed(3)),
-        property: 'scale' as const,
-        value: punchInOp.parameters.scale || 1.06,
-        easing: 'ease-in-out' as const,
-      };
-      if (existingKfIdx >= 0) {
-        videoItem.keyframes[existingKfIdx] = punchKf;
-      } else {
-        videoItem.keyframes.push(punchKf);
-      }
-
-      }
+    if(punchInOp&&punchInOp.parameters.punch_in_start_sec!==undefined){
+      const start=clip.start_seconds+trimStartOffset,end=clip.end_seconds-trimEndOffset;
+      const videoOwners=editorProject.tracks.filter(t=>t.type==='VIDEO'&&!t.hidden).flatMap(t=>t.items.filter(i=>!i.hidden).map(item=>({item,track:t})));
+      const allVideos=videoOwners.map(row=>row.item);
+      const mains=allVideos.filter(i=>i.source_path===clip.source_storage_path&&i.source_asset_id===clip.id&&Math.abs(i.source_start-start)<.001&&Math.abs(i.source_end-end)<.001&&(i.speed?.speed??1)===1&&!i.is_freeze&&!i.is_title_card);
+      const conflict=()=>new AppError('Producer punch-in needs review: the saved picture or scale has edits that cannot be safely replaced. Disable Punch-In in this plan or edit the zoom in Studio. No edits were applied.',409,'PRODUCER_PUNCH_REVIEW_REQUIRED');
+      if(mains.length!==1||existingEditor&&allVideos.some(i=>(i.keyframes||[]).some(k=>k.property==='scale')||i.transform?.scale!==1))throw conflict();
+      const main=mains[0];
+      // The compiler uses only the first visible VIDEO track as its base.
+      // Matching source clocks on a secondary overlay do not make it main.
+      const owningTrack=videoOwners.find(row=>row.item===main)?.track;
+      if(owningTrack!==editorProject.tracks.find(t=>t.type==='VIDEO'&&!t.hidden))throw conflict();
+      if(Math.abs(main.timeline_end-main.timeline_start-(end-start))>.001||main.locked||owningTrack?.locked||allVideos.some(i=>i!==main&&i.timeline_start<main.timeline_end&&i.timeline_end>main.timeline_start))throw conflict();
+      const punch=producerItemPunch(main,punchInOp.parameters,Array.isArray(transcript.words)?transcript.words:[]);
+      if(punch.suppressed&&punch.reason==='outside-main-source')throw new AppError('Producer punch-in falls outside the selected main source interval. Disable Punch-In or review its source time before applying. No edits were applied.',409,'PRODUCER_PUNCH_REVIEW_REQUIRED');
+      // Fresh initialization may already contain this operation. Replace only
+      // that fresh channel; no saved scale keyframe is ever removed here.
+      if(!existingEditor)main.keyframes=main.keyframes.filter(k=>k.property!=='scale');
+      if(!punch.suppressed)main.keyframes.push({id:crypto.randomUUID(),time:Number(punch.startSec.toFixed(3)),property:'scale',value:punchInOp.parameters.scale||1.06,easing:'ease-in-out'});
     }
 
     // Sync AUDIO_FADE
@@ -570,19 +548,19 @@ export class ProducerRenderService {
     let normTargetI: number | undefined;
 
     // Calculate baseline start and duration
-    let startSec = clip.start_seconds;
-    let endSec = clip.end_seconds;
+    let startSec = clip.start_seconds + Number(clip.trim_start_offset||0);
+    let endSec = clip.end_seconds - Number(clip.trim_end_offset||0);
 
     // Apply intro trim
     const introTrim = plan.operations.find((o) => o.type === 'INTRO_TRIM' && o.enabled);
-    if (introTrim && introTrim.parameters.start_sec) {
-      startSec += Number(introTrim.parameters.start_sec);
+    if (introTrim && introTrim.parameters.start_sec !== undefined) {
+      startSec = clip.start_seconds + Number(introTrim.parameters.start_sec);
     }
 
     // Apply outro trim
     const outroTrim = plan.operations.find((o) => o.type === 'OUTRO_TRIM' && o.enabled);
-    if (outroTrim && outroTrim.parameters.end_sec) {
-      endSec -= Number(outroTrim.parameters.end_sec);
+    if (outroTrim && outroTrim.parameters.end_sec !== undefined) {
+      endSec = clip.end_seconds - Number(outroTrim.parameters.end_sec);
     }
 
     let durationSec = Math.max(1.0, endSec - startSec);
@@ -629,12 +607,9 @@ export class ProducerRenderService {
     // instead of stepping.
     const punchInOp = plan.operations.find((o) => o.type === 'PUNCH_IN' && o.enabled);
     if (punchInOp && punchInOp.parameters.punch_in_start_sec !== undefined) {
-      const punchStart = Math.max(0, punchInOp.parameters.punch_in_start_sec - startSec);
-      const punchDuration = punchInOp.parameters.punch_in_duration_sec || 2.5;
-      const adapted = adaptPunchInToWordTimings(
-        { startSec: punchStart, durationSec: punchDuration, scale: punchInOp.parameters.scale || 1.06 },
-        wordTimings
-      );
+      const adapted = producerItemPunch({source_start:startSec,source_end:endSec},punchInOp.parameters,
+        (wordTimings||[]).map(w=>({start:w.start+clip.start_seconds,end:w.end+clip.start_seconds})));
+      if(adapted.suppressed&&adapted.reason==='outside-main-source')throw new AppError('Producer punch-in falls outside the selected main source interval. Disable Punch-In or review its source time before previewing.',409,'PRODUCER_PUNCH_REVIEW_REQUIRED');
       if (adapted.suppressed) {
         logger.info(`[ProducerRender] Punch-in suppressed (${adapted.reason})`);
       } else {
@@ -656,7 +631,7 @@ export class ProducerRenderService {
         );
         if (adapted.reason === 'word_adapted') {
           logger.info(
-            `[ProducerRender] Punch-in word-adapted: ${punchStart.toFixed(2)}s+${punchDuration.toFixed(2)}s -> ${adapted.startSec.toFixed(2)}s+${adapted.durationSec.toFixed(2)}s`
+            `[ProducerRender] Punch-in word-adapted: source${punchInOp.parameters.punch_in_start_sec.toFixed(2)}s -> ${adapted.startSec.toFixed(2)}s+${adapted.durationSec.toFixed(2)}s`
           );
         }
       }

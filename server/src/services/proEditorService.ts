@@ -1,3 +1,4 @@
+import {producerItemPunch} from '../shared/producerItemPunch.js';
 import {duplicateCaptionPayload} from '../shared/duplicateCaptionPayload.js';
 import {constantSpeedSourceSplit} from '../shared/constantSpeedSourceSplit.js';
 import {freshColdOpenInterval} from '../shared/freshColdOpenInterval.js';
@@ -2915,10 +2916,10 @@ export class ProEditorService {
     // If Producer had punch-in zoom, add keyframe to video item
     const punchInOp = producerPlan?.operations.find((o) => o.type === 'PUNCH_IN' && o.enabled);
     if (punchInOp && punchInOp.parameters.punch_in_start_sec !== undefined) {
-      const punchTime = Math.max(0, punchInOp.parameters.punch_in_start_sec - clip.start_seconds);
-      videoItem.keyframes.push({
+      const punch=producerItemPunch(videoItem,punchInOp.parameters,transcript?.words||[]);
+      if(!punch.suppressed)videoItem.keyframes.push({
         id: crypto.randomUUID(),
-        time: Number(punchTime.toFixed(3)),
+        time: Number(punch.startSec.toFixed(3)),
         property: 'scale',
         value: punchInOp.parameters.scale || 1.06,
         easing: 'ease-in-out',

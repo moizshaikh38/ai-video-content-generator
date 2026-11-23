@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {producerItemPunch as punch} from '../shared/producerItemPunch.js';
+const main={source_start:113,source_end:125},words=[{start:115,end:115.5},{start:117,end:117.5}];
+test('absolute source punch maps onto trimmed main local clock, independent teaser timeline',()=>{const result=punch(main,{punch_in_start_sec:115,punch_in_duration_sec:2.5,scale:1.1},words);assert.equal(result.suppressed,false);if(!result.suppressed)assert.equal(result.startSec,2);});
+test('excluded source punch is suppressed, never clamped onto first frame',()=>{for(const at of [110,112.999,125,126,NaN,Infinity])assert.equal(punch(main,{punch_in_start_sec:at,scale:1.1},words).suppressed,true);});
+test('word adaptation uses only contained source words and never mutates evidence',()=>{const before=structuredClone(words);const result=punch(main,{punch_in_start_sec:115.1,scale:1.1},[{start:112.9,end:113.1},...words]);assert.equal(result.suppressed,false);if(!result.suppressed)assert.equal(result.startSec,2);assert.deepEqual(words,before);});

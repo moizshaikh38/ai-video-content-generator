@@ -75,13 +75,16 @@ function clampParam(
  * operations are dropped (treated as disabled downstream).
  *
  * @param operations plan operations as stored
+ * @param sourceStartSec absolute source origin for PUNCH_IN only, default0 for
+ *   existing zero-origin callers. This does not reinterpret other operations.
  * @param clipDurationSec usable clip span in seconds (end - start). When not
  *   a positive finite number, a generous fallback keeps range clamps loose
  *   while structural limits (counts, sizes, enums) still apply.
  */
 export function sanitizePlanOperations(
   operations: ProducerOperation[] | null | undefined,
-  clipDurationSec: number
+  clipDurationSec: number,
+  sourceStartSec = 0
 ): PlanSanitizeResult {
   const warnings: string[] = [];
   if (!Array.isArray(operations)) {
@@ -155,11 +158,15 @@ export function sanitizePlanOperations(
         break;
       }
 
-      case 'PUNCH_IN':
-        clampParam(op, 'punch_in_start_sec', 0, Math.max(0, duration - 0.4), warnings);
+      case 'PUNCH_IN': {
+        // Planner and renderer use absolute source seconds for this field.
+        // Other operation clocks retain their existing semantics here.
+        const origin=isFiniteNumber(sourceStartSec)&&sourceStartSec>=0?sourceStartSec:0;
+        clampParam(op, 'punch_in_start_sec', origin, origin + Math.max(0, duration - 0.4), warnings);
         clampParam(op, 'punch_in_duration_sec', 0.4, 12, warnings);
         clampParam(op, 'scale', 1.0, 2.0, warnings);
         break;
+      }
 
       case 'CAPTION_STYLE':
         // Producer CAPTION_STYLE does not apply font_family in either renderer.
