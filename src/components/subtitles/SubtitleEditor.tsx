@@ -253,6 +253,8 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(project.duration_seconds || 0);
+  const [sourceDisplaySize,setSourceDisplaySize]=useState<{width:number;height:number}|null>(null);
+  useEffect(()=>setSourceDisplaySize(null),[previewUrl]);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
 
@@ -299,6 +301,8 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
+      const {videoWidth:width,videoHeight:height}=videoRef.current;
+      if(Number.isFinite(width)&&Number.isFinite(height)&&width>0&&height>0)setSourceDisplaySize({width,height});
     }
   };
 
@@ -734,11 +738,14 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
         {/* LEFT COLUMN: Video Player & Controls (col-span-6)       */}
         {/* ======================================================== */}
         <div className="lg:col-span-6 space-y-4">
-          <div className="relative rounded-2xl bg-black border border-zinc-800 overflow-hidden shadow-2xl aspect-[9/16] max-h-[620px] mx-auto flex items-center justify-center">
+          <div data-subtitle-picture-frame className="relative rounded-2xl bg-black border border-zinc-800 overflow-hidden shadow-2xl mx-auto flex items-center justify-center" style={{aspectRatio:sourceDisplaySize?`${sourceDisplaySize.width} / ${sourceDisplaySize.height}`:'9 / 16',width:'100%',maxWidth:sourceDisplaySize?`${620*sourceDisplaySize.width/sourceDisplaySize.height}px`:'348.75px'}}>
             {previewUrl ? (
               <video
+                key={previewUrl}
                 ref={videoRef}
                 src={previewUrl}
+                onLoadStart={()=>setSourceDisplaySize(null)}
+                onError={()=>setSourceDisplaySize(null)}
                 playsInline
                 className="w-full h-full object-contain"
                 onTimeUpdate={handleTimeUpdate}
@@ -754,8 +761,8 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
             )}
 
             {/* LIVE SUBTITLE OVERLAY */}
-            {activeCue && (
-              <div style={getOverlayStyle()}>
+            {activeCue && sourceDisplaySize && (
+              <div data-subtitle-overlay style={getOverlayStyle()}>
                 {activeCue.text}
               </div>
             )}
