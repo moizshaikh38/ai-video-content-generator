@@ -65,7 +65,7 @@ describe('Phase 4 — Clip Quality & Captioning Enhancements', () => {
       assert.equal(updated.tokens?.[0].start, 1.0);
     });
 
-    it('proportionally redistributes timing when text edit changes word count', () => {
+    it('keeps manual text and cue window without manufacturing clocks when word count changes', () => {
       const originalCue: TimedCaptionCue = {
         id: 'c2',
         start: 2.0,
@@ -81,15 +81,13 @@ describe('Phase 4 — Clip Quality & Captioning Enhancements', () => {
       const overrides = { 0: 'now there are four' };
       const [updated] = CaptionService.applyOverrides([originalCue], overrides);
 
-      assert.equal(updated.words?.length, 4);
-      assert.equal(updated.tokens?.length, 4);
-      assert.equal(updated.words?.[0].start, 2.0);
-      assert.equal(updated.words?.[3].end, 4.0);
-      // Intermediate words should be monotonically ordered
-      for (let i = 0; i < updated.words!.length - 1; i++) {
-        assert.ok(updated.words![i].start < updated.words![i].end);
-        assert.ok(updated.words![i].end <= updated.words![i + 1].start);
-      }
+      assert.equal(updated.text, 'now there are four');
+      assert.equal(updated.start, originalCue.start);
+      assert.equal(updated.end, originalCue.end);
+      assert.equal(updated.words, undefined);
+      assert.equal(updated.tokens, undefined);
+      assert.equal(originalCue.words?.length, 2);
+      assert.equal(originalCue.words?.[0].text, 'two');
     });
   });
 

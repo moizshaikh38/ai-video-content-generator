@@ -1,3 +1,4 @@
+import {manualCaptionTextEdit} from '../../server/src/shared/manualCaptionTextEdit';
 import { getCurrentAuthOwner, ownerMismatch } from '../lib/authOwner';
 import { useAuth } from '../context/AuthContext';
 import { waitForDrain } from '../lib/editorSaveCoordinator';
@@ -473,20 +474,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
       // scheduling must not decide which words are persisted to the project.
       const updateCue = (cue: TimedCaptionCue): TimedCaptionCue => {
         if (cue.id !== cueId) return cue;
-        const words = newText.trim().split(/\s+/).filter(Boolean);
-        const duration = Math.max(0.1, cue.end - cue.start);
-        const wordDuration = duration / Math.max(1, words.length);
-        return {
-          ...cue,
-          text: newText,
-          words: words.map((word, index) => ({
-            text: word,
-            word,
-            start: Number((cue.start + index * wordDuration).toFixed(3)),
-            end: Number((cue.start + (index + 1) * wordDuration).toFixed(3)),
-            confidence: 1.0,
-          })),
-        };
+        return manualCaptionTextEdit(cue, newText);
       };
       setCues(previous => previous.map(updateCue));
       updateProject(previous => ({

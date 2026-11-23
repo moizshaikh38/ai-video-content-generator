@@ -1,3 +1,4 @@
+import {manualCaptionTextEdit} from '../shared/manualCaptionTextEdit.js';
 import {subtitleWordsMatchCue,subtitleRenderCues} from '../shared/subtitleWordClockReview.js';
 import {joinTimedCaptionCompounds} from '../shared/captionCompoundWords.js';
 import {assertSpeechWordCoverage} from '../shared/speechWordCoverage.js';
@@ -605,8 +606,8 @@ export class CaptionService {
   /**
    * Applies manual text corrections without mutating canonical transcript.
    * Synchronizes cue.words and cue.tokens with the overridden text, preserving timestamps
-   * when word counts match, and proportionally redistributing timestamps weighted by character
-   * length when word counts change.
+   * when word counts match. Count changes use full-cue segment text without word clocks.
+   * No timestamps are manufactured.
    */
   public static applyOverrides(
     cues: any[],
@@ -642,56 +643,7 @@ export class CaptionService {
 
       if (matchKey) {
         const newText = overrideMap.get(matchKey)!;
-        const resultCue = {
-          ...cue,
-          text: newText,
-        };
-
-        if (Array.isArray(cue.words) && cue.words.length > 0) {
-          // Extract word tokens from overridden text (ignoring \N for tokenization)
-          const newWordTokens = newText
-            .split(/\\N|\s+/)
-            .map((w) => w.trim())
-            .filter(Boolean);
-
-          if (newWordTokens.length === cue.words.length) {
-            // Same word count: update text in place, preserving exact timestamps
-            const updatedWords = cue.words.map((w: any, wIdx: number) => ({
-              ...w,
-              word: newWordTokens[wIdx],
-              text: newWordTokens[wIdx],
-            }));
-            resultCue.words = updatedWords;
-            resultCue.tokens = updatedWords;
-          } else if (newWordTokens.length > 0) {
-            // Word count changed: proportionally redistribute cue [start, end] window weighted by character length
-            const totalChars = newWordTokens.reduce((sum, w) => sum + Math.max(1, w.length), 0);
-            const cueDuration = Math.max(0.05, cue.end - cue.start);
-            let currentStart = cue.start;
-
-            const redistributed = newWordTokens.map((wText, wIdx) => {
-              const isLast = wIdx === newWordTokens.length - 1;
-              const weight = Math.max(1, wText.length) / totalChars;
-              const dur = isLast
-                ? Math.max(0.02, cue.end - currentStart)
-                : Math.max(0.02, Number((cueDuration * weight).toFixed(3)));
-              const wEnd = isLast ? cue.end : Number(Math.min(cue.end, currentStart + dur).toFixed(3));
-              const token = {
-                word: wText,
-                text: wText,
-                start: Number(currentStart.toFixed(3)),
-                end: Number(wEnd.toFixed(3)),
-              };
-              currentStart = wEnd;
-              return token;
-            });
-
-            resultCue.words = redistributed;
-            resultCue.tokens = redistributed;
-          }
-        }
-
-        return resultCue;
+        return manualCaptionTextEdit(cue, newText);
       }
       return cue;
     });
