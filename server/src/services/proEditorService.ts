@@ -1,3 +1,4 @@
+import {duplicateCaptionPayload} from '../shared/duplicateCaptionPayload.js';
 import {constantSpeedSourceSplit} from '../shared/constantSpeedSourceSplit.js';
 import {freshColdOpenInterval} from '../shared/freshColdOpenInterval.js';
 import {assertManualPlacement,assertPlacementTree,manualPlacementFilter} from '../shared/manualVideoPlacement.js';
@@ -103,7 +104,7 @@ import {
 import { AudioDuckingService } from './audioDuckingService.js';
 import { SoundDesignService } from './soundDesignService.js';
 import { SmartReframeService } from './smartReframeService.js';
-import { partitionCaptionCues, shiftCaptionItemsForRippleDelete, cloneCaptionCuesForDuplicate } from '../utils/editorRippleCut.js';
+import { partitionCaptionCues, shiftCaptionItemsForRippleDelete } from '../utils/editorRippleCut.js';
 import { readBoundedAssetResponse, EDITOR_OVERLAY_TIMEOUT_MS } from '../utils/boundedAssetResponse.js';
 import { validateClientEditorSourcePath, validateEditorSourcePath, isAllowedEditorSourcePath, overlayAssetExtension } from '../utils/editorAssetValidator.js';
 import{suppressStaleCaptionEmojis}from'../shared/sparseCaptionEmojiProject.js';
@@ -673,25 +674,7 @@ export class ProEditorService {
     const newItemStart = item.timeline_end;
     const newItemEnd = newItemStart + duration;
 
-    // Caption cues are timeline-absolute in service-maintained projects: a duplicated
-    // item must rebase its cues to the new placement and get fresh cue IDs, or the
-    // export aggregation drops them as seen-duplicates and they render at the old position.
-    let duplicatedCaption = item.caption ? JSON.parse(JSON.stringify(item.caption)) : undefined;
-    if (
-      duplicatedCaption &&
-      Array.isArray(duplicatedCaption.cues) &&
-      duplicatedCaption.cues.length > 0
-    ) {
-      const sourceStart = item.timeline_start;
-      const firstStart = duplicatedCaption.cues[0].start;
-      const isSegmentRelative = sourceStart > 0 && firstStart < sourceStart - 0.05 && firstStart >= 0;
-      if (!isSegmentRelative) {
-        duplicatedCaption = {
-          ...duplicatedCaption,
-          cues: cloneCaptionCuesForDuplicate(duplicatedCaption.cues, newItemStart - sourceStart),
-        };
-      }
-    }
+    const duplicatedCaption=duplicateCaptionPayload(item.caption,item.timeline_start,newItemStart,()=>crypto.randomUUID());
 
     const duplicatedItem: EditorTrackItem = {
       ...JSON.parse(JSON.stringify(item)),

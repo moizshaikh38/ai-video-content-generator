@@ -1,3 +1,4 @@
+import {duplicateCaptionPayload} from '../../server/src/shared/duplicateCaptionPayload';
 import {constantSpeedSourceSplit} from '../../server/src/shared/constantSpeedSourceSplit';
 import {manualCaptionTextEdit} from '../../server/src/shared/manualCaptionTextEdit';
 import { getCurrentAuthOwner, ownerMismatch } from '../lib/authOwner';
@@ -860,6 +861,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
           id: crypto.randomUUID(),
           timeline_start: item.timeline_end,
           timeline_end: item.timeline_end + dur,
+          caption: duplicateCaptionPayload(item.caption,item.timeline_start,item.timeline_end,()=>crypto.randomUUID()),
         };
 
         return {

@@ -201,7 +201,7 @@ describe('Phase 1 — service wiring guards', () => {
     assert.doesNotMatch(serviceSource, /for \(const cue of itm\.caption\.cues\)/);
   });
 
-  it('duplicateItem rebases caption cues via the shared clone helper', () => {
-    assert.match(serviceSource, /cloneCaptionCuesForDuplicate\(duplicatedCaption\.cues, newItemStart - sourceStart\)/);
+  it('duplicateItem rebases caption cues via the shared payload helper', () => {
+    assert.match(serviceSource, /duplicateCaptionPayload\(item\.caption,item\.timeline_start,newItemStart,\(\)=>crypto\.randomUUID\(\)\)/);
   });
 });
