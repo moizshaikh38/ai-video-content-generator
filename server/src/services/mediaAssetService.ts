@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import {isAllowedClientEditorSourcePath} from '../utils/editorAssetValidator.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 import {
   AppError,
@@ -88,7 +89,22 @@ export class MediaAssetService {
       .maybeSingle();
 
     if (error || !data) return null;
-    return data as MediaAssetRecord;
+    return this.resolveGeneratedAsset(data as MediaAssetRecord, userId);
+  }
+
+  /** Generated library entries identify rendered output, never original footage.
+   * Resolve again at read time so historical misindexed rows cannot bypass this.
+   * This does not materialize storage or change render-freshness rollout policy.
+   */
+  private static async resolveGeneratedAsset(asset: MediaAssetRecord, userId: string): Promise<MediaAssetRecord | null> {
+    if (asset.source_type !== 'GENERATED_CLIP') return asset;
+    if (!asset.clip_id || asset.user_id !== userId) return null;
+    const { data: clip, error } = await dataRepository.from('clips').select('*')
+      .eq('id', asset.clip_id).eq('user_id', userId).maybeSingle();
+    const output = clip?.output_storage_path;
+    if (error || !clip || clip.render_status !== 'ready' || typeof output !== 'string' ||
+        !output.startsWith(`users/${userId}/`) || !isAllowedClientEditorSourcePath(userId, output) || output === clip.source_storage_path) return null;
+    return { ...asset, storage_path: output };
   }
 
   /**
@@ -159,11 +175,17 @@ export class MediaAssetService {
 
     if (Array.isArray(clips)) {
       for (const clip of clips) {
+        // Only a published output is a generated clip. Source footage is indexed
+        // separately above and must never stand in for this chosen clip.
+        if (clip.render_status !== 'ready' || typeof clip.output_storage_path !== 'string' ||
+            !clip.output_storage_path.startsWith(`users/${userId}/`) || !isAllowedClientEditorSourcePath(userId, clip.output_storage_path) ||
+            clip.output_storage_path === clip.source_storage_path) continue;
         const { data: existingClipAsset } = await dataRepository
           .from('media_assets')
           .select('*')
           .eq('clip_id', clip.id)
           .eq('user_id', userId)
+          .eq('source_type', 'GENERATED_CLIP')
           .maybeSingle();
 
         if (!existingClipAsset) {
@@ -179,7 +201,7 @@ export class MediaAssetService {
             media_type: 'VIDEO',
             provider: 'vireo',
             provider_asset_id: clip.id,
-            storage_path: clip.rendered_storage_path || clip.source_storage_path || null,
+            storage_path: clip.output_storage_path,
             title: clip.title || `Clip #${clip.id.slice(0, 8)}`,
             description: clip.explanation || clip.summary || '',
             tags: ['clip', clip.aspect_ratio || '9:16', ...tags],
@@ -191,7 +213,15 @@ export class MediaAssetService {
           });
           indexedAssets.push(clipAsset);
         } else {
-          indexedAssets.push(existingClipAsset as MediaAssetRecord);
+          const resolved = await this.resolveGeneratedAsset(existingClipAsset as MediaAssetRecord, userId);
+          if (resolved) {
+            if (resolved.storage_path !== existingClipAsset.storage_path) {
+              const { error } = await dataRepository.from('media_assets').update({ storage_path: resolved.storage_path })
+                .eq('id', resolved.id).eq('user_id', userId).eq('source_type', 'GENERATED_CLIP');
+              if (error) throw new AppError('Failed to refresh generated media identity.', 500, 'DATABASE_ERROR');
+            }
+            indexedAssets.push(resolved);
+          }
         }
       }
     }
@@ -238,7 +268,9 @@ export class MediaAssetService {
     // Score and rank user assets
     const scoredUserItems: NormalizedMediaItem[] = [];
 
-    for (const asset of userAssets) {
+    for (const savedAsset of userAssets) {
+      const asset = await this.resolveGeneratedAsset(savedAsset, userId);
+      if (!asset) continue;
       // Filter out duration bounds if specified
       if (typeof filter.min_duration === 'number' && typeof asset.duration === 'number' && asset.duration < filter.min_duration) {
         continue;
@@ -409,7 +441,8 @@ export class MediaAssetService {
       .eq('user_id', userId);
 
     const allAssets: MediaAssetRecord[] = Array.isArray(allRaw) ? allRaw : [];
-    const candidates = allAssets.filter((a) => a.id !== target.id);
+    const resolvedAssets = await Promise.all(allAssets.map(asset => this.resolveGeneratedAsset(asset, userId)));
+    const candidates = resolvedAssets.filter((a): a is MediaAssetRecord => a !== null && a.id !== target.id);
 
     const scored = candidates.map((c) => {
       let simScore = 0;

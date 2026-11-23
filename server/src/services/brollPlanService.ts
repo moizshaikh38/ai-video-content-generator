@@ -183,7 +183,15 @@ export class BrollPlanService {
     let appliedCount = 0;
 
     for (const sug of suggestionsToApply) {
-      const asset = sug.selected_asset!;
+      const selected = sug.selected_asset!;
+      // Persisted plans are snapshots. Resolve owned library entries again at
+      // application so an old generated-clip pointer cannot insert originals.
+      const owned = isValidUUID(selected.id) ? await MediaAssetService.getAsset(selected.id, userId) : null;
+      if (!owned && (selected.source_url?.startsWith('users/') || selected.provider === 'local' || selected.provider === 'vireo')) {
+        throw new AppError('The selected library asset is no longer available. Choose it again.', 409, 'ASSET_NOT_AVAILABLE');
+      }
+      const asset = owned ? { ...selected, source_url: owned.storage_path || owned.external_preview_url || '',
+        duration: owned.duration ?? undefined, media_type: owned.media_type } : selected;
       const slotDuration = sug.opportunity
         ? sug.opportunity.end_time - sug.opportunity.start_time
         : sug.suggested_timeline_end - sug.suggested_timeline_start;
