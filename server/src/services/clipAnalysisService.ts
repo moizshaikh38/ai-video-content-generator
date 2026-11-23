@@ -710,7 +710,7 @@ export class ClipAnalysisService {
       let gameplayEvents: Array<{ time: number; type: string; confidence: number; corroborated_by_audio?: boolean }> = [];
       try {
         const { GameEventService } = await import('./gameEventService.js');
-        const gameAnalysis = await GameEventService.getEvents(projectId);
+        const gameAnalysis = await GameEventService.getFreshEvents(projectId,userId,selectionReceipt,Number(transcript.duration_seconds));
         if (gameAnalysis?.events?.length) {
           gameplayEvents = gameAnalysis.events;
         }

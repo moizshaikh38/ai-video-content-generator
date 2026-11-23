@@ -120,18 +120,11 @@ describe('Game-event service + clipping integration (wiring pins)', () => {
   const reframe = fs.readFileSync(path.resolve(process.cwd(), 'src/services/smartReframeService.ts'), 'utf8');
   const processing = fs.readFileSync(path.resolve(process.cwd(), 'src/services/videoProcessingService.ts'), 'utf8');
 
-  it('VLM detection is cost-gated, capped, and never throws into the pipeline', () => {
-    assert.match(svc, /config\.gameEventsAuto/);
-    assert.match(svc, /GAME_EVENTS/);
-    assert.match(svc, /clipping unaffected/);
-    assert.match(svc, /MAX_FRAMES = 24/);
-  });
-
-  it('events cross-validate with audio spikes (vision + audio agree)', () => {
-    assert.match(svc, /corroborateEventWithSpikes/);
-    assert.match(svc, /corroborated_by_audio/);
-    // Standalone strong spikes become reaction events (Eklipse fallback parity).
-    assert.match(svc, /type: 'reaction'/);
+  it('game vision and legacy audio-reaction service producer stay explicitly unavailable, never text-only provider calls', () => {
+    assert.match(svc, /return \{project_id:projectId,events:\[\],created_at:/);
+    assert(!svc.includes('generateJsonCompletion'));
+    assert(!svc.includes("collection('game_events').updateOne"));
+    assert.match(svc, /public static async getEvents[\s\S]*?return null/);
   });
 
   it('gaming candidates earn a gameplay-alignment hook bonus with disclosed reason', () => {
@@ -142,7 +135,7 @@ describe('Game-event service + clipping integration (wiring pins)', () => {
 
   it('analysis passes events only for the gaming genre (scoped enrichment)', () => {
     assert.match(analysis, /genreProfile\.genre === 'gaming' \? gameplayEvents : undefined/);
-    assert.match(analysis, /GameEventService\.getEvents\(projectId\)/);
+    assert.match(analysis, /GameEventService\.getFreshEvents\(projectId,userId,selectionReceipt,Number\(transcript.duration_seconds\)\)/);
   });
 
   it('reframe tracks apply word-energy fusion after CV smoothing', () => {
