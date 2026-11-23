@@ -13,7 +13,7 @@ test('owned PROJECT_SOURCE storage resolves exact bytes through bounded download
   const weakCount=gets;etag='W/"v1"';await assert.rejects(()=>prepare(owner,item,root),{code:'EDITOR_SOURCE_UNAVAILABLE'});assert.equal(gets,weakCount);etag='"v1"';
   changeAfter=true;await assert.rejects(()=>prepare(owner,item,root));assert.equal(fs.readdirSync(root).length,1);changeAfter=false;etag='"v1"';
   const {downloadObjectToFile}=await import('../services/objectStorageService.js');overflow=true;await assert.rejects(()=>downloadObjectToFile('source',key,path.join(root,'overflow'),{maxBytes:64,requireStreamingSha256:true}));assert(fs.statSync(path.join(root,'overflow')).size<=64);fs.rmSync(path.join(root,'overflow'));overflow=false;
-  asset.source_type='GENERATED_CLIP';assert.equal(await prepare(owner,item,root),null);
+  asset.source_type='GENERATED_CLIP';await assert.rejects(()=>prepare(owner,item,root),{code:'EDITOR_SOURCE_IDENTITY_REQUIRED'});
   asset.source_type='PROJECT_SOURCE';const{ProEditorService}=await import('../services/proEditorService.js');const hiddenCount=gets;const p:any={user_id:owner,tracks:[{type:'VIDEO',name:'Main',items:[{...item,timeline_start:0}]},{type:'VIDEO',name:'Hidden',hidden:true,items:[{...item,timeline_start:0}]},{type:'VIDEO',name:'Excluded item',items:[{...item,hidden:true,timeline_start:0}]}]};await ProEditorService.preloadRemoteOverlayAssets(p,root);assert.equal(gets,hiddenCount);assert.equal(p.tracks[0].items[0].source_path,key);
  }finally{repo.mock.restore();server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));fs.rmSync(root,{recursive:true,force:true})}
 });
