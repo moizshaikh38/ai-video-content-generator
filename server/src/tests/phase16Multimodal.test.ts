@@ -147,7 +147,7 @@ describe('Phase 16 — Multimodal Video Intelligence Tests', () => {
     it('returns clean status without errors when keyframes are processed', async () => {
       // Empty keyframes
       const summary = await OcrFeatureService.processKeyframes([]);
-      assert.ok(['detected', 'empty', 'NOT_CONFIGURED'].includes(summary.ocr_status));
+      assert.ok(['detected', 'empty', 'NOT_CONFIGURED', 'unavailable'].includes(summary.ocr_status));
     });
   });
 

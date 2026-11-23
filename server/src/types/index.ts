@@ -1545,6 +1545,7 @@ export interface MultimodalTimeline {
   segments: MultimodalTimelineSegment[];
   keyframes: VideoKeyframe[];
   summary_metadata: {
+    ocr_execution?:import('../services/multimodal/ocrFeatureService.js').OcrExecution;
     total_scene_cuts: number;
     average_visual_activity: number;
     silence_ratio: number;

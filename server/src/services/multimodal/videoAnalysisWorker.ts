@@ -241,6 +241,7 @@ export class VideoAnalysisWorker {
         audioEnergyDb: volumeStats.mean_volume_db,
         facePresenceRatio: faceResult.face_presence_ratio,
         ocrStatus: ocrSummary.ocr_status,
+        ocrExecution:ocrSummary.execution,
       });
 
       const savedRecord = await MultimodalTimelineService.persistAnalysis({

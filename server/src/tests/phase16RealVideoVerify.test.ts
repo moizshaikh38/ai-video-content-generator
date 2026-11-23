@@ -80,7 +80,7 @@ describe('Phase 16 — Real Video Verification (vireo-launch-preview-1080p.mp4)'
 
       try {
         const ocrSummary = await OcrFeatureService.processKeyframes(keyframes, 1);
-        assert.ok(['detected', 'empty', 'NOT_CONFIGURED'].includes(ocrSummary.ocr_status));
+        assert.ok(['detected', 'empty', 'NOT_CONFIGURED', 'unavailable'].includes(ocrSummary.ocr_status));
         if (ocrSummary.ocr_status === 'detected') {
           assert.ok(ocrSummary.combined_unique_text.length > 0, 'Must extract real on-screen text');
           assert.match(ocrSummary.combined_unique_text, /VIREO|Meet|Video/i, 'OCR on title frame should detect text');

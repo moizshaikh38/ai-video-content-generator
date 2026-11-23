@@ -1,3 +1,4 @@
+import type {OcrExecution} from './ocrFeatureService.js';
 import {multimodalTranscriptSourceCurrent} from '../../shared/multimodalTranscriptSource.js';
 import {multimodalSourceKey} from '../../shared/multimodalSourceKey.js';
 import {transcriptSnapshotIdentity} from '../../shared/transcriptSnapshotIdentity.js';
@@ -31,7 +32,8 @@ export interface FuseTimelineOptions {
   faceIntervals: FacePresenceInterval[];
   audioEnergyDb?: number;
   facePresenceRatio?: number;
-  ocrStatus?: 'detected' | 'empty' | 'NOT_CONFIGURED';
+  ocrStatus?: 'detected' | 'empty' | 'NOT_CONFIGURED' | 'unavailable';
+  ocrExecution?:OcrExecution;
 }
 
 /**
@@ -133,6 +135,7 @@ export class MultimodalTimelineService {
       segments: timelineSegments,
       keyframes,
       summary_metadata: {
+        ocr_execution:options.ocrExecution,
         total_scene_cuts: sceneCuts.length,
         average_visual_activity: avgVisualActivity,
         silence_ratio: Math.min(1.0, silenceRatio),

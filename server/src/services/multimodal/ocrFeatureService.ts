@@ -16,8 +16,10 @@ export interface KeyframeOcrResult {
   has_text: boolean;
 }
 
+export interface OcrExecution {status:'completed'|'partial'|'unavailable'|'not-run';method:'local-tesseract';scope:'sampled-source';attempted:number;completed:number;failed:number}
 export interface ProjectOcrSummary {
-  ocr_status: 'detected' | 'empty' | 'NOT_CONFIGURED';
+  execution:OcrExecution;
+  ocr_status: 'detected' | 'empty' | 'NOT_CONFIGURED' | 'unavailable';
   results: KeyframeOcrResult[];
   combined_unique_text: string;
 }
@@ -57,17 +59,22 @@ export class OcrFeatureService {
     imagePath: string,
     timeoutMs = 15000
   ): Promise<string> {
+    return (await this.observeOcrOnImage(imagePath,timeoutMs)).text;
+  }
+
+  public static async observeOcrOnImage(imagePath:string,timeoutMs=15000):Promise<{status:'completed'|'unavailable';text:string}> {
     const tesseractBin = this.getTesseractPath();
     if (!tesseractBin) {
-      return '';
+      return {status:'unavailable',text:''};
     }
 
     if (!fs.existsSync(imagePath)) {
-      return '';
+      return {status:'unavailable',text:''};
     }
 
     // Resolve canonical path
-    const resolvedPath = fs.realpathSync(imagePath);
+    let resolvedPath:string;
+    try{resolvedPath=fs.realpathSync(imagePath);}catch{return {status:'unavailable',text:''};}
     const tag = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const rawOutBase = path.join(os.tmpdir(), `vireo-ocr-${tag}`);
     const outBase = fs.existsSync(os.tmpdir()) ? path.join(fs.realpathSync(os.tmpdir()), `vireo-ocr-${tag}`) : rawOutBase;
@@ -82,12 +89,12 @@ export class OcrFeatureService {
 
       if (fs.existsSync(outTxt)) {
         const rawContent = fs.readFileSync(outTxt, 'utf8');
-        return this.cleanOcrText(rawContent);
+        return {status:'completed',text:this.cleanOcrText(rawContent)};
       }
-      return '';
+      return {status:'unavailable',text:''};
     } catch (err: any) {
       logger.warn(`[OcrFeatureService] Tesseract execution notice: ${err.message}`);
-      return '';
+      return {status:'unavailable',text:''};
     } finally {
       try {
         if (fs.existsSync(outTxt)) {
@@ -119,9 +126,11 @@ export class OcrFeatureService {
     keyframes: VideoKeyframe[],
     maxFramesToScan = 20
   ): Promise<ProjectOcrSummary> {
+    for(const frame of keyframes)delete frame.ocr_text;
     const tesseractBin = this.getTesseractPath();
     if (!tesseractBin) {
       return {
+        execution:{status:'not-run',method:'local-tesseract',scope:'sampled-source',attempted:0,completed:0,failed:0},
         ocr_status: 'NOT_CONFIGURED',
         results: [],
         combined_unique_text: '',
@@ -129,13 +138,17 @@ export class OcrFeatureService {
     }
 
     const framesToScan = boundedKeyframeRows(keyframes,maxFramesToScan);
+    let completed=0,failed=0;
     const results: KeyframeOcrResult[] = [];
     const uniqueLines = new Set<string>();
 
     for (const kf of framesToScan) {
-      if (!kf.frame_path || !fs.existsSync(kf.frame_path)) continue;
-
-      const detected = await this.runOcrOnImage(kf.frame_path);
+      // Never retain old text when this frame could not be observed.
+      delete kf.ocr_text;
+      const observation=await this.observeOcrOnImage(kf.frame_path||'');
+      if(observation.status!=='completed'){failed++;continue;}
+      completed++;
+      const detected = observation.text;
       kf.ocr_text = detected;
 
       if (detected.length > 0) {
@@ -156,7 +169,8 @@ export class OcrFeatureService {
 
     const hasAnyText = results.some((r) => r.has_text);
     return {
-      ocr_status: hasAnyText ? 'detected' : 'empty',
+      execution:{status:failed?(completed?'partial':'unavailable'):(completed?'completed':'not-run'),method:'local-tesseract',scope:'sampled-source',attempted:framesToScan.length,completed,failed},
+      ocr_status: hasAnyText ? 'detected' : failed||!completed?'unavailable':'empty',
       results,
       combined_unique_text: Array.from(uniqueLines).join(' | '),
     };
