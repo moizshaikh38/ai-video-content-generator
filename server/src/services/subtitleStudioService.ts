@@ -626,6 +626,7 @@ export class SubtitleStudioService {
           customConfig: {
             fontFamily: style.fontFamily,
             fontSize: style.fontSize,
+            fontWeight: typeof style.fontWeight === 'number' && Number.isFinite(style.fontWeight) ? style.fontWeight : typeof style.fontWeight === 'string' && /^[1-9]00$/.test(style.fontWeight.trim()) ? Number(style.fontWeight) : ({normal:400,regular:400,medium:600,semibold:600,bold:700,black:900} as Record<string,number>)[String(style.fontWeight).trim().toLowerCase()],
             primaryColor: style.textColor,
             highlightColor: style.highlightColor,
             strokeColor: style.strokeColor,
