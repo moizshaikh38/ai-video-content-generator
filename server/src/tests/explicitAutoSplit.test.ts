@@ -15,7 +15,25 @@ test('protected text or measured hand crossing vetoes even an explicit split-onl
  const t=make();(t.metadata.protected_content_regions as any[]).push({start:0,end:4,x:0,y:0,width:.2,height:.1,confidence:.9});const protectedPlan=S.explicitAutoLayoutPlan(t,auto,4);assert.equal(protectedPlan?.[0].split,undefined);assert.equal(protectedPlan?.[0].presentationProtection?.reason,'measured-context');
  const h=make();(h.raw_samples[3] as any).hands=[{x:.45,y:.6,width:.12,height:.1,confidence:.95}];assert.equal(S.explicitAutoLayoutPlan(h,{...auto,layoutPolicy:{allowed:['split']}},4),undefined);
 });
-test('mixed shots preserve review Fit locally and keep only eligible pair split',()=>{const t=make();t.raw_samples.slice(0,8).forEach(s=>s.faces=s.faces.slice(0,1));(t.metadata.scene_cuts as number[]).push(2);const p=S.explicitAutoLayoutPlan(t,auto,4)!;assert.equal(p.length,2);assert.equal(p[0].kind,'fit');assert.equal(p[0].contextStatus,'unresolved-review-required');assert.ok(p[1].split)});
+test('lower branch without producer layout can preserve local Fit and eligible pair Split, not actual mixed-source activation',()=>{const t=make();t.raw_samples.slice(0,8).forEach(s=>s.faces=s.faces.slice(0,1));(t.metadata.scene_cuts as number[]).push(2);const p=S.explicitAutoLayoutPlan(t,auto,4)!;assert.equal(p.length,2);assert.equal(p[0].kind,'fit');assert.equal(p[0].contextStatus,'unresolved-review-required');assert.ok(p[1].split)});
+
+test('actual producer-shaped mixed solo/pair source remains conservative whole-source Fit',()=>{
+ const t:any=make();t.layout_mode='split';t.sourceObjectVerified=true;t.isStale=false;
+ t.metadata.analyzed_source_start=12;t.metadata.analyzed_source_end=16;
+ t.metadata.scene_cuts=[2];t.metadata.scene_cut_evidence=[{time:2,coarse_time:2,refined:true,uncertainty_seconds:1/25,method:'dense-luma-discontinuity'}];
+ t.metadata.scene_cut_discovery={mode:'short-explicit-auto',status:'completed',duration_seconds:4,frame_budget:1800};
+ t.metadata.source_text_coverage={status:'sampled-incomplete',absence_means:'unknown'};
+ t.raw_samples.slice(0,8).forEach((s:any)=>s.faces=s.faces.slice(0,1));
+ // Actual analysis persists clip-wide layout_mode. That earlier pair-conflict
+ // guard owns this shape; the fixture above must not imply a working switch.
+ // Cut times are clip-relative even with a nonzero analyzed source origin.
+ const before=JSON.stringify(t),p=S.explicitAutoLayoutPlan(t,{mode:'smart',...auto},4,'9:16')!;
+ assert.equal(JSON.stringify(t),before);assert.equal(p.length,1);
+ assert.equal(p[0].start,0);assert.equal(p[0].end,4);assert.equal(p[0].kind,'fit');
+ assert.equal(p[0].windowW,1);assert.equal(p[0].windowH,1);assert.equal(p[0].split,undefined);
+ assert.equal(p[0].presentationProtection?.reason,'persistent-face-conflict');
+ assert.equal(p[0].contextStatus,'unresolved-review-required');
+});
 
 test('known action, scene, screen context and embedded-camera evidence veto ordinary pair split',()=>{for(const policy of ['screen_content','action_context','scene_context']){const t:any=make();t.metadata.content_framing_decision={policy};assert.equal(S.explicitAutoLayoutPlan(t,auto,4),undefined)}const t:any=make();t.metadata.content_framing_decision={evidence:{possibleEmbeddedCamera:true}};assert.equal(S.explicitAutoLayoutPlan(t,auto,4),undefined)});
 test('generic face anchor metadata is not evidence of an embedded camera',()=>{const t:any=make();t.metadata.facecam_box={x:.2,y:.2,w:.1,h:.2};t.metadata.facecam_track_id='a';assert.ok(S.explicitAutoLayoutPlan(t,auto,4)?.[0].split)});
