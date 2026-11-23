@@ -562,9 +562,10 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   }, [project.id]);
 
   // Filtered cues
+  const indexedCues=cues.map((cue,index)=>({cue,index}));
   const filteredCues = searchFilter.trim()
-    ? cues.filter((c) => c.text.toLowerCase().includes(searchFilter.toLowerCase()))
-    : cues;
+    ? indexedCues.filter(({cue}) => cue.text.toLowerCase().includes(searchFilter.toLowerCase()))
+    : indexedCues;
 
   // Active cue for overlay
   const activeCue = activeCueIndex !== null ? cues[activeCueIndex] : null;
@@ -906,7 +907,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                     No subtitles match your search query.
                   </div>
                 ) : (
-                  filteredCues.map((cue, index) => {
+                  filteredCues.map(({cue,index}) => {
                     const isActive = activeCueIndex === index;
                     return (
                       <div
