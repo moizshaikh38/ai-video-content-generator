@@ -25,6 +25,12 @@ export function validateSceneLayoutOverrides(item:any):void{
  }
 }
 export function sceneOverrideAt(item:any,sourceTime:number):SceneLayoutOverride|undefined{return item?.scene_layout_overrides?.find((o:SceneLayoutOverride)=>sourceTime>=o.start&&(sourceTime<o.end||(Math.abs(sourceTime-item.source_end)<=1e-9&&Math.abs(o.end-item.source_end)<=1e-9)));}
+/** Crop/panel Apply targets the same saved scene as paused preview, including
+ * its terminal frame. Internal scene cuts remain half-open. */
+export function sceneCropPanelUpdate(item:any,sourceTime:number,patch:{crop?:any;panels?:any}){
+ const selected=sceneOverrideAt(item,sourceTime);
+ return selected?{scene_layout_overrides:item.scene_layout_overrides.map((o:any)=>o===selected?{...o,patch:{...o.patch,...patch}}:o)}:{...patch,framing_window:undefined};
+}
 export function resolveSceneLayoutItem<T extends object>(item:T,sourceTime:number):T{
  const o=sceneOverrideAt(item,sourceTime);if(!o)return resolveTrackerEvidence(item,sourceTime);
  return resolveTrackerEvidence(effectiveScenePatch(item,o.patch),sourceTime) as T;
