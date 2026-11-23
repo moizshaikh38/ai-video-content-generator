@@ -511,7 +511,7 @@ export class ClipAnalysisService {
   /**
    * Parses and validates raw JSON or parsed object from LLM response
    */
-  public static parseAIResponse(rawTextOrObj: string | any): AIClipCandidate[] {
+  public static parseAIResponse(rawTextOrObj: string | any, requireVerifiedEmpty = false): AIClipCandidate[] {
     if (!rawTextOrObj) {
       throw new Error('AI returned an empty response.');
     }
@@ -599,6 +599,9 @@ export class ClipAnalysisService {
       });
     }
 
+    if (requireVerifiedEmpty && clipsArray.length > 0 && candidates.length === 0) {
+      throw new AppError('Clip selection returned no verifiable proposals. Existing suggestions were kept.',502,'CLIP_SELECTION_WINDOWS_FAILED');
+    }
     return candidates;
   }
 
@@ -781,6 +784,7 @@ export class ClipAnalysisService {
         (typeof transcript.duration_seconds === 'number' && transcript.duration_seconds > 1500);
 
       let aiCandidates: AIClipCandidate[] = [];
+      let explicitEmptyWindows = 0;
 
       if (isLongTranscript) {
         logger.info(
@@ -883,11 +887,13 @@ export class ClipAnalysisService {
                   maxTokens: 3000,
                   responseFormat: 'json_object',
                 });
-                const parsed = ClipAnalysisService.parseAIResponse(aiResponse);
+                const parsed = ClipAnalysisService.parseAIResponse(aiResponse,true);
 
                 // The prompt labels source segments with global IDs. Never
                 // reinterpret an unseen ID as a different local convention.
                 const grounded=groundWindowClipProposals(parsed,chunk);
+                if(parsed.length>0&&grounded.length===0)throw new AppError('Clip selection returned no verifiable proposals. Existing suggestions were kept.',502,'CLIP_SELECTION_WINDOWS_FAILED');
+                if(parsed.length===0)explicitEmptyWindows++;
                 if(grounded.length<parsed.length)logger.warn(`Rejected ${parsed.length-grounded.length} clip proposals outside chunk ${chunkNum}'s supplied segment window.`);
                 return grounded;
               } catch (err: any) {
@@ -927,12 +933,19 @@ export class ClipAnalysisService {
         });
 
         logger.info(`AI clip analysis raw response for ${projectId}: ${JSON.stringify(aiResponse)}`);
-        aiCandidates = ClipAnalysisService.parseAIResponse(aiResponse);
+        aiCandidates = ClipAnalysisService.parseAIResponse(aiResponse,true);
+        const grounded=groundWindowClipProposals(aiCandidates,{startIndex:0,endIndex:segments.length-1});
+        if(aiCandidates.length>0&&grounded.length===0)throw new AppError('Clip selection returned no verifiable proposals. Existing suggestions were kept.',502,'CLIP_SELECTION_WINDOWS_FAILED');
+        if(aiCandidates.length===0)explicitEmptyWindows++;
+        aiCandidates=grounded;
       }
 
       // An unranked transcript-span review fallback is allowed only for genuinely
       // short sources. No invented model scores, strongest-moment claim or hook.
       let usedShortSourceFallback=false;
+      // Only a literal successful empty array is a no-proposals result. Skipped
+      // undersized windows and rejected malformed/unseen IDs cannot establish it.
+      if(aiCandidates.length===0&&explicitEmptyWindows===0)throw new AppError('Clip selection returned no verifiable proposals. Existing suggestions were kept.',502,'CLIP_SELECTION_WINDOWS_FAILED');
       if(aiCandidates.length===0){
         const fallback=buildShortSourceSelectionFallback(segments,transcript.duration_seconds,project.title);
         if(fallback){aiCandidates=[fallback];usedShortSourceFallback=true;}
@@ -940,7 +953,10 @@ export class ClipAnalysisService {
 
       if (aiCandidates.length === 0) {
         logger.warn(`AI clip analysis returned 0 candidates for project ${projectId}.`);
-        return [];
+        // A successful empty discovery is still a completed analysis. Continue
+        // through source/context validation and fenced suggestion replacement,
+        // just like a run whose proposals are all rejected below. Provider
+        // failures throw upstream and must never enter this success path.
       }
 
       // 5b. Selection staging (OpenShorts): cheap shortlist before the
