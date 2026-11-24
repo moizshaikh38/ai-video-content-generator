@@ -685,6 +685,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       if (sequence !== resultReadSequenceRef.current) return;
       // A failed read says nothing about whether saved results exist.
       // Do not send the user back to generation or claim an empty analysis.
+      setSavedSelectionReadRecovery(true);
       setErrorMessage('Could not load your saved clips. Your project is saved. Reopen its review to try loading again; no new generation was started.');
       setWorkflowState('error');
     }
