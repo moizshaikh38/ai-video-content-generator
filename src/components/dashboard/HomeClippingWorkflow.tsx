@@ -365,6 +365,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   };
   const videoPlayerRef = useRef<HTMLVideoElement | null>(null);
   const pendingPreviewStartRef = useRef<number | null>(null);
+  const previewRequestSequenceRef = useRef(0);
+  useEffect(() => () => { previewRequestSequenceRef.current++; pendingPreviewStartRef.current = null; }, [activeProjectId, user?.id, workflowState]);
   const offscreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const exportRequestRef = useRef<AbortController | null>(null);
   const [creationRecoveryTarget,setCreationRecoveryTarget]=useState<{projectId:string;input:CandidateCreationInput}|null>(null);
@@ -1104,6 +1106,9 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   };
 
   const handlePlayClipPreview = async (clipId: string, startSeconds: number) => {
+    const sequence = ++previewRequestSequenceRef.current;
+    const session = workflowSessionRef.current;
+    const isCurrentPreview = () => sequence === previewRequestSequenceRef.current && session === workflowSessionRef.current;
     setActivePreviewClipId(clipId);
     setPreviewUnavailable(false);
 
@@ -1114,6 +1119,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     if (rendered && rendered.render_status === 'ready' && !clipSignedPreviewUrls[clipId]) {
       try {
         const url = await clipRenderService.getPreviewUrl(clipId);
+        if (!isCurrentPreview()) return;
         setClipSignedPreviewUrls((prev) => ({ ...prev, [clipId]: url }));
         freshClipUrl = url;
         hasClipUrl = true;
@@ -1121,6 +1127,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         // Fall back to source video seeking
       }
     }
+    if (!isCurrentPreview()) return;
     if (!hasClipUrl && !sourceVideoStreamingUrl && !localVideoPreviewUrl) {
       setPreviewUnavailable(true);
       return;
