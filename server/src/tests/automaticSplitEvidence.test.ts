@@ -56,21 +56,21 @@ test('cut-local recovery keeps measured side context and does not narrow prohibi
  assert.equal(prohibited.length,1);assert.equal(prohibited[0].windowW,1);
 });
 
-test('positive, missing, unknown or wrong-version source-text evidence cannot narrow old full-source fallback',()=>{
+test('source-subtitle presence or missing OCR does not force clip-wide Fit',()=>{
  const t=cutBoundTrack();
  for(const review of [undefined,{...t.metadata.source_subtitle_review,status:'suspected-source-text'}, {...t.metadata.source_subtitle_review,status:'unavailable'}, {...t.metadata.source_subtitle_review,sourceSha256:'b'.repeat(64)}, {...t.metadata.source_subtitle_review,sourceStart:51}, {...t.metadata.source_subtitle_review,analyzedFrames:0}]){
-  const p=S.explicitAutoLayoutPlan({...t,metadata:{...t.metadata,source_subtitle_review:review}},{layout_mode_source:'auto'},10)!;assert.equal(p.length,1);assert.equal(p[0].windowW,1);
+  const p=S.explicitAutoLayoutPlan({...t,metadata:{...t.metadata,source_subtitle_review:review}},{layout_mode_source:'auto'},10)!;assert.equal(p.length,2);assert(p.every(s=>!s.split&&s.windowW<1));
  }
 });
 
-test('ordinary Auto stays full source on sparse OCR misses and unmeasured wide lower-thirds across cuts',()=>{
+test('ordinary Auto uses verified cut-local single views and retains measured wide context',()=>{
  const t=cutBoundTrack();
  for(const review of [{...t.metadata.source_subtitle_review},{...t.metadata.source_subtitle_review,status:'not-observed',analyzedFrames:2}]){
   const p=S.explicitAutoLayoutPlan({...t,metadata:{...t.metadata,cut_local_split_recovery_review_enabled:false,source_subtitle_review:review}},{layout_mode_source:'auto'},10)!;
-  assert.equal(p.length,1);assert.equal(p[0].windowW,1);assert.equal(p[0].windowH,1);
+  assert.equal(p.length,2);assert(p.every(s=>!s.split&&s.windowW<1));
  }
  // A measured wide title appearing only after a source cut remains full Fit
- // even in the explicit local candidate. No OCR miss clears that geometry.
+ // in ordinary Auto too. No OCR miss clears that geometry.
  t.metadata.protected_content_regions=[{start:5,end:10,x:0,y:.8,width:1,height:.15,confidence:1}] as any;
  const p=S.explicitAutoLayoutPlan(t,{layout_mode_source:'auto'},10)!;assert.equal(p[1].windowW,1);
 });

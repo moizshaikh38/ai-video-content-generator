@@ -1546,17 +1546,11 @@ export class SmartReframeService {
       const validSamples=Array.isArray(samples)&&samples.length>=6&&samples.every((s:any,i:number)=>
         Number.isFinite(s.time)&&s.time>=0&&s.time<duration&&Array.isArray(s.faces)&&
         (i===0||s.time>samples[i-1].time));
-      const textReview=m?.source_subtitle_review;
-      // Sparse OCR is never proof of text absence. A positive/unknown review
-      // must not activate this NEW narrowing over the old full-source fallback.
-      // Keep raw source text until a text-aware crop is measured and reviewed.
-      const textReviewed=textReview?.status==='not-observed'&&textReview.sourceSha256===m?.analyzed_source_sha256&&
-        Math.abs(textReview.sourceStart-m.analyzed_source_start)<.001&&Math.abs(textReview.sourceEnd-m.analyzed_source_end)<.001&&
-        textReview.analyzedFrames>=2;
-      // No default activation: sparse OCR and sampled people cannot certify
-      // unseen lower thirds or scene changes. This is an explicit local review
-      // path until source-context measurement can justify the narrower view.
-      if(m?.cut_local_split_recovery_review_enabled===true&&bound&&validCuts&&validSamples&&textReviewed&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fit'))){
+      // Burned-in source subtitles may be cropped by automatic framing.
+      // Their presence or an unavailable OCR pass is not a reason to force
+      // every unrelated shot into one source-aspect strip. Keep supplied
+      // measured regions and all existing shot-local face/context protections.
+      if(bound&&validCuts&&validSamples&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fit'))){
         return this.computeShotComposition({rawSamples:samples,sceneCuts:cuts,duration,
           sourceWidth:track.source_width,sourceHeight:track.source_height,windowScope:'shot',
           automaticFitAspect:'4:3',allowConversationSplit:false,protectedContentRegions:m.protected_content_regions,
