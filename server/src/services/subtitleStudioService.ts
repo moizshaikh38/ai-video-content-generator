@@ -551,6 +551,9 @@ export class SubtitleStudioService {
     if (project.subtitle_export_status === 'rendering' || (project as any).subtitle_export_run_token) {
       return { message: 'Render is already in progress.', exportStatus: 'rendering' };
     }
+    // Existing render readback above remains available. New burns still run
+    // inline, so refuse on the API before source HEAD/admission/worker launch.
+    if (!runsBackgroundWorkers()) throw new AppError('Subtitle rendering requires an available processing worker. No new render was started.',503,'PROCESSING_DISPATCH_UNAVAILABLE');
     if(!transcript)throw new AppError('A source-bound transcript is required before burning subtitles.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
     await assertTranscriptReusable(transcript,project.source_url);
     const binding=(project as any).subtitle_cues_binding;
