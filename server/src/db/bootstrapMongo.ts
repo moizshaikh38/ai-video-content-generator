@@ -1,3 +1,4 @@
+import {assertDurableDispatchPolicy} from './durableDispatchPolicy.js';
 import {ensureDurableDispatchIndexes} from './durableDispatchIndexes.js';
 import {isDeepStrictEqual} from 'node:util';
 import { Db } from 'mongodb';
@@ -137,6 +138,7 @@ export async function bootstrapMongo(db?: Db): Promise<void> {
   const database = db ?? await getMongoDb();
   // Gate before schema writes: this app requires transactional topology.
   await assertDatabaseTransactionalTopology(database);
+  await assertDurableDispatchPolicy(database);
   await ensureDurableDispatchIndexes(database);
   const existing = new Set((await database.listCollections({}, { nameOnly: true }).toArray()).map((item) => item.name));
   for (const name of collections) {
