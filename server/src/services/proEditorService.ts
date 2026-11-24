@@ -1534,7 +1534,7 @@ export class ProEditorService {
           chain.push(...styleFilters);
           // Speed change must run BEFORE fps: resampling first and then retimestamping
           // halves/doubles the effective cadence and feeds xfade an invalid frame rate.
-          if (speed !== 1) chain.push(...(exactAutoClock?['settb=AVTB']:[]),`setpts=PTS/${speed}`);
+          if (speed !== 1) chain.push(...(exactAutoClock?['settb=1/120000']:[]),`setpts=PTS/${speed}`);
           chain.push(exactAutoClock?`fps=${fps}:start_time=0`:`fps=${fps}`, 'setsar=1', 'format=yuv420p');
           if (exactAutoClock) {
             const frames=Math.max(1,Math.round((item.timeline_start+sliceDur)*fps)-Math.round(item.timeline_start*fps));
@@ -1650,7 +1650,9 @@ export class ProEditorService {
       const parts: string[] = [];
       if (singleCrop) parts.push(singleCrop);
       parts.push(...styleFilters);
-      if (singleSpeed !== 1) parts.push(...(sourceClockComposition?['settb=AVTB']:[]),`setpts=PTS/${singleSpeed}`);
+      // 120000 is exact for 30fps at supported .5/1/2x rates; AVTB
+      // truncates odd half-frame PTS and can advance a hard cut by one frame.
+      if (singleSpeed !== 1) parts.push(...(sourceClockComposition?['settb=1/120000']:[]),`setpts=PTS/${singleSpeed}`);
       parts.push(sourceClockComposition?`fps=${fps}:start_time=0`:`fps=${fps}`, 'format=yuv420p');
       if (sourceClockComposition) {
         // A 24fps source's final PTS is before its full duration. Resampling

@@ -96,7 +96,10 @@ export function retimeItemSpeed(
 ): EditorProject | null {
   const track = prev.tracks.find((t) => t.id === trackId);
   const item = track?.items.find((i) => i.id === itemId);
-  if (!track || !item) return null;
+  if (!track || !item || track.locked || item.locked || !Number.isFinite(speed) || speed <= 0) return null;
+  const oldSpeed = item.speed?.speed ?? 1;
+  if (!Number.isFinite(oldSpeed) || oldSpeed <= 0 || item.speed?.speed_ramp) return null;
+  if (Math.abs(speed - oldSpeed) < 1e-9) return prev;
   const sourceWindow = item.source_end - item.source_start;
   if (sourceWindow <= 0.05) return null;
   const r3 = (v: number) => Math.round(v * 1000) / 1000;
@@ -108,7 +111,7 @@ export function retimeItemSpeed(
   // Refuse early (before any item mutation) when locked content crosses or
   // extends past the retime point: the ripple would silently misalign it.
   const lockedHit = prev.tracks.some(
-    (t) => t.locked && t.items.some((it) => it.timeline_end > oldEnd)
+    (t) => t.items.some((it) => (t.locked || it.locked) && it.timeline_end > start)
   );
   if (lockedHit) return null;
 
@@ -118,7 +121,7 @@ export function retimeItemSpeed(
   // naturally without splitting.
   const mapT = (v: number): number => {
     if (v <= start) return v;
-    if (v < oldEnd) return r3(start + (v - start) / speed);
+    if (v < oldEnd) return r3(start + (v - start) * oldSpeed / speed);
     return r3(v + delta);
   };
 
@@ -136,19 +139,28 @@ export function retimeItemSpeed(
           };
         }
         if (t.type === 'CAPTION' && i.caption && Array.isArray(i.caption.cues)) {
+          // Match the legacy item-relative convention used by export, then
+          // persist absolute clocks so later speed changes cannot rebase twice.
+          const cues = i.caption.cues;
+          const relative = i.timeline_start > 0 && cues.length > 0 && cues[0].start >= 0 && cues[0].start < i.timeline_start - .05;
+          const origin = relative ? i.timeline_start : 0;
+          const cueTime = (t: number) => mapT(t + origin);
+          const mapWords = (words: any[]) => words.map(w => ({...w, start: cueTime(w.start), end: cueTime(w.end)}));
           return {
             ...i,
             timeline_start: mapT(i.timeline_start),
             timeline_end: mapT(i.timeline_end),
             caption: {
               ...i.caption,
-              cues: i.caption.cues.map((c: any) => ({
+              ...(typeof i.caption.cues_covered_end === 'number' ? {cues_covered_end: cueTime(i.caption.cues_covered_end)} : {}),
+              cues: cues.map((c: any) => ({
                 ...c,
-                start: mapT(c.start),
-                end: mapT(c.end),
+                start: cueTime(c.start),
+                end: cueTime(c.end),
                 words: Array.isArray(c.words)
-                  ? c.words.map((w: any) => ({ ...w, start: mapT(w.start), end: mapT(w.end) }))
+                  ? mapWords(c.words)
                   : c.words,
+                ...(Array.isArray((c as any).tokens) ? {tokens: mapWords((c as any).tokens)} : {}),
               })),
             },
           };

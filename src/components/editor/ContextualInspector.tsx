@@ -957,7 +957,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
                 // track holds content past the item, which would misalign.
                 const next = retimeItemSpeed(project, selectedItem.track_id, selectedItem.id, speed);
                 if (!next) {
-                  onActionNotice?.('Speed not changed: a locked track has content past this item. Unlock it first - nothing was changed.');
+                  onActionNotice?.('Speed not changed: unlock the selected item and overlapping or later content, and use a constant-speed clip. Nothing was changed.');
                   return;
                 }
                 onActionNotice?.(null);
