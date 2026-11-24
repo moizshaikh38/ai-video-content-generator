@@ -1,4 +1,4 @@
-import {admittedFinalSpeechIds,finalSpeechAdmissionPrompt,finalSpeechAdmissionEnabled} from '../shared/finalSpeechAdmission.js';
+import {finalSpeechAdmissionEvidence,admittedFinalSpeechIds,finalSpeechAdmissionPrompt,finalSpeechAdmissionEnabled} from '../shared/finalSpeechAdmission.js';
 import {assertSelectionProjectActive} from './selectionProviderAdmissionService.js';
 import {selectionSourceReceiptMatches} from '../shared/selectionSourceReceipt.js';
 import {settleClipSelectionWindows} from '../shared/settleClipSelectionWindows.js';
@@ -1261,7 +1261,7 @@ export class ClipAnalysisService {
         const admitted=admittedFinalSpeechIds(review,groundedCandidates.length,presented);
         for(let i=groundedCandidates.length-1;i>=0;i--){
           if(!admitted.has(i))groundedCandidates.splice(i,1);
-          else groundedCandidates[i].metadata={...(groundedCandidates[i].metadata||{}),final_speech_admission:{status:'model-judged-admitted',basis:'exact-final-presented-speech',ranking:false}};
+          else groundedCandidates[i].metadata={...(groundedCandidates[i].metadata||{}),final_speech_admission:finalSpeechAdmissionEvidence(review,i,presented[i])};
         }
       }
 
