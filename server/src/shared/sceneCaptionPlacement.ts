@@ -1,3 +1,5 @@
+import {cutLocalRecoveryTimelineEligible} from './cutLocalRecoveryTimeline.js';
+import {automaticShotCaptionCut} from './shotFrameClock.js';
 import {materializePanels} from './panelLayouts.js';
 import {numericPanelSeam} from './numericPanelGeometry.js';
 import {nonPortraitAutoFullSourceFit} from './nonPortraitAutoFit.js';
@@ -24,6 +26,7 @@ export interface CaptionLayoutWindow {itemId:string;start:number;end:number;layo
  * Plan clocks are clip-relative; item clocks include trim, speed and timeline edits. */
 export function captionCompositionWindows(project:any,plan:any[],clipStart:number,sourceW:number,sourceH:number,outputSize?:{width:number;height:number}):CaptionLayoutWindow[]{
  if((project?.canvas?.aspect_ratio!=='9:16'&&!nonPortraitAutoFullSourceFit(plan,project?.canvas?.aspect_ratio))||![clipStart,sourceW,sourceH].every(Number.isFinite)||sourceW<=0||sourceH<=0)return [];
+ const quantizeCuts=cutLocalRecoveryTimelineEligible(project,clipStart,Math.max(...plan.map(s=>s.end)));
  const outputAspect=project.canvas.aspect_ratio==='1:1'?1:project.canvas.aspect_ratio==='16:9'?16/9:9/16;
  const items=expandSceneLayoutProject(project).tracks?.find((t:any)=>t.type==='VIDEO'&&!t.hidden)?.items||[];
  return items.flatMap((i:any)=>{
@@ -33,7 +36,13 @@ export function captionCompositionWindows(project:any,plan:any[],clipStart:numbe
   return plan.flatMap(s=>{
    if(![s.start,s.end,s.windowW,s.windowH].every(Number.isFinite)||s.end<=s.start||s.windowW<=0||s.windowH<=0)return [];
    const a=Math.max(i.source_start,s.start+clipStart),z=Math.min(i.source_end,s.end+clipStart);if(z<=a)return [];
-   const start=Math.max(i.timeline_start,i.timeline_start+(a-i.source_start)/speed),end=Math.min(i.timeline_end,i.timeline_start+(z-i.source_start)/speed);
+   // Picture shot concatenation rounds cumulative durations to 30fps ticks.
+   // ASS has centisecond precision: floor that tick so the first new picture
+   // frame cannot retain the previous scene's anchor for one extra frame.
+   // Keep item endpoints exact; quantize only derived internal picture cuts.
+   const captionCut=(source:number)=>quantizeCuts?automaticShotCaptionCut(source-i.source_start,i.timeline_start,speed,project.canvas.fps||30):i.timeline_start+(source-i.source_start)/speed;
+   const start=a===i.source_start?i.timeline_start:Math.max(i.timeline_start,captionCut(a));
+   const end=z===i.source_end?i.timeline_end:Math.min(i.timeline_end,captionCut(z));
    if(s.split?.focusPanels&&(i.keyframes?.length||(i.transform?.scale??1)!==1||(i.transform?.rotation??0)!==0||(i.transform?.position_x??0)!==0||(i.transform?.position_y??0)!==0||i.transition_in))return [];
    const panelGeometry=s.split?.focusPanels&&outputSize?materializePanels(s.split.focusPanels,sourceW,sourceH,outputSize.width,outputSize.height):undefined;
    if(s.split?.focusPanels&&outputSize&&!panelGeometry)return [];

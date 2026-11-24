@@ -9,6 +9,6 @@ export function recoverCutLocalSplits<T extends Scene>(baseline:T[],candidate:T[
  return baseline.map((shot,i)=>{
   const proposed=candidate[i];
   if(!proposed.split)return shot;
-  return {...proposed,contextStatus:'unresolved-review-required',uncertainty:'Measured scene-local two-subject Split. Human identity, animation, speech and between-sample movement are not verified. Review or repair this scene.'};
+  return {...proposed,cutLocalRecovery:{version:1,kind:'measured-pair'},contextStatus:'unresolved-review-required',uncertainty:'Measured scene-local two-subject Split. Human identity, animation, speech and between-sample movement are not verified. Review or repair this scene.'};
  });
 }

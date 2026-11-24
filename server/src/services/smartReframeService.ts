@@ -1,3 +1,6 @@
+import {boundCutLocalRecoveryPlan} from '../shared/cutLocalRecoveryTimeline.js';
+import {AUTOMATIC_SHOT_FPS} from '../shared/shotFrameClock.js';
+import {separatedPairBodyEnvelopes} from '../shared/separatedPairBodyEnvelopes.js';
 import {recoverCutLocalSplits} from '../shared/cutLocalSplitRecovery.js';
 import {measuredReframeCapabilities,type MeasuredReframeCapabilities} from '../shared/measuredReframeCapabilities.js';
 import {sourceWindowReframeWords} from '../shared/sourceWindowReframeWords.js';
@@ -1494,8 +1497,8 @@ export class SmartReframeService {
     const gaming=normalGamingScenePlan(track,cropConfig,duration,outputAspect);
     if(gaming)return gaming;
     const persisted=readAutomaticScenePlan(track,cropConfig,duration);
-    if(persisted)return persisted as ReturnType<typeof SmartReframeService.computeShotComposition>;
-    return this.computeNormalAutoLayoutPlan(track,cropConfig,duration,outputAspect);
+    if(persisted)return boundCutLocalRecoveryPlan(persisted as ReturnType<typeof SmartReframeService.computeShotComposition>,track.cutLocalRecoveryEligible===true)!;
+    return boundCutLocalRecoveryPlan(this.computeNormalAutoLayoutPlan(track,cropConfig,duration,outputAspect),track.cutLocalRecoveryEligible===true) as ReturnType<typeof SmartReframeService.computeShotComposition>|undefined;
   }
 
   private static verifiedGamingReviewPlan(track:any,crop:any,duration:number,aspect?:string):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {
@@ -1571,7 +1574,7 @@ export class SmartReframeService {
            context?.evidence?.possibleEmbeddedCamera!==true&&
            !m.shot_composition_candidate&&!m.participant_panels_review&&!m.participant_manual_review&&
            !m.embedded_camera_panel_review_enabled&&!m.automatic_gaming_review_enabled){
-          const candidate=this.computeShotComposition({...options,allowConversationSplit:true,splitHandSafetyReview:true});
+          const candidate=this.computeShotComposition({...options,allowConversationSplit:true,splitHandSafetyReview:true,pairPaddingSeparation:Array.isArray(m.scene_cut_evidence)&&cuts.every((cut:number)=>m.scene_cut_evidence.some((e:any)=>e.refined===true&&Number.isFinite(e.time)&&Math.abs(e.time-cut)<.001))});
           return recoverCutLocalSplits(baseline,candidate,cropConfig.layoutPolicy);
         }
         return baseline;
@@ -1721,13 +1724,18 @@ export class SmartReframeService {
           const left=pairs.map(p=>p[0]),right=pairs.map(p=>p[1]);
           const stable=(fs:NormalizedFaceDetection[])=>new Set(fs.map(f=>f.track_id)).size===1;
           const speaker1X=median(left.map(f=>f.center_x)),speaker2X=median(right.map(f=>f.center_x));
-          const leftBody=associatedBodyEnvelope(samples,[left[0].track_id!]);
-          const rightBody=associatedBodyEnvelope(samples,[right[0].track_id!]);
+          let separatedPadding=false;
+          let leftBody=associatedBodyEnvelope(samples,[left[0].track_id!]);
+          let rightBody=associatedBodyEnvelope(samples,[right[0].track_id!]);
+          if(options.pairPaddingSeparation&&leftBody&&rightBody&&leftBody.right>=rightBody.left&&stable(left)&&stable(right)){
+            const separated=separatedPairBodyEnvelopes(samples,[left[0].track_id!,right[0].track_id!]);
+            if(separated){[leftBody,rightBody]=separated;separatedPadding=true;}
+          }
           // A cut between faces alone can cut a torso or arm. Require a gap
           // between independently associated, padded body envelopes. This is
           // a safe composition seam, not a claimed physical camera boundary.
           const dividerX=leftBody && rightBody ? (leftBody.right+rightBody.left)/2 : .5;
-          if(leftBody && rightBody && leftBody.right<rightBody.left && stable(left)&&stable(right)&&speaker2X-speaker1X>=.3&&
+          if(leftBody && rightBody && (leftBody.right<rightBody.left||(separatedPadding&&leftBody.right===rightBody.left)) && stable(left)&&stable(right)&&speaker2X-speaker1X>=.3&&
             pairs.every(p=>p[0].x+p[0].width+.025<dividerX&&p[1].x-.025>dividerX))
             return {start,end,kind:'group' as const,windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}],
               split:{speaker1X,speaker2X,dividerX}};
@@ -1997,6 +2005,7 @@ export class SmartReframeService {
     plan: ReturnType<typeof SmartReframeService.computeShotComposition>;
     sourceWidth: number; sourceHeight: number; start?: number; duration: number; tag?: string; canvasScale?: number;
   }): string {
+    const fps=AUTOMATIC_SHOT_FPS;
     const start=Math.max(0,options.start||0),end=start+options.duration;
     const shots=options.plan.filter(s=>s.end>start && s.start<end);
     if (!shots.length) return this.buildBlurBackgroundFilter({tag:options.tag});
@@ -2016,14 +2025,14 @@ export class SmartReframeService {
         splitFit:'contain',canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height,
         sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}_split`})
         : this.buildGroupFitFilter({keyframes:kfs,windowW:s.windowW,windowH:s.windowH,sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}`,canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height});
-      const frames = Math.max(1, Math.round((b-start)*30)-Math.round((a-start)*30));
-      graph+=`[${labels[i]}]trim=start=${st.toFixed(6)}:duration=${(b-a).toFixed(6)},setpts=PTS-STARTPTS,${f},tpad=stop_mode=clone:stop_duration=0.1,fps=30:eof_action=pass,trim=end_frame=${frames},setpts=N/(30*TB),setsar=1[${tag}_part${i}];`;
+      const frames = Math.max(1, Math.round((b-start)*fps)-Math.round((a-start)*fps));
+      graph+=`[${labels[i]}]trim=start=${st.toFixed(6)}:duration=${(b-a).toFixed(6)},setpts=PTS-STARTPTS,${f},tpad=stop_mode=clone:stop_duration=0.1,fps=${fps}:eof_action=pass,trim=end_frame=${frames},setpts=N/(${fps}*TB),setsar=1[${tag}_part${i}];`;
     });
     // Pad decoded frames before fps at both stages. Padding after fps can only
     // clone a penultimate frame when EOF conversion has already dropped the
     // unique final source frame. Strict trims retain the requested frame count.
     // Rebase concat's microsecond timestamps onto exact 30fps frame ticks.
-    graph+=shots.map((_,i)=>`[${tag}_part${i}]`).join('')+`concat=n=${shots.length}:v=1:a=0,settb=1/30,setpts=N,tpad=stop_mode=clone:stop_duration=0.1,fps=30:eof_action=pass,trim=end_frame=${Math.max(1,Math.round(options.duration*30))},setpts=N/(30*TB)`;
+    graph+=shots.map((_,i)=>`[${tag}_part${i}]`).join('')+`concat=n=${shots.length}:v=1:a=0,settb=1/${fps},setpts=N,tpad=stop_mode=clone:stop_duration=0.1,fps=${fps}:eof_action=pass,trim=end_frame=${Math.max(1,Math.round(options.duration*fps))},setpts=N/(${fps}*TB)`;
     return options.tag?graph:`[0:v]${graph}[out]`;
   }
 
@@ -3342,7 +3351,7 @@ export class SmartReframeService {
       // Retain actual policy/focus/default fields instead of a minimal config
       // that cannot match the real consumer's exact configuration fingerprint.
       const autoConfig={...(clip.crop_config||{}),mode:'smart',layout_mode_source:'auto'};
-      const planningTrack={...trackPayload,sourceObjectVerified:!!sourceReceipt,isStale:false};
+      const planningTrack={...trackPayload,sourceObjectVerified:!!sourceReceipt,isStale:false,cutLocalRecoveryEligible:true};
       const normalPlan=this.explicitAutoLayoutPlan(planningTrack,autoConfig,durationSec,clip.aspect_ratio);
       const normalSnapshot=snapshotAutomaticScenePlan(planningTrack,autoConfig,durationSec,normalPlan);
       if(normalSnapshot)(trackPayload.metadata as any).automatic_scene_plan=normalSnapshot;

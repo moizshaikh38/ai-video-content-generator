@@ -37,6 +37,10 @@ class RefinementTests(unittest.TestCase):
         self.assertTrue(m.short_auto_cut_budget(12,1280,720,24))
         for args in [(12,3840,2160,30),(30.01,1280,720,24),(12,1280,720,120),(0,1280,720,24),(12,0,720,24),(12,1280,720,float('nan'))]:
             self.assertFalse(m.short_auto_cut_budget(*args))
+    def test_refine_budget_is_bounded_without_full_decode(self):
+        self.assertTrue(m.short_auto_refine_budget(35.729,1280,720,25,7))
+        for args in [(61,1280,720,25,7),(35,3840,2160,25,7),(35,1280,720,120,7),(35,1280,720,25,31),(35,1280,720,25,0),(35,1280,720,float('nan'),7)]:
+            self.assertFalse(m.short_auto_refine_budget(*args))
     def test_dense_is_bounded(self):
         self.assertEqual(m.discover_dense_scene_cuts('/not/a/file',0,181,24),[])
     def test_empty_does_not_invent_cuts(self):

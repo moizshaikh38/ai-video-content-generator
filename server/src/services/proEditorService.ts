@@ -1,3 +1,4 @@
+import {cutLocalRecoveryTimelineEligible} from '../shared/cutLocalRecoveryTimeline.js';
 import {producerItemPunch} from '../shared/producerItemPunch.js';
 import {duplicateCaptionPayload} from '../shared/duplicateCaptionPayload.js';
 import {constantSpeedSourceSplit} from '../shared/constantSpeedSourceSplit.js';
@@ -1296,6 +1297,7 @@ export class ProEditorService {
   /** Bounded adaptive scene contract: same measured shot plan as picture export.
    * Legacy fallback remains unchanged; no claim of a full legacy-layout rewrite. */
   public static captionSceneWindows(project:EditorProject,reframe:ProReframeContext):CaptionLayoutWindow[]{
+    reframe={...reframe,track:reframe.track?{...reframe.track,cutLocalRecoveryEligible:cutLocalRecoveryTimelineEligible(project,reframe.clipStartSec||0,Number(reframe.track.metadata?.clip_duration)||project.canvas.duration)} as any:null};
     const physicalOutput=canvasDims(project.canvas.aspect_ratio,reframe.canvasScale??1);
     const source=reframe.decodedSource;
     const persisted=source?captionPersistedPanelWindows(project,source.width,source.height,physicalOutput):[];
@@ -1343,6 +1345,7 @@ export class ProEditorService {
     reframe?: ProReframeContext,
     loudnorm?: LoudnormCompileMode
   ): CompiledRenderGraph {
+    reframe=reframe?{...reframe,track:reframe.track?{...reframe.track,cutLocalRecoveryEligible:cutLocalRecoveryTimelineEligible(project,reframe.clipStartSec||0,Number(reframe.track.metadata?.clip_duration)||project.canvas.duration)} as any:null}:reframe;
     project=suppressStaleCaptionEmojis(project);
     // Render-only normalization: base crops already use canonical aspect design
     // dimensions. Transitions/overlays must use the same canvas, not stale saved

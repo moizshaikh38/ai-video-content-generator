@@ -22,6 +22,8 @@ export interface ShotCompositionOptions {
     bodyOnlyPortraitReview?: boolean;
     /** Requires independently declared podcast/interview context. */
     allowConversationSplit?: boolean;
+    /** Current source-bound recovery only: remove padding, never measured body pixels. */
+    pairPaddingSeparation?: boolean;
     /** Offline participant assignment qualification. Not enabled by production callers. */
     participantPanelsReview?: boolean;
     /** Offline face-window-only panel qualification. Never read from user settings. */

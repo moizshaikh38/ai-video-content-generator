@@ -1,3 +1,4 @@
+import {boundCutLocalRecoveryPlan,cutLocalRecoveryTimelineEligible} from '../../../server/src/shared/cutLocalRecoveryTimeline';
 import {SecondaryVideoPreview} from './SecondaryVideoPreview';
 import{previewWheelCrop}from'../../../server/src/shared/previewWheelCrop';
 import{InlineSourceCrop}from'./InlineSourceCrop';
@@ -484,7 +485,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const baseVideoItem: EditorTrackItem | undefined = activeVideoItems[0] ?? primaryVideoTrack?.items.find(i=>!i.hidden);
   // Resolve the current local scene, not a saved-project map. Pending manual
   // choices take priority immediately; the source-bound plan keeps its clock.
-  const shotComposition: PreviewCanvasProps['shotComposition'] = bareSmartSplitReviewForItem(baseVideoItem,bareSmartSplitReview,compositionClipStart) ?? incomingShotComposition;
+  const shotComposition: PreviewCanvasProps['shotComposition'] = boundCutLocalRecoveryPlan(bareSmartSplitReviewForItem(baseVideoItem,bareSmartSplitReview,compositionClipStart) ?? incomingShotComposition,cutLocalRecoveryTimelineEligible(project,compositionClipStart,(incomingShotComposition?.[incomingShotComposition.length-1]?.end)||project.canvas.duration));
   // The rendered export preview already contains the panels; only compose them live from the clean source.
   const videoCropLocked = Boolean(baseVideoItem?.locked || project.tracks.some(t => t.locked && t.items.some(i => i.id === baseVideoItem?.id)));
   const manualPanels = viewMode === 'export_review' && renderedPreviewUrl ? null : normalizePanels((baseVideoItem as any)?.panels);

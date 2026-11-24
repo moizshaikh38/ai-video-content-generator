@@ -25,6 +25,10 @@ def short_auto_cut_budget(duration, width, height, fps):
     return all(np.isfinite(v) for v in [duration,width,height,fps]) and 0 < duration <= 30 and 0 < width <= 1920 and 0 < height <= 1080 and 0 < fps <= 60 and duration*fps <= 1800
 
 
+def short_auto_refine_budget(duration,width,height,fps,count):
+    return all(np.isfinite(v) for v in [duration,width,height,fps,count]) and 0 < duration <= 60 and 0 < width <= 1920 and 0 < height <= 1080 and 0 < fps <= 60 and 0 < count <= 30
+
+
 def discover_dense_scene_cuts(video_path, start_sec, duration_sec, source_fps):
     """Opt-in frame-level visual discontinuities, not semantic scene proof.
 
@@ -544,7 +548,8 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
             region['end']=min(effective_duration,region['end']);protected_content_regions.append(region)
 
     cut_evidence = []
-    if os.environ.get('SMART_REFRAME_REFINE_CUTS', '') == '1' and scene_cuts:
+    bounded_refinement = discover_short_auto_cuts is True and short_auto_refine_budget(effective_duration,source_width,source_height,source_fps,len(scene_cuts))
+    if (os.environ.get('SMART_REFRAME_REFINE_CUTS', '') == '1' or bounded_refinement) and scene_cuts:
         cut_evidence = refine_scene_cuts(video_path, scene_cuts, start_sec,
                                          frame_interval / source_fps, source_fps)
         scene_cuts = sorted(set(e["time"] for e in cut_evidence if e["time"] > 0))
