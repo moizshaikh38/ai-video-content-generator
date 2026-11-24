@@ -1,3 +1,4 @@
+import {runsBackgroundWorkers} from './runtimePolicy.js';
 import {posterAttemptKey,posterKeyMatchesRecipe,publishPosterAttempt} from './posterPublicationService.js';
 import { logger } from '../utils/logger.js';
 import { clipObjectPrefix, signObjectGet } from './objectStorageService.js';
@@ -76,6 +77,10 @@ export class ClipPosterService {
   static async getPosterUrl(clip: PosterClip): Promise<string | null> {
     const ready = await this.signedUrlIfReady(clip);
     if (ready) return ready;
+
+    // Durable poster reuse is safe on the API. Cache misses belong to a
+    // processing worker, never an implicit source fetch/FFmpeg job here.
+    if (!runsBackgroundWorkers()) return null;
 
     const rendered = isRendered(clip);
     const sourceKey = rendered ? clip.output_storage_path : clip.source_storage_path;
