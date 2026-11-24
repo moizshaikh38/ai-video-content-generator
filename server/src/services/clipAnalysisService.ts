@@ -1,3 +1,4 @@
+import {assertSelectionProjectActive} from './selectionProviderAdmissionService.js';
 import {selectionSourceReceiptMatches} from '../shared/selectionSourceReceipt.js';
 import {settleClipSelectionWindows} from '../shared/settleClipSelectionWindows.js';
 import {applySemanticGenreReceipt} from '../shared/semanticGenreEvidence.js';
@@ -624,6 +625,7 @@ export class ClipAnalysisService {
 
     return await ownerContext.run(userId, async () => {
       try {
+        await assertSelectionProjectActive(userId,projectId);
         if(!options.expectedDispatch&&process.env.VIREO_AUTO_GENRE_REVIEW==='free'){const {refreshStoredGenreReview}=await import('./retainedGenreReviewService.js');await refreshStoredGenreReview(userId,projectId);}
         // 1. Verify project exists and belongs to user
       const { data: project, error: projErr } = await dataRepository
@@ -782,6 +784,7 @@ export class ClipAnalysisService {
         throw tooShort;
       }
 
+      await assertSelectionProjectActive(userId,projectId);
       // 5. Construct prompt and call LLM (using sliding-window chunks for long transcripts)
       const isLongTranscript =
         segments.length > 350 ||

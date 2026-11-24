@@ -170,7 +170,7 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
-    if(err.code==='CLIP_SELECTION_CONTEXT_CHANGED'||err.code==='TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED'||err.code==='TRANSCRIPT_REVIEW_REQUIRED'||err.code==='TRANSCRIPT_SOURCE_REVIEW_REQUIRED'||err.code==='CLIP_SEGMENTS_INVALID'){
+    if(err.code==='PROJECT_DELETION_IN_PROGRESS'||err.code==='CLIP_SELECTION_CONTEXT_CHANGED'||err.code==='TRANSCRIPT_WORD_TEXT_REVIEW_REQUIRED'||err.code==='TRANSCRIPT_REVIEW_REQUIRED'||err.code==='TRANSCRIPT_SOURCE_REVIEW_REQUIRED'||err.code==='CLIP_SEGMENTS_INVALID'){
       res.status(409).json({status:'error',code:err.code,message:err.message});
       return;
     }
