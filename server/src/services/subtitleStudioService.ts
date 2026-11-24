@@ -625,6 +625,13 @@ export class SubtitleStudioService {
     return ownerContext.run(userId, async () => {
       let tempDir:string|undefined,cleanupSafe=true;
       try {
+        // A queued snapshot is not a permanent entitlement grant. Recheck
+        // current preset access before source I/O or any child process.
+        const preset=project.subtitle_style?.preset;
+        if(preset){
+          const entitlement=await EntitlementService.resolveUserEntitlements(userId);
+          if(!EntitlementService.isPresetAllowed(entitlement,preset))throw new AppError('The saved subtitle preset is not available on your current plan.',403,'PRESET_RESTRICTED');
+        }
         tempDir=fs.mkdtempSync(path.join(os.tmpdir(),`vireo-subtitles-${projectId.slice(0,8)}-`));
         const sourceLocalPath=path.join(tempDir,'source.mp4'),assPath=path.join(tempDir,'subtitles.ass'),outputMp4Path=path.join(tempDir,'burned_output.mp4');
         const cues = project.subtitle_cues || [];
