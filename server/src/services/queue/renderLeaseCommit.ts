@@ -15,7 +15,13 @@ export async function commitFencedRenderOutcome(client:MongoClient,db:Db,identit
  const session=client.startSession();
  try{
   await session.withTransaction(async()=>{
-   const job=await db.collection('render_jobs').updateOne({id:identity.jobId,clip_id:identity.clipId,user_id:identity.userId,worker_id:identity.workerId,status:'processing'},{$set:outcome.job},{session});
+   const jobOutcome={...outcome.job};
+   if(jobOutcome.status==='completed'){
+    const previous=await db.collection('render_jobs').findOne({id:identity.jobId,clip_id:identity.clipId,user_id:identity.userId,worker_id:identity.workerId,status:'processing'},{session});
+    if(previous?.error_code||previous?.error_message)jobOutcome.last_recovered_error={code:previous.error_code??null,message:previous.error_message??null};
+    jobOutcome.error_code=null;jobOutcome.error_message=null;
+   }
+   const job=await db.collection('render_jobs').updateOne({id:identity.jobId,clip_id:identity.clipId,user_id:identity.userId,worker_id:identity.workerId,status:'processing'},{$set:jobOutcome},{session});
    if(job.matchedCount!==1)throw new AppError('Render lease was expired or claimed by another worker.',409,'FENCING_TOKEN_MISMATCH');
    const current=await db.collection('clips').findOne({id:identity.clipId,user_id:identity.userId},{session});
    if(!current)throw new AppError('Clip no longer exists for this render owner.',404,'CLIP_NOT_FOUND');

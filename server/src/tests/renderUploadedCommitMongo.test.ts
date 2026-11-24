@@ -49,3 +49,5 @@ test('unknown source validation failure preserves bytes for reconciliation',()=>
  const attempt={...f.attempt,validateSource:async()=>{throw Object.assign(Error('database read unavailable'),{code:'DATABASE_UNAVAILABLE'});}};
  await assert.rejects(()=>commitUploadedRenderOutcome(f.client,f.db,f.identity,f.outcome,attempt),{code:'DATABASE_UNAVAILABLE'});assert.equal(deleted.length,f.before);
 }));
+
+test('real Mongo recovered publication clears active errors and preserves prior diagnostic atomically',()=>fixture(async f=>{await f.db.collection('render_jobs').updateOne({id:f.identity.jobId},{$set:{error_code:'RENDER_LEASE_EXPIRED',error_message:'Previous worker lease expired',attempts:2}});await f.commit();const row=await f.db.collection('render_jobs').findOne({id:f.identity.jobId});assert.equal(row.status,'completed');assert.equal(row.error_code,null);assert.equal(row.error_message,null);assert.deepEqual(row.last_recovered_error,{code:'RENDER_LEASE_EXPIRED',message:'Previous worker lease expired'});assert.equal(row.attempts,2)}));
