@@ -1,6 +1,6 @@
 import {initialExportResolution} from '../../../server/src/shared/initialExportResolution';
 import { unassignedPanelViews } from '../../../server/src/shared/panelLayouts';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Download,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { RenderedClip, EditorProject } from '../../types';
 import { clipRenderService, type ExportResolution } from '../../services/clipRenderService';
+import { resolveExportDownload } from '../../utils/resolveExportDownload';
 import { triggerBrowserDownload } from '../../utils/downloadUtils';
 import {
   generatePremiereXml,
@@ -82,75 +83,55 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   const setResolution=(value:ExportResolution)=>{setLocalResolution(value);onResolutionChange?.(value);};
   const unassignedViews = project ? unassignedPanelViews(project) : [];
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
-  const [resolvedDownloadUrl, setResolvedDownloadUrl] = useState<string | null>(null);
-  const [resolvedFilename, setResolvedFilename] = useState<string>('clip.mp4');
-
-  // A stale render must not be offered as the changed export: drop the
-  // pre-fetched signed URL while export settings differ from the last render.
+  const downloadScope = JSON.stringify([isOpen, isRendering, clip?.id, clip?.render_version, clip?.editor_version,
+    clip?.render_status, project?.version, resolution, unassignedViews.length, renderSuccessMsg, downloadStale, downloadUrl]);
+  const scopeRef = useRef(downloadScope);
+  scopeRef.current = downloadScope;
+  const requestRef = useRef<symbol | null>(null);
+  const mountedRef = useRef(false);
+  const [downloadFailure, setDownloadFailure] = useState<{scope: string; message: string; stale: boolean} | null>(null);
+  const downloadError = downloadFailure?.scope === downloadScope ? downloadFailure.message : null;
+  const signingStale = Boolean(downloadFailure?.scope === downloadScope && downloadFailure.stale);
+  const exportNeedsRender = downloadStale || signingStale;
   useEffect(() => {
-    if (downloadStale) setResolvedDownloadUrl(null);
-  }, [downloadStale]);
-
-  // Pre-fetch signed download URL as soon as clip is ready or render completes
-  useEffect(() => {
-    if (!isOpen || !clip?.id) return;
-    if (clip.render_status === 'ready' || renderSuccessMsg) {
-      clipRenderService
-        .getDownloadUrl(clip.id)
-        .then((res) => {
-          if (res.signedUrl) {
-            setResolvedDownloadUrl(res.signedUrl);
-            if (res.filename) setResolvedFilename(res.filename);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [isOpen, clip?.id, clip?.render_status, renderSuccessMsg]);
-
+    mountedRef.current = true;
+    requestRef.current = null;
+    setIsDownloading(false);
+    setDownloadFailure(null);
+    return () => { mountedRef.current = false; requestRef.current = null; };
+  }, [downloadScope]);
   const handleDownloadClip = async () => {
-    if (unassignedViews.length > 0 || downloadStale) return;
-    if (!clip?.id && !resolvedDownloadUrl && !downloadUrl) {
-      setDownloadError('No clip ID or download URL is available.');
+    if (!isOpen || isRendering || requestRef.current || unassignedViews.length > 0 || exportNeedsRender) return;
+    if (!clip?.id && !downloadUrl) {
+      setDownloadFailure({scope: downloadScope, message: 'No clip ID or download URL is available.', stale: false});
       return;
     }
 
+    const request = Symbol('download');
+    requestRef.current = request;
+    const current = () => mountedRef.current && scopeRef.current === downloadScope && requestRef.current === request;
     setIsDownloading(true);
-    setDownloadError(null);
+    setDownloadFailure(null);
 
     try {
-      let targetUrl = resolvedDownloadUrl || downloadUrl;
-      let targetFilename = resolvedFilename || (clip?.title
-        ? `${clip.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.mp4`
-        : 'vireo-clip.mp4');
+      // Revalidate at click time. An earlier signed preview/download URL must
+      // never hide a newer server rejection for a clip-backed export.
+      const { signedUrl: targetUrl, filename: targetFilename } = await resolveExportDownload({
+        clipId: clip?.id,
+        fallbackUrl: downloadUrl,
+        fallbackFilename: clip?.title ? `${clip.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.mp4` : 'vireo-clip.mp4',
+        resolve: (id) => clipRenderService.getDownloadUrl(id),
+      });
 
-      if (!targetUrl && clip?.id) {
-        try {
-          const downloadData = await clipRenderService.getDownloadUrl(clip.id);
-          if (downloadData.signedUrl) {
-            targetUrl = downloadData.signedUrl;
-            if (downloadData.filename) {
-              targetFilename = downloadData.filename;
-            }
-            setResolvedDownloadUrl(targetUrl);
-            setResolvedFilename(targetFilename);
-          }
-        } catch (fetchErr: any) {
-          if (!targetUrl) {
-            throw fetchErr;
-          }
-        }
-      }
-
-      if (!targetUrl) {
-        throw new Error('Unable to resolve a valid download URL. The clip may still be processing.');
-      }
-
+      if (!current()) return;
       await triggerBrowserDownload(targetUrl, targetFilename);
     } catch (err: any) {
-      setDownloadError(err.message || 'Failed to download video. Please try again.');
+      if (current()) setDownloadFailure({scope: downloadScope,
+        message: err.message || 'Failed to download video. Please try again.',
+        stale: err.code === 'RENDER_INPUT_CHANGED' || err.code === 'RENDER_FRESHNESS_UNVERIFIED',
+      });
     } finally {
-      setIsDownloading(false);
+      if (current()) { requestRef.current = null; setIsDownloading(false); }
     }
   };
 
@@ -196,7 +177,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         {/* Body */}
         <div className="p-4 md:p-6 space-y-5 flex-1 min-h-0 overflow-y-auto">
           {/* Export Settings Options */}
-          {!isRendering && !renderSuccessMsg && (
+          {!isRendering && (!renderSuccessMsg || signingStale) && (
             <>
               {/* Resolution selection */}
               <div>
@@ -300,13 +281,13 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                 </div>
               )}
 
-              {downloadStale && (
+              {exportNeedsRender && (
                 <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-800/40 text-[11px] text-amber-200/90 leading-snug">
-                  Export settings changed since the last render. Start Render again to download an updated video.
+                  This export is not verified for the current edits. Review the settings, then choose Start Render to create an updated video. No render has been started.
                 </div>
               )}
 
-              {clip?.render_status === 'ready' && !downloadStale && clip.encoded_audio_review?.status !== 'muted' && (
+              {clip?.render_status === 'ready' && !exportNeedsRender && clip.encoded_audio_review?.status !== 'muted' && (
                 <div role="status" data-testid="encoded-audio-review" className="p-3 rounded-xl border border-amber-800/40 bg-amber-950/20 text-[11px] text-amber-100 leading-snug space-y-1">
                   <p className="font-semibold">{clip.encoded_audio_review?.status === 'needs_review'
                     ? 'Audio needs review' : clip.encoded_audio_review?.status === 'measured'
@@ -321,7 +302,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               )}
 
               {/* Existing rendered version available */}
-              {clip?.render_status === 'ready' && !downloadStale && unassignedViews.length === 0 && (
+              {clip?.render_status === 'ready' && !exportNeedsRender && unassignedViews.length === 0 && (
                 <div className="p-3.5 rounded-xl bg-emerald-950/20 flex items-center justify-between gap-3">
                   <div className="text-left">
                     <div className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
@@ -388,7 +369,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
           )}
 
           {/* Success Result View */}
-          {renderSuccessMsg && !isRendering && !downloadStale && unassignedViews.length === 0 && (
+          {renderSuccessMsg && !isRendering && !exportNeedsRender && unassignedViews.length === 0 && (
             <div className="py-4 space-y-4 text-center">
               <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto" />
               <div>
@@ -411,25 +392,13 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                   <span>{isDownloading ? 'Downloading Video...' : 'Download MP4 Video'}</span>
                 </button>
 
-                {resolvedDownloadUrl && (
-                  <p className="text-[11px] text-neutral-400 mt-1">
-                    If download doesn&apos;t start automatically,{' '}
-                    <a
-                      href={resolvedDownloadUrl}
-                      download={resolvedFilename}
-                      className="text-emerald-400 underline hover:text-emerald-300 font-medium cursor-pointer"
-                    >
-                      click here to download directly
-                    </a>.
-                  </p>
-                )}
-
-                {downloadError && (
-                  <div className="p-2.5 text-xs text-rose-300 bg-rose-950/40 rounded-xl max-w-sm text-center">
-                    {downloadError}
-                  </div>
-                )}
               </div>
+            </div>
+          )}
+
+          {downloadError && !isRendering && (
+            <div role="alert" className="p-2.5 text-xs text-rose-300 bg-rose-950/40 rounded-xl text-center">
+              {downloadError}
             </div>
           )}
 
@@ -463,10 +432,10 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             onClick={onClose}
             className="px-4 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.10] text-neutral-200 hover:text-white border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] active:bg-white/[0.04] text-xs font-medium transition"
           >
-            {renderSuccessMsg ? 'Close' : 'Cancel'}
+            {renderSuccessMsg && !signingStale ? 'Close' : 'Cancel'}
           </button>
 
-          {!isRendering && (!renderSuccessMsg || downloadStale) && (
+          {!isRendering && (!renderSuccessMsg || exportNeedsRender) && (
             <button
               disabled={isRendering || unassignedViews.length > 0}
               onClick={() => onTriggerRender(resolution)}
