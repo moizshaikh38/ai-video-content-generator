@@ -574,6 +574,7 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
         text_coverage["geometry_execution"]={k:v for k,v in geometry_result.items()if k!="samples"}
     return {
         "scene_cut_discovery": cut_discovery,
+        "measured_capabilities": __import__('measured_capabilities').measured_capabilities(yunet_detector is not None, person_detector is not None, samples),
         "source_text_coverage": text_coverage,
         "face_resolution_passes": __import__('yunet_pyramid').inference_sizes(source_width,source_height,os.environ.get('SMART_REFRAME_YUNET_PYRAMID','')=='1') if yunet_detector else None,
         **({"person_detector": "nanodet-2022nov-sha256-" + __import__("person_regions").MODEL_SHA256} if person_detector else {}),

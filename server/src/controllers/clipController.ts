@@ -1,3 +1,4 @@
+import {measuredReframeCapabilities} from '../shared/measuredReframeCapabilities.js';
 import {selectionSourceReceiptMatches} from '../shared/selectionSourceReceipt.js';
 import {clipSelectionDispatchEnabled} from '../services/runtimePolicy.js';
 import {enqueueClipSelection} from '../db/repositories/clipSelectionDispatchRepository.js';
@@ -1433,6 +1434,7 @@ export const getClipReframe = async (req: AuthenticatedRequest, res: Response): 
       dominantTrackId: track.dominant_track_id,
       contentFramingDecision: track.metadata?.content_framing_decision ?? null,
       analyzedSourcePath: track.metadata?.analyzed_source_path ?? null,
+      measuredCapabilities: track.isStale ? null : measuredReframeCapabilities(track.metadata?.measured_capabilities),
       smoothedKeyframes: track.smoothed_keyframes || [],
       analysisVersion: track.analysis_version,
       analyzedTrimStart: track.analyzed_trim_start,

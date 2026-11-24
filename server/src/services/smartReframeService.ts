@@ -1,3 +1,5 @@
+import {recoverCutLocalSplits} from '../shared/cutLocalSplitRecovery.js';
+import {measuredReframeCapabilities,type MeasuredReframeCapabilities} from '../shared/measuredReframeCapabilities.js';
 import {sourceWindowReframeWords} from '../shared/sourceWindowReframeWords.js';
 export type ReframeRuntimeCapability={available:boolean;pythonPath:string;detail?:string;base?:string;face?:{kind:string;status:string};person?:{kind:string;status:string};scope?:string};
 import{transcriptContentIdentity}from'../shared/transcriptSourceBinding.js';
@@ -1534,7 +1536,7 @@ export class SmartReframeService {
       // Rejecting a clip-wide pair is not evidence that every measured shot
       // requires the same source-aspect strip. Reuse the existing conservative
       // single-view planner only for current source-bound, cut-local evidence.
-      // It may retain full Fit per shot. Never infer new cuts or re-enable Split.
+      // It may retain full Fit per shot. Never infer new cuts or join tracks across cuts.
       const m=track.metadata, cuts=m?.scene_cuts, samples=track.raw_samples;
       const bound=track.status==='ready'&&!track.isStale&&track.sourceObjectVerified===true&&
         /^[a-f0-9]{64}$/.test(m?.analyzed_source_sha256||'')&&
@@ -1551,12 +1553,28 @@ export class SmartReframeService {
       // every unrelated shot into one source-aspect strip. Keep supplied
       // measured regions and all existing shot-local face/context protections.
       if(bound&&validCuts&&validSamples&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('fit'))){
-        return this.computeShotComposition({rawSamples:samples,sceneCuts:cuts,duration,
+        const options:ShotCompositionOptions={rawSamples:samples,sceneCuts:cuts,duration,
           sourceWidth:track.source_width,sourceHeight:track.source_height,windowScope:'shot',
           automaticFitAspect:'4:3',allowConversationSplit:false,protectedContentRegions:m.protected_content_regions,
-          layoutPolicy:cropConfig.layoutPolicy}).map(shot=>({...shot,
-            contextStatus:'unresolved-review-required',
-            uncertainty:(shot.uncertainty||'Measured shot-local single view.')+' Clip-wide Split rejected; source text, missed objects and between-sample motion still require review.'}));
+          layoutPolicy:cropConfig.layoutPolicy};
+        const baseline=this.computeShotComposition(options).map(shot=>({...shot,
+          contextStatus:'unresolved-review-required' as const,
+          uncertainty:(shot.uncertainty||'Measured shot-local single view.')+' Clip-wide Split rejected; source text, missed objects and between-sample motion still require review.'}));
+        // Recover only existing measured shot geometry, never the clip-wide pair.
+        // Faces/bodies are not a human/animation classifier. Known context vetoes
+        // stay final; unavailable person detection keeps the prior Fit baseline.
+        const context=m.content_framing_decision;
+        if(outputAspect==='9:16'&&cropConfig.layout_mode_source==='auto'&&
+           (!cropConfig.mode||cropConfig.mode==='smart')&&
+           m.person_detector==='nanodet-2022nov-sha256-4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186'&&
+           !['screen_content','action_context','scene_context'].includes(context?.policy)&&
+           context?.evidence?.possibleEmbeddedCamera!==true&&
+           !m.shot_composition_candidate&&!m.participant_panels_review&&!m.participant_manual_review&&
+           !m.embedded_camera_panel_review_enabled&&!m.automatic_gaming_review_enabled){
+          const candidate=this.computeShotComposition({...options,allowConversationSplit:true,splitHandSafetyReview:true});
+          return recoverCutLocalSplits(baseline,candidate,cropConfig.layoutPolicy);
+        }
+        return baseline;
       }
       return unsupportedSplit;
     }
@@ -2946,6 +2964,7 @@ export class SmartReframeService {
     scene_cuts?: number[];
     protected_content_regions?: Array<{start:number;end:number;x:number;y:number;width:number;height:number;confidence:number}>;
     person_detector?: string | null;
+    measured_capabilities?: MeasuredReframeCapabilities;
     face_resolution_passes?:number[][]|null;
     scene_cut_discovery?:{mode:string;status:string;reason?:string;duration_seconds:number;frame_budget:number};
     source_text_detector?:string|null;
@@ -3297,6 +3316,7 @@ export class SmartReframeService {
           transcript_word_join:wordJoin,
           scene_cut_evidence: cvResult.scene_cut_evidence || [],
           person_detector: cvResult.person_detector ?? null,
+          measured_capabilities: measuredReframeCapabilities(cvResult.measured_capabilities),
           face_resolution_passes: cvResult.face_resolution_passes ?? null,
           scene_cut_discovery: cvResult.scene_cut_discovery ?? null,
           source_text_detector: cvResult.source_text_detector ?? null,

@@ -1,0 +1,7 @@
+export interface MeasuredReframeCapabilities {version:1;face_detector:'opencv-yunet'|'opencv-haar';person_detector:'opencv-nanodet'|'not-configured';sample_count:number;face_sample_count:number;person_sample_count:number;human_animation_classification:'not-run';active_speaker_verification:'not-run';absence_means:'not-observed-not-absent'}
+/** Only a current analyzer receipt, never infer a successful run from env flags. */
+export function measuredReframeCapabilities(value:unknown):MeasuredReframeCapabilities|null{
+ const v=value as MeasuredReframeCapabilities;
+ if(!v||v.version!==1||!['opencv-yunet','opencv-haar'].includes(v.face_detector)||!['opencv-nanodet','not-configured'].includes(v.person_detector)||v.human_animation_classification!=='not-run'||v.active_speaker_verification!=='not-run'||v.absence_means!=='not-observed-not-absent'||![v.sample_count,v.face_sample_count,v.person_sample_count].every(n=>Number.isInteger(n)&&n>=0)||v.sample_count<1||v.face_sample_count>v.sample_count||v.person_sample_count>v.sample_count||(v.person_detector==='not-configured'&&v.person_sample_count!==0))return null;
+ return {version:1,face_detector:v.face_detector,person_detector:v.person_detector,sample_count:v.sample_count,face_sample_count:v.face_sample_count,person_sample_count:v.person_sample_count,human_animation_classification:'not-run',active_speaker_verification:'not-run',absence_means:'not-observed-not-absent'};
+}

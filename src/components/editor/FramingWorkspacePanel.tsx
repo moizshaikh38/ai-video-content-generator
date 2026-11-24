@@ -31,7 +31,9 @@ interface FramingWorkspacePanelProps {
   onUpdateSplitAnchors?: (anchors: { speaker1X: number; speaker2X: number }) => void;
   onUpdateScreencast?: (patch: ScreencastConfigEdit) => void;
   onUpdateProject: (updater: (prev: EditorProject) => EditorProject) => void;
-  /** Stored per-scene plan review + explicit single-scene Apply (see ScenePlanReview). */
+  /** Actual current analysis execution receipt, not environment capability. */
+  measuredCapabilities?: import('../../../server/src/shared/measuredReframeCapabilities').MeasuredReframeCapabilities|null;
+  /** Stored per-scene plan review + explicit single-scene Apply. */
   scenePlan?: Omit<ScenePlanReviewProps, 'project'> | null;
 }
 
@@ -47,6 +49,7 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
   onUpdateScreencast,
   onUpdateProject: _onUpdateProject,
   scenePlan = null,
+  measuredCapabilities = null,
 }) => {
   // Read active framing mode from video track or default to smart
   const videoTrack = project.tracks.find((t) => t.type === 'VIDEO');
@@ -123,6 +126,10 @@ export const FramingWorkspacePanel: React.FC<FramingWorkspacePanelProps> = ({
           <p className="text-[10px] text-neutral-400">One frame size for the clip. Manual layout choices take priority.</p>
         </div>
       )}
+      {measuredCapabilities && <div data-testid="measured-analysis-capabilities" className="rounded-lg border border-white/10 p-3 text-[10px] text-neutral-400">
+        <p>Measured {measuredCapabilities.sample_count} frames: faces in {measuredCapabilities.face_sample_count}, bodies in {measuredCapabilities.person_sample_count}{measuredCapabilities.person_detector==='not-configured'?' (body detector not configured)':''}.</p>
+        <p>Human vs animation and active speakers were not checked. Missing detections do not mean absent subjects.</p>
+      </div>}
       {scenePlan && <ScenePlanReview project={project} {...scenePlan} />}
       {/* Reframe & Crop Modes */}
       <div>

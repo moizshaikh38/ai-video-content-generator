@@ -234,6 +234,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
       speaker1: { x: number; y: number; windowW: number };
       speaker2: { x: number; y: number; windowW: number };
     } | null;
+    measuredCapabilities?: import('../../../server/src/shared/measuredReframeCapabilities').MeasuredReframeCapabilities|null;
     shotComposition?: Array<{start:number;end:number;kind:'group'|'solo'|'fit';split?:{speaker1X:number;speaker2X:number;dividerX:number;focusPanels?:import('../../../server/src/shared/panelLayouts').ItemPanels};windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY:number}>}> | null;
     contentFramingDecision?: import('../../../server/src/shared/contentFramingDecision').ContentFramingDecision | null;
     bareSmartSplitReview?:import('../../../server/src/shared/automaticSplitEvidence').BareSmartSplitReview|null;
@@ -305,6 +306,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             splitGeometry: r.splitGeometry ?? null,
             groupFrame: r.groupFrame ?? null,
             shotComposition: r.shotComposition ?? null,
+            measuredCapabilities: r.measuredCapabilities ?? null,
             contentFramingDecision: r.contentFramingDecision ?? null,
             bareSmartSplitReview: r.bareSmartSplitReview ?? null,
             analyzedTrimStart: Number(r.analyzedTrimStart) || 0,
@@ -1886,6 +1888,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
               );
             })()}
             <FramingWorkspacePanel
+              measuredCapabilities={speakerSplit?.measuredCapabilities??null}
               scenePlan={(() => {
                 const sp = speakerSplit;
                 if (!sp?.shotComposition?.length || !sp.sourceWidth || !sp.sourceHeight) return null;

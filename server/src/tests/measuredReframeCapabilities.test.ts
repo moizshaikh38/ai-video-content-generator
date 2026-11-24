@@ -1,0 +1,4 @@
+import{test}from'node:test';import assert from'node:assert/strict';import{measuredReframeCapabilities as read}from'../shared/measuredReframeCapabilities.js';
+const make=()=>({version:1,face_detector:'opencv-yunet',person_detector:'opencv-nanodet',sample_count:20,face_sample_count:12,person_sample_count:15,human_animation_classification:'not-run',active_speaker_verification:'not-run',absence_means:'not-observed-not-absent'});
+test('receipt preserves actual detector evidence without upgrading scene meaning',()=>{const v=make(),r=read(v);assert.deepEqual(r,v);assert.notStrictEqual(r,v);assert.equal(read(undefined),null)});
+test('malformed/fabricated receipt is not shown as capability',()=>{for(const patch of[{version:2},{sample_count:NaN},{sample_count:2},{face_sample_count:-1},{person_detector:'not-configured'},{human_animation_classification:'verified'},{active_speaker_verification:'verified'}])assert.equal(read({...make(),...patch}),null)});
