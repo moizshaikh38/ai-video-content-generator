@@ -38,7 +38,7 @@ export function captionCompositionWindows(project:any,plan:any[],clipStart:numbe
    const panelGeometry=s.split?.focusPanels&&outputSize?materializePanels(s.split.focusPanels,sourceW,sourceH,outputSize.width,outputSize.height):undefined;
    if(s.split?.focusPanels&&outputSize&&!panelGeometry)return [];
    const layout:CaptionSceneLayout=s.split?.focusPanels?.layout==='gameplay'?'panel_gameplay':s.split?'split':Math.abs(s.windowW*sourceW/(s.windowH*sourceH)-outputAspect)<.01?'fill':'fit';
-   return end>start?[{itemId:i.id,start,end,layout,...(layout==='panel_gameplay'?{anchorY:panelGeometry?numericPanelSeam(panelGeometry):panelTargetRects(s.split.focusPanels)[0].h}:layout==='fit'?{anchorY:automaticFitBottomBoundary(s.windowW*sourceW/(s.windowH*sourceH),project.canvas.aspect_ratio)}:{})}]:[];
+   return end>start?[{itemId:i.id,start,end,layout,...(layout==='panel_gameplay'?{anchorY:panelGeometry?numericPanelSeam(panelGeometry):panelTargetRects(s.split.focusPanels)[0].h}:layout==='fit'?{anchorY:fitCaptionBelowPictureAnchor(s.windowW*sourceW/(s.windowH*sourceH),project.canvas.aspect_ratio)}:{})}]:[];
   });
  });
 }
@@ -57,12 +57,22 @@ export function captionPersistedPanelWindows(project:any,sourceW:number,sourceH:
  });
 }
 
-/** Caption center sits on the lower sharp-picture boundary, not a fixed canvas
- * coordinate. This is derived from the same source window used by the picture
- * compiler. Unknown geometry keeps the legacy anchor; user coordinates win. */
+/** Portrait wide-Fit default uses the measured Opus lower-band reference.
+ * A taller Fit requests an extra gap, capped at .90 to retain canvas room.
+ * Near-portrait pictures may leave insufficient room below and still overlap;
+ * nonportrait output retains its existing edge anchor. Explicit positions win. */
+export function fitCaptionBelowPictureAnchor(pictureAspect:number,canvasAspect='9:16'):number {
+ const edge=automaticFitBottomBoundary(pictureAspect,canvasAspect);
+ if(canvasAspect==='1:1'||canvasAspect==='16:9')return edge;
+ return Math.min(.90,Math.max(585/720,edge+.08));
+}
+
+/** Compatibility helper for the automatic caption anchor, not the raw picture
+ * edge. Real preview/export callers use captionCompositionWindows; unknown
+ * geometry keeps the legacy anchor and explicit user coordinates win. */
 export function fitPictureBoundaryAnchor(pictureAspect:number):number {
  if(!Number.isFinite(pictureAspect)||pictureAspect<=0)return 585/720;
- return automaticFitBottomBoundary(pictureAspect);
+ return fitCaptionBelowPictureAnchor(pictureAspect);
 }
 
 /** Reads the same persisted VIDEO-item layout contract as the editor controls.

@@ -34,13 +34,13 @@ test('panel caption anchors follow observed reference seams, not an unknown layo
 
 test('ASS staging includes nested Bungee exact bundled face',()=>{const dir=assFontsDirArg().slice(11,-1);assert.ok(fs.readdirSync(dir).includes('Bungee-Regular.ttf'))});
 
-test('automatic Fit caption follows actual lower picture seam across aspect ratios, not fixed reference height',async()=>{
+test('automatic Fit captions sit below picture with Opus reference lower-band default',async()=>{
  const {captionCompositionWindows,fitPictureBoundaryAnchor}=await import('../shared/sceneCaptionPlacement.js');
- for(const [w,h,expected]of [[4,3,.6646875],[16,9,.603515625],[1,1,.74625]]){
+ for(const [w,h,expected]of [[4,3,.8125],[16,9,.8125],[1,1,.82625]]){
   const p:any={canvas:{aspect_ratio:'9:16'},tracks:[{type:'VIDEO',items:[{id:'v',source_start:0,source_end:3,timeline_start:0,timeline_end:3}]}]};
   const windows=captionCompositionWindows(p,[{start:0,end:3,windowW:1,windowH:1,keyframes:[]}],0,w,h);
-  assert.equal(windows[0].anchorY,expected);assert.equal(fitPictureBoundaryAnchor(w/h),expected);
-  const c=applySceneCaptionPlacement([{start:0,end:1,text:'test'}],{project:p,automaticWindows:windows})[0];assert.equal(c.position_y,expected);
+  assert.ok(Math.abs(windows[0].anchorY!-expected)<1e-9);assert.ok(Math.abs(fitPictureBoundaryAnchor(w/h)-expected)<1e-9);
+  const c=applySceneCaptionPlacement([{start:0,end:1,text:'test'}],{project:p,automaticWindows:windows})[0];assert.ok(Math.abs(c.position_y-expected)<1e-9);
   const manual={start:0,end:1,text:'test',position_y:.24};assert.equal(applySceneCaptionPlacement([manual],{project:p,automaticWindows:windows})[0],manual);
  }
  assert.equal(fitPictureBoundaryAnchor(NaN),585/720);

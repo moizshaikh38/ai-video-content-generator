@@ -10,6 +10,6 @@ test('explicit caption positions remain untouched despite ordinary Auto scenes',
 
 test('legacy ordinary Fit captions consume same4:3picture plan instead of silently fixed canvas position',()=>{
  const p=project(),t:any=track();t.layout_mode='blur';t.dominant_track_id=null;t.raw_samples=t.raw_samples.map((s:any)=>({...s,faces:[],persons:[]}));t.metadata.scene_cuts=[];
- const w=run(p,t);assert.equal(w.length,1);assert.equal(w[0].layout,'fit');assert.ok(Math.abs(w[0].anchorY!-.6646875)<1e-8);
- const c=place([{start:0,end:1,text:'TEST'}],{project:p,automaticWindows:w})[0];assert.ok(Math.abs(c.position_y!-.6646875)<1e-8);
+ const w=run(p,t);assert.equal(w.length,1);assert.equal(w[0].layout,'fit');assert.ok(Math.abs(w[0].anchorY!-.8125)<1e-8);
+ const c=place([{start:0,end:1,text:'TEST'}],{project:p,automaticWindows:w})[0];assert.ok(Math.abs(c.position_y!-.8125)<1e-8);
 });

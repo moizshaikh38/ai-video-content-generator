@@ -13,14 +13,14 @@ test('automatic Fit keeps first line at the existing single-line anchor instead 
  const before=JSON.stringify({cue,project,windows}),c=run()[0];assert.equal(c.text,'THE WHOLE\\NINSPIRATION');assert.equal(c.position_y,windows[0].anchorY!+style.fontSize/(2*style.playResY));assert.equal(c.position_y*1920-style.fontSize/2,windows[0].anchorY!*1920);assert.equal(JSON.stringify({cue,project,windows}),before);assert.deepEqual(c.words?.map((w:any)=>[w.start,w.end]),cue.words.map((w:any)=>[w.start,w.end]));
 });
 test('automatic Fit single-line center is unchanged',()=>{const c=run({...cue,text:'Love',words:[{text:'Love',start:0,end:2}]})[0];assert.equal(c.position_y,windows[0].anchorY);});
-test('finalization is idempotent and preview/export use the same corrected center',()=>{const c=run()[0];assert.deepEqual(finish([c],style),[c]);assert.equal(getPreviewFrame(c,1.1,style).positionY,c.position_y);assert.ok(buildPresetAssScript([c],style).includes('1226.750'));});
+test('finalization is idempotent and preview/export use the same corrected center',()=>{const c=run()[0];assert.deepEqual(finish([c],style),[c]);assert.equal(getPreviewFrame(c,1.1,style).positionY,c.position_y);assert.ok(buildPresetAssScript([c],style).includes('1628.000'));});
 test('manual cue coordinates, explicit config and explicit caption-item intent remain unchanged',()=>{
  for(const values of [{position_y:.23},{position_x:.4},{position_x:.4,position_y:.7}]){const c=run({...cue,...values})[0];for(const [key,value]of Object.entries(values))assert.equal(c[key],value);assert.equal(Object.getOwnPropertySymbols(c).length,0);}
  assert.equal(run(cue,{explicitConfigPosition:true})[0].position_y,undefined);
  const p=structuredClone(project);p.tracks.push({type:'CAPTION',items:[{timeline_start:0,timeline_end:3,caption:{position:'bottom',position_explicit:true}}]});assert.equal(run(cue,{project:p})[0].position_y,undefined);
 });
-test('Split/gameplay seam and legacy manual Fit positions are unchanged for two-line text',()=>{
- for(const [layout,anchor]of [['split',.5],['panel_gameplay',.4]]as const){const c=run(cue,{automaticWindows:[{itemId:'v',start:0,end:3,layout,anchorY:anchor}]})[0];assert.equal(c.position_y,anchor);assert.equal(Object.getOwnPropertySymbols(c).length,0);}
+test('Split stays centered, Comic gameplay keeps first-line seam, and manual Fit stays unchanged',()=>{
+ for(const [layout,anchor]of [['split',.5],['panel_gameplay',.4]]as const){const c=run(cue,{automaticWindows:[{itemId:'v',start:0,end:3,layout,anchorY:anchor}]})[0];assert.equal(c.position_y,layout==='panel_gameplay'?anchor+style.fontSize/(2*style.playResY):anchor);assert.equal(Object.getOwnPropertySymbols(c).length,layout==='panel_gameplay'?1:0);}
  const p=structuredClone(project);p.tracks[0].items[0].crop={mode:'fit'};const c=run(cue,{project:p,automaticWindows:[]})[0];assert.equal(c.position_y,.8125);assert.equal(Object.getOwnPropertySymbols(c).length,0);
 });
 test('only source-geometry automatic Fit gains growth metadata, including4:3, not Fill',()=>{
