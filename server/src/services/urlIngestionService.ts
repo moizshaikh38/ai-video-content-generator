@@ -1,3 +1,4 @@
+import {recordUrlImportAttempt,finishUrlImportAttempt} from './urlImportCleanupService.js';
 import {runsBackgroundWorkers} from './runtimePolicy.js';
 import {KickImportService} from './kickImportService.js';
 import {downloadCloudVideo,probeCloudVideo} from './cloudVideoImportService.js';
@@ -868,6 +869,8 @@ export class UrlIngestionService {
     let ytMeta: YouTubeMetadataResult | undefined = undefined;
     let acquisitionCacheKey:YouTubeAcquisitionKey|undefined;
     let reusedAcquisition=false;
+    let uploadAttempt:Awaited<ReturnType<typeof recordUrlImportAttempt>>|undefined;
+    let published=false;
 
     const range =
       startTimeSec !== undefined || endTimeSec !== undefined
@@ -964,21 +967,8 @@ export class UrlIngestionService {
       const mime = download.contentType.includes('video') ? download.contentType : 'video/mp4';
 
       logger.info(`Uploading ingested video to Cloudflare R2: ${key}`);
+      uploadAttempt=await recordUrlImportAttempt(userId,projectId,key,filename,download.totalBytes,mime);
       await uploadFile('source', key, tempFile, download.totalBytes, mime);
-
-      // 5. Seed project source disk cache (vireo-source-cache) so subsequent services get instant cache hit
-      const cacheDir = UrlIngestionService.getSourceCacheDir();
-      try {
-        if (!fs.existsSync(cacheDir)) {
-          fs.mkdirSync(cacheDir, { recursive: true });
-        }
-        const hash = crypto.createHash('sha256').update(key).digest('hex');
-        const cachedFile = path.join(cacheDir, `${hash}.mp4`);
-        fs.copyFileSync(tempFile, cachedFile);
-        logger.info(`Seeded project source cache for ${key} at ${cachedFile}`);
-      } catch (cacheErr: any) {
-        logger.warn('Failed to seed vireo-source-cache', { error: cacheErr.message });
-      }
 
       // 6. Normalize clip preferences and attach auto-genre suggestions
       let normalizedPrefs = GenreIntelligenceService.normalizePreferences(withNewProjectFraming(clipPreferences||{}), notes);
@@ -1056,6 +1046,24 @@ export class UrlIngestionService {
 
       const quota = options.projectQuota ?? projectQuotaPolicy(await EntitlementService.resolveUserEntitlements(userId));
       await insertProjectWithinQuota(userId, projectRecord, quota);
+      published=true;
+      try{await finishUrlImportAttempt(uploadAttempt,true);}catch{logger.warn('Published URL import attempt bookkeeping remains unresolved.',{projectId,attemptId:uploadAttempt.id});}
+
+      // 5. Seed project source disk cache (vireo-source-cache) so subsequent services get instant cache hit
+      const cacheDir = UrlIngestionService.getSourceCacheDir();
+      try {
+        if (!fs.existsSync(cacheDir)) {
+          fs.mkdirSync(cacheDir, { recursive: true });
+        }
+        const hash = crypto.createHash('sha256').update(key).digest('hex');
+        const cachedFile = path.join(cacheDir, `${hash}.mp4`);
+        fs.copyFileSync(tempFile, cachedFile);
+        logger.info(`Seeded project source cache for ${key} at ${cachedFile}`);
+      } catch (cacheErr: any) {
+        logger.warn('Failed to seed vireo-source-cache', { error: cacheErr.message });
+      }
+
+
 
       return {
         projectId,
@@ -1066,6 +1074,9 @@ export class UrlIngestionService {
         mimeType: mime,
         sourceType: 'url',
       };
+    } catch(error){
+      if(uploadAttempt&&!published)try{await finishUrlImportAttempt(uploadAttempt,false,error);}catch{logger.warn('URL import cleanup outcome is unresolved; attempt retained for review.',{projectId,attemptId:uploadAttempt.id});}
+      throw error;
     } finally {
       // 8. Guarantee temp file cleanup
       if (tempFile) {
