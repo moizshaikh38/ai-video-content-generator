@@ -1,3 +1,4 @@
+import {runsBackgroundWorkers} from './runtimePolicy.js';
 import {KickImportService} from './kickImportService.js';
 import {downloadCloudVideo,probeCloudVideo} from './cloudVideoImportService.js';
 import {subtitleProjectDefaults} from '../shared/subtitleProjectDefaults.js';
@@ -852,6 +853,9 @@ export class UrlIngestionService {
    * High-level workflow orchestrating URL validation, temporary download, FFmpeg probe,
    * R2 upload, source cache seeding, and project database persistence.
    */  public static async ingestUrlToProject(options: IngestUrlOptions): Promise<IngestUrlResult> {
+    // URL acquisition still downloads/probes inline. Until a worker dispatcher
+    // exists, API-only instances must refuse before DNS, cache or media work.
+    if (!runsBackgroundWorkers()) throw new AppError('Video import requires an available processing worker. No source import was started.',503,'PROCESSING_DISPATCH_UNAVAILABLE');
     const { userId, url, title, notes, clipPreferences, startTimeSec, endTimeSec } = options;
     const projectId = options.projectId || crypto.randomUUID();
     const maxBytes=Math.min(config.maxVideoBytes,Number.isFinite(options.maxBytes)&&Number(options.maxBytes)>0?Number(options.maxBytes):config.maxVideoBytes);

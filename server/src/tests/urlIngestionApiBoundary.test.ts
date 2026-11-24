@@ -1,0 +1,15 @@
+import test,{after} from 'node:test';
+import assert from 'node:assert/strict';
+Object.assign(process.env,{NODE_ENV:'test'});
+const {UrlIngestionService:S}=await import('../services/urlIngestionService.js');
+const {UrlValidator:V}=await import('../utils/urlValidator.js');
+const {AppError}=await import('../types/index.js');
+const old={validate:V.validateVideoUrl,fetch:globalThis.fetch,role:process.env.VIREO_SERVICE_ROLE};
+let validations=0,network=0;
+V.validateVideoUrl=async()=>{validations++;throw new AppError('Fixture reached original URL validation.',400,'FIXTURE_VALIDATION_REACHED');};
+globalThis.fetch=(async()=>{network++;throw Error('Unexpected external fetch');})as any;
+after(()=>{V.validateVideoUrl=old.validate;globalThis.fetch=old.fetch;if(old.role===undefined)delete process.env.VIREO_SERVICE_ROLE;else process.env.VIREO_SERVICE_ROLE=old.role;});
+for(const subtitle of [false,true])test('API '+(subtitle?'subtitle':'core')+' URL import refuses before URL validation or media/network work',async()=>{process.env.VIREO_SERVICE_ROLE='api';const before=validations;await assert.rejects(S.ingestUrlToProject({userId:'fixture',url:'https://example.invalid/video.mp4',...(subtitle?{subtitleProject:{hormoziAllowed:false}}:{})}),{statusCode:503,code:'PROCESSING_DISPATCH_UNAVAILABLE'});assert.equal(validations,before);assert.equal(network,0);});
+test('API admission refusal precedes reading acquisition input properties',async()=>{process.env.VIREO_SERVICE_ROLE='api';const before=validations;const options=new Proxy({}as any,{get(){assert.fail('API-only admission must not inspect acquisition input');}});await assert.rejects(S.ingestUrlToProject(options),{code:'PROCESSING_DISPATCH_UNAVAILABLE'});assert.equal(validations,before);assert.equal(network,0);});
+for(const role of ['combined','worker'])test(role+' URL import keeps original validation entry',async()=>{process.env.VIREO_SERVICE_ROLE=role;const before=validations;await assert.rejects(S.ingestUrlToProject({userId:'fixture',url:'https://example.invalid/video.mp4'}),{code:'FIXTURE_VALIDATION_REACHED',statusCode:400});assert.equal(validations,before+1);assert.equal(network,0);});
+test('default combined role keeps original validation entry',async()=>{delete process.env.VIREO_SERVICE_ROLE;const before=validations;await assert.rejects(S.ingestUrlToProject({userId:'fixture',url:'https://example.invalid/video.mp4'}),{code:'FIXTURE_VALIDATION_REACHED'});assert.equal(validations,before+1);assert.equal(network,0);});
