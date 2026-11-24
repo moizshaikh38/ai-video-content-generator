@@ -2026,13 +2026,13 @@ export class SmartReframeService {
         sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}_split`})
         : this.buildGroupFitFilter({keyframes:kfs,windowW:s.windowW,windowH:s.windowH,sourceWidth:options.sourceWidth,sourceHeight:options.sourceHeight,tag:`${tag}_${i}`,canvasWidth:canvasDims('9:16',options.canvasScale??1).width,canvasHeight:canvasDims('9:16',options.canvasScale??1).height});
       const frames = Math.max(1, Math.round((b-start)*fps)-Math.round((a-start)*fps));
-      graph+=`[${labels[i]}]trim=start=${st.toFixed(6)}:duration=${(b-a).toFixed(6)},setpts=PTS-STARTPTS,${f},tpad=stop_mode=clone:stop_duration=0.1,fps=${fps}:eof_action=pass,trim=end_frame=${frames},setpts=N/(${fps}*TB),setsar=1[${tag}_part${i}];`;
+      graph+=`[${labels[i]}]trim=start=${st.toFixed(6)}:duration=${(b-a).toFixed(6)},settb=AVTB,setpts=PTS-${st.toFixed(6)}/TB,${f},tpad=stop_mode=clone:stop_duration=0.1,fps=${fps}:start_time=0:eof_action=pass,trim=end_frame=${frames},setpts=N/(${fps}*TB),setsar=1[${tag}_part${i}];`;
     });
     // Pad decoded frames before fps at both stages. Padding after fps can only
     // clone a penultimate frame when EOF conversion has already dropped the
     // unique final source frame. Strict trims retain the requested frame count.
     // Rebase concat's microsecond timestamps onto exact 30fps frame ticks.
-    graph+=shots.map((_,i)=>`[${tag}_part${i}]`).join('')+`concat=n=${shots.length}:v=1:a=0,settb=1/${fps},setpts=N,tpad=stop_mode=clone:stop_duration=0.1,fps=${fps}:eof_action=pass,trim=end_frame=${Math.max(1,Math.round(options.duration*fps))},setpts=N/(${fps}*TB)`;
+    graph+=shots.map((_,i)=>`[${tag}_part${i}]`).join('')+`concat=n=${shots.length}:v=1:a=0,settb=1/${fps},setpts=N,tpad=stop_mode=clone:stop_duration=0.1,fps=${fps}:start_time=0:eof_action=pass,trim=end_frame=${Math.max(1,Math.round(options.duration*fps))},setpts=N/(${fps}*TB)`;
     return options.tag?graph:`[0:v]${graph}[out]`;
   }
 

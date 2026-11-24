@@ -1,3 +1,5 @@
+import {usesAutomaticSourceClock} from '../../../server/src/shared/automaticSourceClock';
+import {automaticShotPreviewTime} from '../../../server/src/shared/shotFrameClock';
 import {boundCutLocalRecoveryPlan,cutLocalRecoveryTimelineEligible} from '../../../server/src/shared/cutLocalRecoveryTimeline';
 import {SecondaryVideoPreview} from './SecondaryVideoPreview';
 import{previewWheelCrop}from'../../../server/src/shared/previewWheelCrop';
@@ -135,6 +137,7 @@ interface PreviewCanvasProps {
   bareSmartSplitReview?: BareSmartSplitReview | null;
   compositionClipStart?: number;
   autoCandidateEnabled?:boolean;
+  automaticSourceClockCandidate?:boolean;
   autoCandidateMixed?:boolean;
   onSetAutoCandidate?:(enabled:boolean)=>void;
   onSetAutomaticFraming?: (itemId:string|null,enabled:boolean,sourceTime:number)=>void;
@@ -279,6 +282,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   compositionClipStart = 0,
   onSetAutomaticFraming,
   autoCandidateEnabled,
+  automaticSourceClockCandidate=false,
   autoCandidateMixed,
   onSetAutoCandidate,
   lowConfidenceTrack = false,
@@ -509,7 +513,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const rawPlan=automaticPlanReviewRequired?[{start:0,end:Math.max(project.canvas.duration||1,(baseVideoItem?.source_end||0)-compositionClipStart,1),kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}],contextStatus:'unresolved-review-required',uncertainty:'Source or scene configuration needs review.'}]:shotComposition?.length?shotComposition:(missingAutomaticCamera&&videoDims?[{start:0,end:Math.max(project.canvas.duration||1,1),kind:'fit' as const,windowW:1,windowH:1,keyframes:[{time:0,centerX:.5,centerY:.5}]}]:[]);
   const effectiveShotComposition = freezeAutomaticPlan(automaticPlanReviewRequired?rawPlan:presentFit43(rawPlan,videoDims?.w||1920,videoDims?.h||1080),baseVideoItem?.automatic_framing,compositionClipStart);
   const shotSourceTime = (baseVideoItem?.source_start || 0) + (playhead-(baseVideoItem?.timeline_start||0)) * (baseVideoItem?.speed?.speed||1);
-  const shotRelativeTime = Math.max(0,shotSourceTime-compositionClipStart);
+  const shotRelativeTime = usesAutomaticSourceClock(baseVideoItem as any,automaticSourceClockCandidate) ? automaticShotPreviewTime(effectiveShotComposition,shotSourceTime,baseVideoItem.source_start||0,baseVideoItem.timeline_start||0,playhead,baseVideoItem.speed?.speed||1,compositionClipStart,project.canvas.fps||30) : Math.max(0,shotSourceTime-compositionClipStart);
   const activePlanShot = !previewShotOwnedElsewhere(baseVideoItem) && !manualPanels
     ? effectiveShotComposition.find(s=>shotRelativeTime>=s.start&&shotRelativeTime<s.end&&(!(s as any).requiredAspect||(s as any).requiredAspect===project.canvas.aspect_ratio)) : undefined;
   const automaticMultiPanels: NonNullable<EditorTrackItem['panels']> | null = activePlanShot?.split?.focusPanels && ['three','four','gameplay'].includes(activePlanShot.split.focusPanels.layout) ? activePlanShot.split.focusPanels : null;
@@ -613,11 +617,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   const cues = useMemo(() => applySceneCaptionPlacement(rawCues, {
     project, sourceWidth: videoDims?.w, sourceHeight: videoDims?.h,
     fallbackLayout: primaryLayoutMode,
-    automaticWindows:[...captionPersistedPanelWindows(project,videoDims?.w||0,videoDims?.h||0,geometryOutputSize),...captionCompositionWindows(project,effectiveShotComposition,compositionClipStart,videoDims?.w||0,videoDims?.h||0,geometryOutputSize)],
+    automaticWindows:[...captionPersistedPanelWindows(project,videoDims?.w||0,videoDims?.h||0,geometryOutputSize),...captionCompositionWindows(project,effectiveShotComposition,compositionClipStart,videoDims?.w||0,videoDims?.h||0,geometryOutputSize,automaticSourceClockCandidate)],
     fontSize: placementStyle?.fontSize ?? captionItem?.caption?.font_size,
     maxCharsPerLine: placementStyle?.maxCharsPerLine,
     maxLines: placementStyle?.maxLines ?? captionItem?.caption?.max_lines,
-  }), [rawCues, project, videoDims, geometryOutputSize, primaryLayoutMode, shotComposition, effectiveShotComposition, compositionClipStart, captionItem, placementStyle?.fontSize, placementStyle?.maxLines, placementStyle?.maxCharsPerLine]);
+  }), [rawCues, project, videoDims, geometryOutputSize, primaryLayoutMode, shotComposition, effectiveShotComposition, compositionClipStart, automaticSourceClockCandidate, captionItem, placementStyle?.fontSize, placementStyle?.maxLines, placementStyle?.maxCharsPerLine]);
   // Gallery presets render through the shared preset engine (same cue grouping, timing,
   // geometry and colors as the ASS export). Legacy styles keep the overlay below.
   const captionData = captionItem?.caption;
@@ -660,10 +664,10 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
         return (item as any).freeze_source_time ?? (item.source_start || 0);
       }
       const speed = item.speed?.speed || 1.0;
-      return (item.source_start || 0) + (playhead - item.timeline_start) * speed;
+      return !isPlaying&&usesAutomaticSourceClock(item as any,automaticSourceClockCandidate)&&!previewShotOwnedElsewhere(item)&&effectiveShotComposition.length ? compositionClipStart+shotRelativeTime : (item.source_start || 0) + (playhead - item.timeline_start) * speed;
     }
     return (sourceOffset || 0) + playhead;
-  }, [isUsingRenderedPreview, activeVideoItems, playhead, sourceOffset]);
+  }, [isUsingRenderedPreview, activeVideoItems, playhead, sourceOffset, effectiveShotComposition, compositionClipStart, shotRelativeTime, isPlaying, automaticSourceClockCandidate]);
 
   // Smart-reframe pan for the base video (mirrors the export's
   // buildSmartCropFilter crop window under a CSS cover fit). Applies only when
@@ -735,7 +739,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     }
     // Editor source timestamps are millisecond-rounded; analysis clip start
     // may retain sub-millisecond precision. Clamp only that rounding sliver.
-    const relativeTime = targetVideoTime - compositionClipStart;
+    const relativeTime = shotRelativeTime;
     const clipTime = relativeTime < 0 && relativeTime >= -.001 ? 0 : relativeTime;
     const shot = effectiveShotComposition.find(s => clipTime >= s.start && clipTime < s.end)
       ?? (effectiveShotComposition.length && clipTime >= effectiveShotComposition[effectiveShotComposition.length-1].end ? effectiveShotComposition[effectiveShotComposition.length-1] : undefined);
@@ -771,7 +775,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     return { left: `${left.toFixed(1)}px`, top: `${top.toFixed(1)}px`, width: `${elW.toFixed(1)}px`, height: `${elH.toFixed(1)}px`, clipPath: `inset(${shift.toFixed(1)}px 0 ${Math.max(0,elH-shift-bandH).toFixed(1)}px 0)` };
   })();
 
-  const autoShotTime = Math.max(0,targetVideoTime-compositionClipStart);
+  const autoShotTime = shotRelativeTime;
   const activeAutomaticShot = !manualPanels && !baseVideoItem?.framing_window && !baseVideoItem?.crop && !(baseVideoItem as any)?.tracker?.enabled && (primaryLayoutMode === 'track' || Boolean(activePlanShot?.split))
     ? effectiveShotComposition.find(s=>autoShotTime>=s.start&&autoShotTime<s.end) : undefined;
   const automaticLayoutLabelBase = automaticPlanReviewRequired?'Auto Fit · Review':!baseVideoItem?.crop&&!activePanels&&missingAutomaticCamera ? 'Auto Fit · Review' : activeAutomaticShot && videoDims

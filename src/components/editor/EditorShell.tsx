@@ -162,6 +162,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     ? (primaryVideoItem?.source_start ?? (Number(clip.start_seconds || 0) + Number(clip.trim_start_offset || 0)))
     : 0;
 
+  const [adaptivePlanExpected,setAdaptivePlanExpected]=useState(false);
   // Playback hook
   const {
     videoRef,
@@ -186,6 +187,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     setPreviewQuality,
     formatTime,
   } = useEditorPlayback({
+    sourceClockCandidate:isCleanSource&&adaptivePlanExpected,
     initialDuration: project.canvas.duration || 30,
     initialTime: project.playhead || 0,
     fps: project.canvas.fps || 30,
@@ -257,7 +259,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   const [normalGamingOption,setNormalGamingOption]=useState<NormalGamingManualEnvelope|null>(null);
   const autoCandidateEnabled=projectAutoCandidate(project);
   const [stableShotComposition,setStableShotComposition]=useState<NonNullable<typeof speakerSplitData>['shotComposition']>(null);
-  const [adaptivePlanExpected,setAdaptivePlanExpected]=useState(false);
+
   const [candidatePlanEnvelope,setCandidatePlanEnvelope]=useState<PreviewMeasuredPlanEnvelope|null>(null);
   const [stablePlanEnvelope,setStablePlanEnvelope]=useState<PreviewMeasuredPlanEnvelope|null>(null);
   const activeCandidateBase=project.tracks.find(t=>t.type==='VIDEO'&&!t.hidden)?.items.find(i=>!i.hidden&&currentTime>=i.timeline_start&&(currentTime<i.timeline_end||(currentTime===project.canvas.duration&&currentTime===i.timeline_end)));
@@ -2075,6 +2077,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             contentFramingDecision={speakerSplit?.contentFramingDecision ?? null}
             shotComposition={speakerSplit?.shotComposition ?? null}
             bareSmartSplitReview={speakerSplit?.bareSmartSplitReview ?? null}
+            automaticSourceClockCandidate={isCleanSource&&adaptivePlanExpected}
             autoCandidateEnabled={autoCandidateEnabled}
             autoCandidateMixed={projectAutoCandidateState(project)==='mixed'}
             onSetAutoCandidate={enabled=>{onCommitProject?.(project);onUpdateProject(prev=>setProjectAutoCandidate(prev,enabled));}}

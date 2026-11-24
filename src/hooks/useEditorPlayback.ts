@@ -1,7 +1,11 @@
+import {usesAutomaticSourceClock} from '../../server/src/shared/automaticSourceClock';
+import {previewShotOwnedElsewhere} from '../../server/src/shared/automaticPreviewFallback';
+import {flushSync} from 'react-dom';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { timelineToSourceTime, sourceToTimelineTime, playbackSliceAt, mediaTimeAdvanced, type PlaybackSlice } from '../lib/editorPlaybackTime';
 
 export interface UseEditorPlaybackOptions {
+  sourceClockCandidate?: boolean;
   initialDuration?: number;
   initialTime?: number;
   fps?: number;
@@ -39,6 +43,7 @@ export interface UseEditorPlaybackReturn {
 }
 
 export function useEditorPlayback({
+  sourceClockCandidate = false,
   initialDuration = 30,
   initialTime = 0,
   fps = 30,
@@ -61,6 +66,7 @@ export function useEditorPlayback({
   const [previewQuality, setPreviewQuality] = useState<'auto' | '360p' | '540p' | '720p'>('auto');
 
   const durationRef = useRef(duration); durationRef.current = duration;
+  const sourceClockCandidateRef=useRef(sourceClockCandidate);sourceClockCandidateRef.current=sourceClockCandidate;
   const timeRef = useRef(currentTime); timeRef.current = currentTime;
   const slicesRef = useRef(sourceSlices); slicesRef.current = sourceSlices;
   const rateRef = useRef(playbackRate); rateRef.current = playbackRate;
@@ -271,7 +277,11 @@ export function useEditorPlayback({
     const hasFrameCallback=typeof v.requestVideoFrameCallback==='function';
     const tick=(_now:number,meta?:VideoFrameCallbackMetadata)=>{
       if(disposed)return;
-      if(!v.paused&&!v.seeking)handleTimeUpdate(meta?.mediaTime);
+      if(!v.paused&&!v.seeking){
+        const slice=playbackSliceAt(slicesRef.current,timeRef.current);
+        if(hasFrameCallback&&usesAutomaticSourceClock(slice as any,sourceClockCandidateRef.current)&&!previewShotOwnedElsewhere(slice))flushSync(()=>handleTimeUpdate(meta?.mediaTime));
+        else handleTimeUpdate(meta?.mediaTime);
+      }
       frame=hasFrameCallback?v.requestVideoFrameCallback(tick):requestAnimationFrame(tick);
     };
     frame=hasFrameCallback?v.requestVideoFrameCallback(tick):requestAnimationFrame(tick);

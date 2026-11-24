@@ -1314,11 +1314,11 @@ export class ProEditorService {
       const ordinary=SmartReframeService.explicitAutoLayoutPlan(track,splitReviewItemCropConfig(item,reframe.sourceStoragePath||track.metadata?.analyzed_source_path,{start:reframe.clipStartSec||0,end:(reframe.clipStartSec||0)+duration}),duration,project.canvas.aspect_ratio)||
         (item.crop_config?.layout_mode_source!=='user'?legacyFit43Plan(track,duration,SmartReframeService.computeGroupFrameGeometry({rawSamples:track.raw_samples,sourceWidth:track.source_width||1920,sourceHeight:track.source_height||1080}),SmartReframeService.isLowConfidenceTrack(track)):undefined);
       if(project.canvas.aspect_ratio!=='9:16'&&!nonPortraitAutoFullSourceFit(ordinary,project.canvas.aspect_ratio))return [];
-      if(ordinary)return captionCompositionWindows(one,ordinary,reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080,physicalOutput);
+      if(ordinary)return captionCompositionWindows(one,ordinary,reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080,physicalOutput,track.metadata?.shot_composition_candidate===true);
       if(track.metadata?.shot_composition_candidate!==true)return [];
       const layout=item.crop_config?.layout_mode_source==='user'?item.layout_mode:reframe.layoutMode;
       if(['blur','split','screencast'].includes(layout||''))return [];
-      return captionCompositionWindows(one,ProEditorService.resolveShotCompositionPlan(item,reframe),reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080,physicalOutput);
+      return captionCompositionWindows(one,ProEditorService.resolveShotCompositionPlan(item,reframe),reframe.clipStartSec||0,track.source_width||1920,track.source_height||1080,physicalOutput,track.metadata?.shot_composition_candidate===true);
     });
     };
     return [...persisted,...automatic()];
@@ -1528,14 +1528,15 @@ export class ProEditorService {
           const windowStartClipRel = (item.source_start || 0) - (reframe?.clipStartSec ?? 0);
           const sliceCrop = ProEditorService.buildSliceCropFilter(item, reframe, windowStartClipRel, usesAutomaticSourceClock(item,reframe?.track?.metadata?.shot_composition_candidate === true) || item.tracker?.enabled ? sourceWindowSec : timelineDur, project.canvas);
           const styleFilters = ProEditorService.buildItemStyleFilters(item, canvasW, canvasH, fps);
-          const chain = [`trim=start=${startStr}:end=${endStr}`, 'setpts=PTS-STARTPTS'];
+          const exactAutoClock=usesAutomaticSourceClock(item,reframe?.track?.metadata?.shot_composition_candidate === true);
+          const chain = [`trim=start=${startStr}:end=${endStr}`, exactAutoClock?`settb=AVTB,setpts=PTS-${startStr}/TB`:'setpts=PTS-STARTPTS'];
           if (sliceCrop) chain.push(sliceCrop);
           chain.push(...styleFilters);
           // Speed change must run BEFORE fps: resampling first and then retimestamping
           // halves/doubles the effective cadence and feeds xfade an invalid frame rate.
-          if (speed !== 1) chain.push(`setpts=PTS/${speed}`);
-          chain.push(`fps=${fps}`, 'setsar=1', 'format=yuv420p');
-          if (reframe?.track?.metadata?.shot_composition_candidate === true) {
+          if (speed !== 1) chain.push(...(exactAutoClock?['settb=AVTB']:[]),`setpts=PTS/${speed}`);
+          chain.push(exactAutoClock?`fps=${fps}:start_time=0`:`fps=${fps}`, 'setsar=1', 'format=yuv420p');
+          if (exactAutoClock) {
             const frames=Math.max(1,Math.round((item.timeline_start+sliceDur)*fps)-Math.round(item.timeline_start*fps));
             chain.push('tpad=stop_mode=clone:stop_duration=0.1',`trim=end_frame=${frames}`,`setpts=N/(${fps}*TB)`);
           }
@@ -1649,9 +1650,9 @@ export class ProEditorService {
       const parts: string[] = [];
       if (singleCrop) parts.push(singleCrop);
       parts.push(...styleFilters);
-      if (singleSpeed !== 1) parts.push(`setpts=PTS/${singleSpeed}`);
-      parts.push(`fps=${fps}`, 'format=yuv420p');
-      if (candidateComposition) {
+      if (singleSpeed !== 1) parts.push(...(sourceClockComposition?['settb=AVTB']:[]),`setpts=PTS/${singleSpeed}`);
+      parts.push(sourceClockComposition?`fps=${fps}:start_time=0`:`fps=${fps}`, 'format=yuv420p');
+      if (sourceClockComposition) {
         // A 24fps source's final PTS is before its full duration. Resampling
         // it to 30fps can otherwise drop the final output frame even without
         // cuts. Bound the tail hold and enforce the declared frame budget.
