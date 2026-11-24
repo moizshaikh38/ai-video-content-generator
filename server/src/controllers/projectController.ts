@@ -1,3 +1,4 @@
+import {runsBackgroundWorkers} from '../services/runtimePolicy.js';
 import {AppError} from '../types/index.js';
 import {transcriptReviewCode} from '../shared/transcriptReviewErrors.js';
 import {insertProjectWithinQuota, projectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
@@ -853,6 +854,14 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
     if(req.body?.recover_only===true){
       if(!resumeAttempt||!isValidUUID(resumeAttempt)||project.processing_attempt_id!==resumeAttempt){res.status(409).json({status:'error',code:'PROCESSING_ATTEMPT_CHANGED',message:'Recovery requires the current processing attempt.'});return;}
       try{const reconciled=await releaseUnadmittedProcessing(userId,projectId,project.source_url,resumeAttempt);res.status(200).json({status:'ok',message:'Unstarted reservation reconciled. No new processing started.',projectId,processingAttemptId:resumeAttempt,projectChanged:reconciled.changed,video_status:reconciled.project?.video_status??null});}catch{res.status(409).json({status:'error',code:'PROCESSING_STOP_REVIEW_REQUIRED',message:'This attempt may own active work. Stop and reconcile its worker before recovery; no new processing was started.'});}return;
+    }
+
+    // Completed-attempt readback and explicit reconciliation above do not
+    // launch media work. New admission must not reserve credits in API-only
+    // mode while a durable remote processing dispatcher is not implemented.
+    if (!runsBackgroundWorkers()) {
+      res.status(503).json({status:'error',code:'PROCESSING_DISPATCH_UNAVAILABLE',message:'Video processing requires an available processing worker. No new processing was started and no credits were reserved.'});
+      return;
     }
 
   const selectedProvider = (config.transcriptionProvider || 'groq').toLowerCase().trim();

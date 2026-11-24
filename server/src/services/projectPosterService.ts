@@ -1,3 +1,4 @@
+import {runsBackgroundWorkers} from './runtimePolicy.js';
 import {supervisedExecFile} from './queue/supervisedExecFile.js';
 import type {BorrowedSourceReaders} from './queue/borrowedSourceReaders.js';
 import fs from 'node:fs';
@@ -132,6 +133,10 @@ export class ProjectPosterService {
   static async getPosterUrl(project: PosterProject): Promise<string | null> {
     const expectedKey = this.posterKey(project.user_id, project.id);
     if (posterKeyMatchesRecipe(project.poster_key,expectedKey)) return signObjectGet('clips', project.poster_key!);
+
+    // Serving a durable existing poster above is metadata-only. API-only
+    // instances must not fetch source video or spawn FFmpeg for cache misses.
+    if (!runsBackgroundWorkers()) return null;
 
     if (project.source_type !== 'upload' || !project.source_url || project.video_status === 'uploading') return null;
 
