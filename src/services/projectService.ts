@@ -62,6 +62,8 @@ class ProjectService {
       clip_preferences: row.clip_preferences,
       error_code: row.error_code ?? null,
       processing_failure:row.processing_failure??null,
+      core_selection_capable:row.core_selection_capable===true,
+      core_selection_status:row.core_selection_status??undefined,
       processing_run_token:typeof row.processing_run_token==='string'?row.processing_run_token:null,
       duration_seconds: row.duration_seconds ?? null,
       metadata: row.metadata ?? null,
@@ -220,9 +222,12 @@ class ProjectService {
     return true;
   }
 
-  async startProcessing(projectId: string): Promise<{ success: boolean; message?: string }> {
+  async startProcessing(projectId: string,selection?:{preferences?:any;customNotes?:string}): Promise<{ success: boolean; message?: string }> {
     const scope = this.captureScope();
-    const data = await this.scopedRequest<{ message?: string }>(scope, `/projects/${projectId}/process`, { method: 'POST' });
+    const projectBefore=selection?await this.fetchProject(projectId):this.getProject(projectId);
+    this.assertScope(scope);
+    const useContinuation=Boolean(selection&&projectBefore?.core_selection_capable);
+    const data = await this.scopedRequest<{ message?: string }>(scope, `/projects/${projectId}/process`, { method: 'POST',...(useContinuation?{headers:{'x-vireo-core-continuation':'1'},body:JSON.stringify({continue_to_selection:true,clip_preferences:selection?.preferences,customNotes:selection?.customNotes})}:{}) });
     this.assertScope(scope);
     const project = this.getProject(projectId);
     if (project) { project.video_status = 'processing'; project.status = 'processing'; }

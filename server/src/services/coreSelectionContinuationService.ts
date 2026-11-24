@@ -8,7 +8,7 @@ export async function processNextCoreSelectionContinuation():Promise<boolean>{
   const db=await getMongoDb(),item=await db.collection('core_selection_outbox').findOne({version:1,status:'pending'},{sort:{created_at:1,_id:1}});if(!item)return false;
   try{
    const job=await enqueueClipSelection(await getMongoClient(),db,{userId:item.user_id,projectId:item.project_id,sourceUrl:item.source_url,receipt:item.receipt,context:item.context,customNotes:item.custom_notes??undefined,preferences:item.preferences??undefined});
-   await db.collection('core_selection_outbox').updateOne({_id:item._id,status:'pending'},{$set:{status:'delivered',selection_job_id:job!.id,updated_at:new Date()}});
+   await db.collection('core_selection_outbox').updateOne({_id:item._id,status:'pending'},{$set:{status:'delivered',selection_job_id:job!.id,selection_job_key:job!._id,updated_at:new Date()}});
   }catch(error:any){
    // Known stale/active intent refuses, never turns into different selection.
    // Unknown delivery failure stays pending; identical enqueue is idempotent.

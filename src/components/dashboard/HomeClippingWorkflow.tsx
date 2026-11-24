@@ -376,7 +376,21 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   useEffect(() => () => { exportRequestRef.current?.abort(); }, [activeProjectId, workflowState]);
 
   // Reload only looks up a saved creation identity, never prepares or admits.
-  useEffect(()=>{candidateExportsRef.current.clear();setCreationRecoveryTarget(null);},[user?.id]);
+  const workflowOwnerRef = useRef(user?.id);
+  useEffect(() => {
+    candidateExportsRef.current.clear();setCreationRecoveryTarget(null);
+    if (workflowOwnerRef.current === user?.id) return;
+    const previousOwner = workflowOwnerRef.current;
+    workflowOwnerRef.current = user?.id;
+    // Initial auth hydration is not an account switch. A real owner change
+    // invalidates pending reads and clears the old account's visible workflow.
+    if (!previousOwner) return;
+    workflowSessionRef.current++;resultReadSequenceRef.current++;
+    exportRequestRef.current?.abort();abortControllerRef.current?.abort();
+    setActiveProjectId(null);setSelectedSource(null);setCandidates([]);setRenderedClips([]);
+    setErrorMessage(null);setWorkflowState('no_source');setWorkflowRecoveryHydrated(true);
+    localStorage.removeItem(STORAGE_KEY);
+  }, [user?.id]);
   useEffect(()=>{
     let cancelled=false;
     if(!activeProjectId||!user?.id)return;
@@ -404,11 +418,14 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     finally{if(exportRequestRef.current===request)exportRequestRef.current=null;}
   };
 
+  // Do not clear a saved workflow while mount recovery is still reading it.
+  // StrictMode replays effects, so only the current recovery may finish hydration.
+  const [workflowRecoveryHydrated, setWorkflowRecoveryHydrated] = useState(false);
   // 1. Persistence Recovery: Check localStorage on Mount
   useEffect(() => {
     try {
       const savedRaw = localStorage.getItem(STORAGE_KEY);
-      if (!savedRaw) return;
+      if (!savedRaw) { setWorkflowRecoveryHydrated(true); return; }
       const saved = JSON.parse(savedRaw);
       if (saved && saved.projectId && Date.now() - (saved.timestamp || 0) < 24 * 60 * 60 * 1000) {
         setActiveProjectId(saved.projectId);
@@ -437,6 +454,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             setSelectedSource(null);
             setWorkflowState('error');
             setErrorMessage('The previous upload did not finish. Select the video file again to continue.');
+          } else if (proj.core_selection_status) {
+            setWorkflowState('processing');setActiveProjectStatus(status);
           } else if (status === 'uploaded') {
             setActiveProjectStatus(status);
             setWorkflowState('source_selected');
@@ -453,15 +472,21 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         }).catch(() => {
           if (session !== workflowSessionRef.current) return;
           localStorage.removeItem(STORAGE_KEY);
+        }).finally(() => {
+          if (session === workflowSessionRef.current) setWorkflowRecoveryHydrated(true);
         });
+      } else {
+        setWorkflowRecoveryHydrated(true);
       }
     } catch {
-      // Local storage parse error ignored
+      // Invalid browser storage must not leave future persistence disabled.
+      setWorkflowRecoveryHydrated(true);
     }
   }, []);
 
-  // Update local storage when active project ID changes
+  // Update local storage only after the current mount recovery settles.
   useEffect(() => {
+    if (!workflowRecoveryHydrated) return;
     if (activeProjectId && workflowState !== 'no_source') {
       localStorage.setItem(
         STORAGE_KEY,
@@ -478,7 +503,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     } else if (workflowState === 'no_source') {
       localStorage.removeItem(STORAGE_KEY);
     }
-  }, [activeProjectId, workflowState, aspectRatio, durationPref, captionsEnabled, captionLang, customInstructions]);
+  }, [workflowRecoveryHydrated, activeProjectId, workflowState, aspectRatio, durationPref, captionsEnabled, captionLang, customInstructions]);
 
   // Clean up object URLs on unmount
   useEffect(() => {
@@ -516,7 +541,10 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     if (workflowState !== 'processing' || !activeProjectId) return;
 
     let isMounted = true;
+    let consecutiveReadFailures=0,pollInFlight=false;
     const interval = setInterval(async () => {
+      if(pollInFlight||!isMounted)return;pollInFlight=true;
+      let readingSavedResult=false;
       try {
         const proj = await projectService.fetchProject(activeProjectId);
         if (!proj || !isMounted) return;
@@ -524,6 +552,19 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         const status = proj.video_status || proj.status;
         setActiveProjectStatus(status);
 
+        const continuation=proj.core_selection_status;
+        if(continuation){
+          if(['pending','queued','processing'].includes(continuation.state)){consecutiveReadFailures=0;setProcessingStageMessage('Saved request is continuing to clip selection...');return;}
+          if(continuation.state==='completed'&&continuation.selectionJobId){
+            readingSavedResult=true;
+            await clipService.readSavedSelection(activeProjectId,continuation.selectionJobId);
+            consecutiveReadFailures=0;
+            if(!isMounted)return;
+            navigate(`/dashboard?view=review&project=${activeProjectId}`,{replace:false});await loadResults(activeProjectId,true);onRefreshProjects();return;
+          }
+          clearInterval(interval);setWorkflowState('error');setErrorMessage('Saved clip selection needs review or its status is unavailable. Your source is saved. Reload to check again; no new generation was started.');return;
+        }
+        consecutiveReadFailures=0;
         if (status === 'queued') {
           setProcessingStageMessage('Job queued in processing pipeline...');
         } else if (status === 'processing' || status === 'transcribing') {
@@ -534,7 +575,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           setProcessingStageMessage('Generating clips and applying smart aspect framing...');
         } else if (status === 'completed' || status === 'transcribed') {
           // If transcribed, automatically run AI clip analysis if candidates don't exist yet
-          clearInterval(interval);
+          // Keep polling until a successful read changes workflowState. A saved
+          // continuation can appear during the fresh post-processing fetch.
           setProcessingStageMessage('Finishing clip generation...');
           await handlePostProcessingReady(activeProjectId);
         } else if (status === 'failed') {
@@ -543,8 +585,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           setClippingFailure(projectClippingFailure(proj));
         }
       } catch (err: any) {
-        // Polling failure, will retry next interval
-      }
+        if(!isMounted)return;
+        if(!readingSavedResult)return;
+        consecutiveReadFailures++;
+        if(consecutiveReadFailures>=3){clearInterval(interval);setWorkflowState('error');setErrorMessage('Could not read your saved processing request after three checks. Your source and request are saved. Reload this project to check again; no new generation was started.');}
+      }finally{pollInFlight=false;}
     }, 2500);
 
     return () => {
@@ -648,6 +693,15 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     postProcessingProjectsRef.current.add(projectId);
     const session = workflowSessionRef.current;
     try {
+      const current=await projectService.fetchProject(projectId);
+      if(session!==workflowSessionRef.current)return;
+      if(current?.core_selection_status){
+        const saved=current.core_selection_status;
+        if(saved.state!=='completed'||!saved.selectionJobId){setWorkflowState('processing');setProcessingStageMessage('Checking saved clip selection request...');return;}
+        await clipService.readSavedSelection(projectId,saved.selectionJobId);
+        if(session!==workflowSessionRef.current)return;
+        navigate(`/dashboard?view=review&project=${projectId}`,{replace:false});await loadResults(projectId,true);return;
+      }
       // Check if candidates already exist
       const existingCandidates = await clipService.getClipCandidates(projectId);
       if (session !== workflowSessionRef.current) return;
@@ -943,7 +997,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         setProcessingStageMessage('Starting AI transcription & video analysis...');
 
         // Start backend processing
-        await projectService.startProcessing(projectId);
+        await projectService.startProcessing(projectId,{preferences:clipPreferences,customNotes:customInstructions.trim()||undefined});
         if (!isCurrentRequest()) return;
         setActiveProjectStatus('processing');
         onRefreshProjects();
@@ -980,7 +1034,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         onRefreshProjects();
         setProcessingStageMessage('Queuing video for AI transcription...');
 
-        await projectService.startProcessing(projectId);
+        await projectService.startProcessing(projectId,{preferences:clipPreferences,customNotes:customInstructions.trim()||undefined});
         if (!isCurrentRequest()) return;
         setActiveProjectStatus('processing');
         onRefreshProjects();
@@ -1003,7 +1057,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         } else {
           // Start or resume processing
           setProcessingStageMessage('Processing video with AI...');
-          await projectService.startProcessing(projectId);
+          await projectService.startProcessing(projectId,{preferences:clipPreferences,customNotes:customInstructions.trim()||undefined});
           if (!isCurrentRequest()) return;
           setActiveProjectStatus('processing');
         }

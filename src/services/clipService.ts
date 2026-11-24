@@ -39,6 +39,12 @@ class ClipService {
     return waitForClipSelection(initial,projectId,jobId=>backendRequest<AnalyzeClipsResponse>(`/projects/${projectId}/clip-candidates?selection_job_id=${encodeURIComponent(jobId)}`));
   }
 
+  async readSavedSelection(projectId:string,jobId:string):Promise<AnalyzeClipsResponse>{
+    const data=await backendRequest<AnalyzeClipsResponse>(`/projects/${projectId}/clip-candidates?selection_job_id=${encodeURIComponent(jobId)}`);
+    if(data.projectId!==projectId||data.selectionJobId!==jobId||data.selectionStatus!=='completed'||!Array.isArray(data.candidates))throw Error('Saved selection is not confirmed complete. No new generation was started.');
+    return data;
+  }
+
   /**
    * Fetches all clip candidates for a project, sorted by engagement_score DESC
    */
