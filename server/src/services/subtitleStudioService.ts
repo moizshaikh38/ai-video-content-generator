@@ -599,7 +599,7 @@ export class SubtitleStudioService {
     // timer is not the admission boundary: other callers share this entry.
     this.burnDispatchRunning=true;
     let releaseSafe=true;
-    try{
+    try{return await workLifecycle.run('subtitle-burn-dispatch',async()=>{
       const {claimSubtitleBurn,executeClaimedSubtitleBurn}=await import('../db/repositories/subtitleBurnDispatchRepository.js');
       const db=await getMongoDb(),job=await claimSubtitleBurn(db,crypto.randomUUID());
       if(!job)return false;
@@ -610,7 +610,7 @@ export class SubtitleStudioService {
       const terminal=await db.collection('subtitle_burn_jobs').findOne({id:job.id,worker_id:job.worker_id});
       releaseSafe=Boolean(terminal&&['completed','failed','cancelled'].includes(terminal.status));
       return processed;
-    }finally{if(releaseSafe)this.burnDispatchRunning=false;}
+    });}finally{if(releaseSafe)this.burnDispatchRunning=false;}
   }
 
   /**

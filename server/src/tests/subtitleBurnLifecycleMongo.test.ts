@@ -1,0 +1,16 @@
+import test from 'node:test';import assert from 'node:assert/strict';import crypto from 'node:crypto';
+test('direct subtitle worker entry keeps claim and reconciliation tracked through graceful drain',async(t)=>{
+ Object.assign(process.env,{NODE_ENV:'test',VIREO_SERVICE_ROLE:'worker',VIREO_SUBTITLE_BURN_DISPATCH_V1:'1',MONGODB_URI:process.env.VIREO_BOUNDARY_TEST_MONGO_URI||'mongodb://127.0.0.1:27029/?replicaSet=hook1172',MONGODB_DB_NAME:'burn_lifecycle_'+crypto.randomUUID().replaceAll('-','')});
+ const {getMongoDb,getMongoClient,closeMongo}=await import('../db/mongoClient.js'),{SubtitleStudioService:S}=await import('../services/subtitleStudioService.js'),{enqueueSubtitleBurn}=await import('../db/repositories/subtitleBurnDispatchRepository.js'),{workLifecycle:l,createShutdown}=await import('../services/queue/workLifecycle.js'),{Collection}=await import('mongodb');
+ const db=await getMongoDb(),client=await getMongoClient(),owner=crypto.randomUUID(),id=crypto.randomUUID(),oldClaim=Collection.prototype.findOneAndUpdate,oldRun=(S as any).runBurnWorker;
+ const p:any={id,user_id:owner,source_url:'fixture',subtitle_cues:[{start:0,end:1,text:'Synthetic'}],subtitle_style:{preset:'clean'},subtitle_export_status:'idle'};await db.collection('projects').insertOne(p);await enqueueSubtitleBurn(client,db,{userId:owner,projectId:id,project:p});
+ let entered!:()=>void,release!:()=>void;const inClaim=new Promise<void>(r=>entered=r),gate=new Promise<void>(r=>release=r);
+ (Collection.prototype as any).findOneAndUpdate=async function(...args:any[]){if(this.collectionName==='subtitle_burn_jobs'&&args[0].status==='queued'){entered();await gate;}return oldClaim.apply(this,args as any);};
+ (S as any).runBurnWorker=async(projectId:string,userId:string,token:string,identity:string)=>{assert(l.snapshot().active.includes('subtitle-burn-dispatch'));await db.collection('projects').updateOne({id:projectId,user_id:userId,subtitle_export_run_token:token},{$set:{subtitle_export_run_token:null,subtitle_export_status:'ready',subtitle_export_identity:identity}});};
+ try{
+  const work=S.processNextBurnJob();await inClaim;assert(l.snapshot().active.includes('subtitle-burn-dispatch'));let closed=false;
+  const shutdown=createShutdown({lifecycle:l,timeoutMs:3000,stopPollers:()=>{},closeHttp:async()=>{},closeDatabase:async()=>{closed=true;assert.equal(l.snapshot().active.length,0);}})();
+  await new Promise(r=>setTimeout(r,10));assert.equal(closed,false);assert.equal(await S.processNextBurnJob(),false);release();assert.equal(await work,true);assert.equal(await shutdown,true);assert.equal(closed,true);assert.equal((await db.collection('subtitle_burn_jobs').findOne({project_id:id}))?.status,'completed');
+  t.diagnostic('Actual Mongo claim is paused before execution; direct entry holds lifecycle without startup wrapper. Graceful drain waits through claim, synthetic execution and final durable reconciliation before DB-close callback. No media/provider work.');
+ }finally{Collection.prototype.findOneAndUpdate=oldClaim;(S as any).runBurnWorker=oldRun;await db.dropDatabase();await closeMongo();delete process.env.VIREO_SERVICE_ROLE;delete process.env.VIREO_SUBTITLE_BURN_DISPATCH_V1;}
+});
