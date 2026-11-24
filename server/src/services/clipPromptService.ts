@@ -1,3 +1,4 @@
+import {finalSpeechAdmissionEnabled} from '../shared/finalSpeechAdmission.js';
 import {effectiveClipDurationBounds} from '../shared/clipDurationPreferences.js';
 import {
   TranscriptSegment,
@@ -36,13 +37,14 @@ export class ClipPromptService {
       'CORE RULES:',
       '1. Grounding: You MUST ONLY select moments that actually exist in the transcript.',
       '2. Timestamp Integrity: NEVER invent, hallucinate, or format timestamp numbers. You MUST ONLY specify the starting and ending segment indexes (start_segment_index and end_segment_index).',
-      '3. High-Velocity Viral Hook: Prioritize high-velocity openings. The first 3 seconds must immediately grab attention with a contrarian claim, concrete number/dollar figure, provocative tension question, or pattern interrupt.',
+      finalSpeechAdmissionEnabled() ? '3. Context Before Hook: Spoken subject/topic setup and a complete ending outrank hook speed. Prefer a complete source question and answer over a punchy fragment. Titles, hooks and metadata are not spoken setup.' : '3. High-Velocity Viral Hook: Prioritize high-velocity openings. The first 3 seconds must immediately grab attention with a contrarian claim, concrete number/dollar figure, provocative tension question, or pattern interrupt.',
       '4. Strict Opening Guardrails: NEVER begin start_segment_index on a dangling conjunction, verbal filler, transition without context, or unresolved pronoun (e.g., avoid starting on "And so...", "Because of that...", "Like I said earlier...", "He did...", "So then..."). The first sentence must make grammatical and logical sense on its own.',
       '5. Conclusive Ending & Completeness: Every clip candidate MUST finish on a punchy takeaway, witty punchline, or fully resolved thought. Ensure end_segment_index does NOT cut off mid-explanation, mid-clause, or on an unfinished sentence.',
       '6. Standalone Value: A viewer scrolling past this clip on TikTok or Reels must instantly grasp and enjoy the content without needing any prior context from the full-length video.',
       '7. Cut the Fluff: Avoid generic channel intros, pleasantries, sponsor reads, subscribe/like pitches, and rambling setups unless immediately tied to an exceptional hook.',
       '8. Cold Open Inversion (Non-Linear Hook): If the most explosive takeaway, shocking number, or decisive punchline occurs at the conclusion of a thought, specify cold_open_segment_index as that segment number. The engine will place that 2-4 second teaser at 0:00 before playing the setup.',
-      '9. Output Format: Return ONLY raw, valid JSON matching the exact schema specified in the user prompt. No markdown fencing, no commentary.',
+      ...(finalSpeechAdmissionEnabled() ? ['9. Final self-check: Read selected speech alone, without its title. If a new viewer cannot identify its subject, expand to source-spoken setup within bounds or omit it. Do not propose a visibly unfinished source-tail sentence even when ASR adds punctuation.'] : []),
+      `${finalSpeechAdmissionEnabled() ? '10' : '9'}. Output Format: Return ONLY raw, valid JSON matching the exact schema specified in the user prompt. No markdown fencing, no commentary.`,
     ];
 
     if (genreProfile) {
@@ -259,6 +261,14 @@ export class ClipPromptService {
       '- There is no minimum count. Return {"clips":[]} when no span meets the grounding, duration, opening and ending rules. Never invent, duplicate or pad proposals to fill a quota.',
       segments.length ? `- Available segment indexes are ${firstAvailableIndex} through ${lastAvailableIndex}, inclusive. Use only these indexes. A single-segment input can support at most one distinct segment-index span.` : '- No transcript segments are available. Return {"clips":[]}.',
       '',
+      ...(finalSpeechAdmissionEnabled() ? [
+      'STANDALONE SPEECH AND INDEX CHECK:',
+      '- Select source-spoken setup identifying the subject and topic before dependent pronouns or follow-up remarks. A generated title or hook cannot replace missing spoken setup.',
+      '- Keep the complete question and answer or story conclusion. Stop before a new unanswered question or unrelated exchange starts.',
+      '- The square-bracket labels are segment IDs. Parenthesized seconds are timestamps, NEVER segment IDs. Do not copy seconds into any *_segment_index field.',
+      `- Valid segment IDs only: ${segments.map((_,i)=>firstAvailableIndex+i).join(', ')}. Check each returned index against this list before answering.`,
+      '',
+      ] : []),
       'DURATION CONSTRAINTS:',
       fullSourceDuration && fullSourceDuration < 15
         ? `- This video is short (~${Math.round(fullSourceDuration)}s). Clips may span between ${minDur} seconds and ${maxDur} seconds.`
