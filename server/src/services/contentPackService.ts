@@ -755,6 +755,7 @@ export class ContentPackService {
               intelligenceSummary = viHandoff.summary || '';
             }
           } catch (err: any) {
+            if(err?.code==='NO_AUDIO_STREAM')throw err;
             if(['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE'].includes(err?.code))throw err;
             logger.warn('Could not load VideoIntelligence handoff, falling back to transcript only', { err: err.message });
           }

@@ -359,6 +359,7 @@ export class VideoIntelligenceService {
               extracted.cleanup();
             }
           } catch (trErr: any) {
+            if(trErr?.code==='NO_AUDIO_STREAM')throw trErr;
             if(['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE'].includes(trErr?.code))throw trErr;
             logger.warn(`[VideoIntelligenceService] Audio transcription fallback: ${trErr.message}`);
           }

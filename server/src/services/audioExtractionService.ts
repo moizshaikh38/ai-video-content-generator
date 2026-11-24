@@ -9,6 +9,7 @@ import ffprobeStatic from 'ffprobe-static';
 import { getRenderFfmpeg } from '../utils/drawtextFfmpeg.js';
 
 export const ffprobePath: string = (ffprobeStatic as any)?.path || 'ffprobe';
+import { AppError } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/index.js';
 
@@ -37,6 +38,8 @@ const execFileAsync = promisify(execFile);
  * Subtracting `avStartOffsetSec` would introduce the very drift it looks like it fixes.
  */
 export interface AvStartTimes {
+  /** null when stream presence was not verified; false is a valid silent source. */
+  hasAudio: boolean | null;
   videoStartTimeSec: number;
   audioStartTimeSec: number;
   containerStartTimeSec: number;
@@ -46,6 +49,7 @@ export interface AvStartTimes {
 }
 
 const UNPROBED_AV_START_TIMES: AvStartTimes = {
+  hasAudio: null,
   videoStartTimeSec: 0,
   audioStartTimeSec: 0,
   containerStartTimeSec: 0,
@@ -89,6 +93,8 @@ export async function probeAvStartTimes(filePath: string,signal?:AbortSignal): P
     const audioStartTimeSec = Number((audioStart ?? 0).toFixed(6));
 
     return {
+      hasAudio: streams.some((st) => st?.codec_type === 'audio') ? true :
+        streams.some((st) => st?.codec_type === 'video') ? false : null,
       videoStartTimeSec,
       audioStartTimeSec,
       containerStartTimeSec: Number((containerStart ?? Math.min(videoStartTimeSec, audioStartTimeSec)).toFixed(6)),
@@ -308,6 +314,12 @@ export async function extractAudioFromVideo(
       throw failure;
     }
     cleanup();
+    // Diagnose only a verified native encode failure. Never replace cancellation,
+    // timeout, missing supervision, or an unavailable/cancelled header probe.
+    if (!options.signal?.aborted && err?.cause?.code === 'PROCESS_FAILED' &&
+        probe?.value?.probed && probe.value.hasAudio === false) {
+      throw new AppError('This video has no audio track. Choose a video with speech audio to generate clips and captions.', 400, 'NO_AUDIO_STREAM');
+    }
     throw err;
   }
 }
