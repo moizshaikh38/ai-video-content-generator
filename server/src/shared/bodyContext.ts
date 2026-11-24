@@ -1,6 +1,6 @@
 import type {ReframeSample, NormalizedPersonRegion} from '../types/index.js';
 
-const valid=(p:NormalizedPersonRegion)=>[p.x,p.y,p.width,p.height,p.confidence].every(Number.isFinite)&&p.x>=0&&p.y>=0&&p.width>0&&p.height>0&&p.x+p.width<=1.001&&p.y+p.height<=1.001&&p.confidence>=.4;
+export const validPersonBox=(p:NormalizedPersonRegion)=>[p.x,p.y,p.width,p.height,p.confidence].every(Number.isFinite)&&p.x>=0&&p.y>=0&&p.width>0&&p.height>0&&p.x+p.width<=1.001&&p.y+p.height<=1.001&&p.confidence>=.4;
 /** Person boxes need persistent face anchors. They do not establish speech,
  * camera boundaries or unseen/occluded limbs. Missing evidence is not absence. */
 export function associatedBodyEnvelope(samples:ReframeSample[],trackIds:string[]):{left:number;right:number;top:number;bottom:number}|null {
@@ -12,7 +12,7 @@ export function associatedBodyEnvelope(samples:ReframeSample[],trackIds:string[]
       const face=sample.faces.find(f=>f.track_id===id);
       if(!face)continue;
       sightings++;
-      const eligible=(sample.persons||[]).filter(valid).filter(p=>{
+      const eligible=(sample.persons||[]).filter(validPersonBox).filter(p=>{
         const overlapX=Math.max(0,Math.min(p.x+p.width,face.x+face.width)-Math.max(p.x,face.x));
         const overlapY=Math.max(0,Math.min(p.y+p.height,face.y+face.height)-Math.max(p.y,face.y));
         if(overlapX*overlapY<face.width*face.height*.8||p.width<face.width*1.05||p.width*p.height<face.width*face.height*1.6)return false;
@@ -42,7 +42,7 @@ export function anchoredSingleBodyPath(samples:ReframeSample[],trackId:string,so
   const ordered=[...samples].sort((a,b)=>a.time-b.time);
   const points:Array<{time:number;left:number;right:number;top:number;bottom:number;cx:number;cy:number;area:number}>=[];
   for(const s of ordered){
-    const bodies=(s.persons||[]).filter(valid);
+    const bodies=(s.persons||[]).filter(validPersonBox);
     if(bodies.length!==1||!Number.isFinite(s.time))return null;
     const p=bodies[0];
     if(p.height<.2||p.width<.04)return null;

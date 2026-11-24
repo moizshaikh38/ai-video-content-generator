@@ -21,8 +21,15 @@ from detector_geometry import visible_detector_rect
 from sample_clock import sample_relative_time
 
 
+SHORT_AUTO_MAX_DURATION_SECONDS = 180
+SHORT_AUTO_MAX_PIXEL_FRAMES = 1800*1920*1080
+
+
 def short_auto_cut_budget(duration, width, height, fps):
-    return all(np.isfinite(v) for v in [duration,width,height,fps]) and 0 < duration <= 60 and 0 < width <= 1920 and 0 < height <= 1080 and 0 < fps <= 60 and duration*fps <= 1800
+    # Decode-work proxy (not a measured resource bound): frames x pixels may not exceed
+    # 1800 frames of 1920x1080 and duration <= 180s. Every input the old 60s/1800-frame
+    # rule accepted is still accepted; lower-resolution longer sources now qualify.
+    return all(np.isfinite(v) for v in [duration,width,height,fps]) and 0 < duration <= SHORT_AUTO_MAX_DURATION_SECONDS and 0 < width <= 1920 and 0 < height <= 1080 and 0 < fps <= 60 and duration*fps*width*height <= SHORT_AUTO_MAX_PIXEL_FRAMES
 
 
 def short_auto_refine_budget(duration,width,height,fps,count):
@@ -557,9 +564,13 @@ def analyze_video(video_path: str, sample_fps: float = 4.0, start_sec: float = 0
     # Ordinary short explicit Auto requests a bounded pass. The decoder's
     # actual geometry/fps, not caller metadata, enforces the source budget.
     bounded_auto = discover_short_auto_cuts is True and short_auto_cut_budget(effective_duration,source_width,source_height,source_fps)
-    cut_discovery = {"mode":"short-explicit-auto" if discover_short_auto_cuts is True else "legacy-sampled", "status":"not-requested", "duration_seconds":effective_duration, "frame_budget":1800}
+    pixel_frames = float(effective_duration)*float(source_fps)*float(source_width)*float(source_height) if all(np.isfinite(v) for v in [effective_duration,source_fps,source_width,source_height]) else None
+    cut_discovery = {"mode":"short-explicit-auto" if discover_short_auto_cuts is True else "legacy-sampled", "status":"not-requested", "duration_seconds":effective_duration,
+                     "budget":{"unit":"frames*width*height","max_pixel_frames":SHORT_AUTO_MAX_PIXEL_FRAMES,"max_duration_seconds":SHORT_AUTO_MAX_DURATION_SECONDS,
+                               "max_width":1920,"max_height":1080,"max_fps":60,"pixel_frames":pixel_frames,"source_width":source_width,"source_height":source_height,"source_fps":source_fps,
+                               "note":"decode-work proxy, not a measured resource bound; 1800 frames of 1920x1080 is the legacy reference"}}
     if discover_short_auto_cuts is True and not bounded_auto:
-        cut_discovery.update(status="skipped-budget", reason="Source exceeds bounded duration/dimensions/fps/frame budget")
+        cut_discovery.update(status="skipped-budget", reason="Source exceeds the duration, dimension, fps or frames*pixels decode-work budget")
     if os.environ.get('SMART_REFRAME_DENSE_CUTS', '') == '1' or bounded_auto:
         dense_evidence = discover_dense_scene_cuts(video_path, start_sec, effective_duration, source_fps)
         cut_discovery.update(status="completed")

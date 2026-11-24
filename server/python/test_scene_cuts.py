@@ -37,8 +37,49 @@ class RefinementTests(unittest.TestCase):
         self.assertTrue(m.short_auto_cut_budget(12,1280,720,24))
         self.assertTrue(m.short_auto_cut_budget(39.658,1280,720,25))
         self.assertTrue(m.short_auto_cut_budget(60,1920,1080,30))
-        for args in [(12,3840,2160,30),(60.01,1280,720,24),(30.01,1280,720,60),(60,1280,720,60),(12,1280,720,120),(0,1280,720,24),(12,0,720,24),(12,1280,720,float('nan'))]:
+        # Decode-work budget (frames x pixels <= 1800 frames of 1920x1080, duration <= 180s):
+        # a 67s 59.94fps 640x360 source qualifies; the old 60s/1800-frame caps were a proxy.
+        for args in [(66.963,640,360,59.94),(60.01,1280,720,24),(60,1280,720,60),(180,640,360,30)]:
+            self.assertTrue(m.short_auto_cut_budget(*args))
+        for args in [(12,3840,2160,30),(60.01,1920,1080,30),(30.01,1920,1080,60),(180.01,320,180,24),(12,1280,720,120),(0,1280,720,24),(12,0,720,24),(12,1280,720,float('nan'))]:
             self.assertFalse(m.short_auto_cut_budget(*args))
+    def _avi(self,d,w,h,fps,n,cut):
+        path=os.path.join(d,'s.avi')
+        writer=cv2.VideoWriter(path,cv2.VideoWriter_fourcc(*'MJPG'),fps,(w,h))
+        for i in range(n):
+            frame=np.zeros((h,w,3),dtype=np.uint8)
+            frame[:]=255 if i>=cut else 0
+            writer.write(frame)
+        writer.release()
+        return path
+    def test_analyzer_report_states_actual_pixel_frame_budget_and_status(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=self._avi(d,160,90,24,72,30)
+            r=m.analyze_video(path,4,0,3,20,True)
+            cd=r['scene_cut_discovery']
+            self.assertEqual(cd['status'],'completed')
+            self.assertNotIn('frame_budget',cd)
+            b=cd['budget']
+            self.assertEqual(b['unit'],'frames*width*height')
+            self.assertEqual(b['max_pixel_frames'],1800*1920*1080)
+            self.assertEqual(b['max_duration_seconds'],180)
+            self.assertAlmostEqual(b['pixel_frames'],3*24*160*90,delta=160*90*2)
+            self.assertTrue(any(abs(c-1.25)<.1 for c in r['scene_cuts']),r['scene_cuts'])
+            r2=m.analyze_video(path,4,0,3,20,False)
+            self.assertEqual(r2['scene_cut_discovery']['status'],'not-requested')
+    def test_analyzer_skipped_budget_report_is_truthful(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=self._avi(d,1920,1080,24,6,3)
+            orig=m.SHORT_AUTO_MAX_PIXEL_FRAMES
+            try:
+                m.SHORT_AUTO_MAX_PIXEL_FRAMES=1920*1080*2
+                r=m.analyze_video(path,4,0,0.25,20,True)
+            finally:
+                m.SHORT_AUTO_MAX_PIXEL_FRAMES=orig
+            cd=r['scene_cut_discovery']
+            self.assertEqual(cd['status'],'skipped-budget')
+            self.assertIn('frames*pixels',cd['reason'])
+            self.assertEqual(cd['budget']['max_pixel_frames'],1920*1080*2)
     def test_refine_budget_is_bounded_without_full_decode(self):
         self.assertTrue(m.short_auto_refine_budget(35.729,1280,720,25,7))
         for args in [(61,1280,720,25,7),(35,3840,2160,25,7),(35,1280,720,120,7),(35,1280,720,25,31),(35,1280,720,25,0),(35,1280,720,float('nan'),7)]:

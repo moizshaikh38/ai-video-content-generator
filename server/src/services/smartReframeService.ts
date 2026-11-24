@@ -41,7 +41,7 @@ import {anchorFitToMeasuredFaces,anchorClipFitToMeasuredFaces} from '../shared/f
 import {presentFit43,applyAutomaticLayoutPolicy,type AutomaticLayoutPolicy} from '../shared/automaticLayoutPolicy.js';
 import {persistentObjectRegions} from '../shared/objectContext.js';
 import { canvasDims, canvasForResolution, RENDER_RESOLUTIONS } from '../shared/renderResolution.js';
-import {associatedBodyEnvelope, anchoredSingleBodyPath} from '../shared/bodyContext.js';
+import {associatedBodyEnvelope, anchoredSingleBodyPath, validPersonBox} from '../shared/bodyContext.js';
 import {chooseContentFraming, type ContentFramingDecision} from '../shared/contentFramingDecision.js';
 import { isMongoConfigured } from '../db/mongoClient.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
@@ -1645,7 +1645,7 @@ export class SmartReframeService {
         r.x+r.width <= 1.001 && r.y+r.height <= 1.001) &&
         plan.length && plan.every(s => s.kind === 'fit' &&
         s.presentationProtection?.preserveWindow === true &&
-        s.presentationProtection.reason === 'measured-context') &&
+        (s.presentationProtection.reason === 'measured-context'||s.presentationProtection.reason === 'measured-subject-conflict')) &&
         (!cropConfig.layoutPolicy || cropConfig.layoutPolicy.allowed.includes('fit'))) return plan;
     if(plan.length&&plan.every(s=>s.split)&&(!cropConfig.layoutPolicy||cropConfig.layoutPolicy.allowed.includes('split')))return plan;
     // Use only complete sampled single-body tracks, full source height,
@@ -1830,6 +1830,18 @@ export class SmartReframeService {
       const windowH=Math.min(1,Math.max(bottom-top,windowW*sourceWidth*.85/sourceHeight));
       const cx=Math.max(windowW/2,Math.min(1-windowW/2,(left+right)/2));
       const cy=Math.max(windowH/2,Math.min(1-windowH/2,top+windowH/2));
+      // Measured people the face envelope leaves out are evidence too. If, in most samples of this shot (and at least 3),
+      // some person box that passes the existing person-evidence validity contract (shared/bodyContext validPersonBox:
+      // finite, in-bounds, confidence >= .4) has its centre outside this solo window, a face-only window is not a
+      // trustworthy subject choice. Same outcome as having no reliable anchor: the shot is kept wide. When the 4:3
+      // presentation bridge applies, the final result is a centered 4:3 review Fit, which still crops source sides and does
+      // not guarantee that an outside person is retained. Identity-free, like persistentObjectRegions: different outside
+      // people in different samples count the same as one persistent person (documented limitation).
+      // Shots with no valid person boxes are unchanged.
+      const outsideCount=samples.filter(s=>(s.persons||[]).some(p=>validPersonBox(p)&&
+        (p.x+p.width/2<cx-windowW/2||p.x+p.width/2>cx+windowW/2||p.y+p.height/2<cy-windowH/2||p.y+p.height/2>cy+windowH/2))).length;
+      if(outsideCount>=3&&outsideCount*2>samples.length)
+        return {start,end,kind:'fit' as const,contextStatus:'unresolved-preserved' as const,uncertainty:'Face-only window not trusted: measured people outside it in most samples. Source kept wide; review before sharing.',windowW:1,windowH:1,keyframes:[{time:start,centerX:.5,centerY:.5}]};
       return {start,end,kind:'solo' as const,windowW,windowH,keyframes:[{time:start,centerX:cx,centerY:cy}]};
     });
     // Explicit measured content constrains the same single view as subjects.
@@ -1876,6 +1888,35 @@ export class SmartReframeService {
       // is the reason the presentation must retain the full source.
       return constrained.map(shot=>{const next={...shot,presentationProtection:{preserveWindow:true as const,reason:'measured-context' as const},kind:'fit' as const,windowW:1,windowH:1,keyframes:shot.keyframes.map(k=>({...k,centerX:.5,centerY:.5}))};delete next.split;return next;});
     };
+    // Valid, shot-relevant context region: same predicate the region-union loop uses.
+    const regionApplies=(r:any,shot:{start:number;end:number})=>[r.start,r.end,r.x,r.y,r.width,r.height,r.confidence].every(Number.isFinite) &&
+      r.end > r.start && r.end > shot.start && r.start < shot.end && r.x >= 0 && r.y >= 0 && r.width > 0 && r.height > 0 &&
+      r.x+r.width <= 1.001 && r.y+r.height <= 1.001 && r.confidence >= .7;
+    // Shared by the existing 4:3 subject check and the pre-supplied-region re-evaluation below.
+    const subjectFitEval=(shot:{start:number;end:number},maxWidth:number,regions:Array<{x:number;y:number;width:number;height:number}>)=>{
+      const width = Math.min(1,maxWidth);
+      const samples=rawSamples.filter(s=>s.time>=shot.start&&s.time<shot.end);
+      const faces=samples.flatMap(s=>s.faces.filter(f=>f.confidence>=.8));
+      const ids=[...new Set(faces.map(f=>f.track_id).filter((id): id is string=>!!id))];
+      const body=associatedBodyEnvelope(samples,ids);
+      const lefts=[...regions.map(r=>Math.max(0,r.x-.015)),...faces.map(f=>Math.max(0,f.x-.025)),...(body?[body.left]:[])];
+      const rights=[...regions.map(r=>Math.min(1,r.x+r.width+.015)),...faces.map(f=>Math.min(1,f.x+f.width+.025)),...(body?[body.right]:[])];
+      const minimumCenter=rights.length?Math.max(width/2,...rights.map(x=>x-width/2)):width/2;
+      const maximumCenter=lefts.length?Math.min(1-width/2,...lefts.map(x=>x+width/2)):1-width/2;
+      return {width,samples,body,minimumCenter,maximumCenter,conflict:minimumCenter>maximumCenter};
+    };
+    // Window with sample-derived object regions only (no supplied regions): what the no-supplied-region path
+    // would have presented. Used only to ask whether measured-subject evidence already required full source.
+    type PreWindow={windowW:number;windowH:number;keyframes:Array<{time:number;centerX:number;centerY?:number}>};
+    const preSuppliedWindow=new Map<typeof shots[number],PreWindow>(shots.map((sh):[typeof shots[number],PreWindow]=>{
+      const objs=(objectRegions.get(sh)||[]).filter(r=>regionApplies(r,sh));
+      if(!objs.length)return [sh,{windowW:sh.windowW,windowH:sh.windowH,keyframes:sh.keyframes.map(k=>({...k}))}];
+      const l=Math.max(0,Math.min(...sh.keyframes.map(k=>k.centerX-sh.windowW/2),...objs.map(r=>r.x-.025)));
+      const r2=Math.min(1,Math.max(...sh.keyframes.map(k=>k.centerX+sh.windowW/2),...objs.map(r=>r.x+r.width+.025)));
+      const t=Math.max(0,Math.min(...sh.keyframes.map(k=>k.centerY-sh.windowH/2),...objs.map(r=>r.y-.025)));
+      const b=Math.min(1,Math.max(...sh.keyframes.map(k=>k.centerY+sh.windowH/2),...objs.map(r=>r.y+r.height+.025)));
+      return [sh,{windowW:r2-l,windowH:b-t,keyframes:[{time:sh.start,centerX:(l+r2)/2,centerY:(t+b)/2}]}];
+    }));
     for (const shot of shots) {
       const regions = [...(options.protectedContentRegions || []),...(objectRegions.get(shot)||[])].filter(r =>
         [r.start,r.end,r.x,r.y,r.width,r.height,r.confidence].every(Number.isFinite) &&
@@ -1914,19 +1955,27 @@ export class SmartReframeService {
       if (options.unresolvedContextPolicy === 'balanced-inset-review' && shot.presentationProtection?.reason === 'measured-subject-conflict') return shot;
       if (options.automaticFitAspect !== '4:3' || shot.split || shot.contextStatus==='unresolved-preserved' || shot.contextStatus==='crowd-preserved') return shot;
       const maxWidth = shot.windowH * (4/3) * sourceHeight/sourceWidth;
+      if (shot.windowW <= maxWidth && shot===originalShot && !shot.split && (options.protectedContentRegions||[]).some(r=>regionApplies(r,shot))) {
+        // Supplied protected context must not discard measured-subject protection that the same samples
+        // (plus sample-derived objects) already required. Re-run the same subject check on the window without
+        // supplied regions. Second evaluation, only for shots a valid supplied region constrains and that would
+        // otherwise skip the check. A baseline that would have recovered a 4:3 window is not restored (partial scope).
+        const pre=preSuppliedWindow.get(shot);
+        const preMax=pre?pre.windowH*(4/3)*sourceHeight/sourceWidth:0;
+        if(pre&&pre.windowW>preMax){
+          const objs=(objectRegions.get(shot)||[]).filter(r=>regionApplies(r,shot));
+          const pe=subjectFitEval(shot,preMax,objs);
+          const prec=pe.conflict?constrainedFit43(pe.samples,[...objs,...(pe.body?[{x:pe.body.left,y:pe.body.top,width:pe.body.right-pe.body.left,height:pe.body.bottom-pe.body.top,confidence:1}]:[])],sourceWidth,sourceHeight,pre.keyframes[0]?.centerX):null;
+          if(pe.conflict&&!prec)return {...shot,presentationProtection:{preserveWindow:true as const,reason:'measured-subject-conflict' as const},kind:'fit' as const,windowW:1,windowH:1,
+            contextStatus:'unresolved-review-required' as const,
+            uncertainty:'Safe full-source Fit: measured subjects already required full source before supplied protected context was added. Review the scene before sharing.',
+            keyframes:[{time:shot.start,centerX:.5,centerY:.5}]};
+        }
+      }
       if (shot.windowW <= maxWidth) return shot;
-      const width = Math.min(1,maxWidth);
       const regions=[...(options.protectedContentRegions||[]),...(objectRegions.get(shot)||[])].filter(r=>r.confidence>=.7 && r.start<shot.end && r.end>shot.start &&
         [r.x,r.y,r.width,r.height].every(Number.isFinite) && r.x>=0 && r.y>=0 && r.width>0 && r.height>0 && r.x+r.width<=1.001 && r.y+r.height<=1.001);
-      const samples=rawSamples.filter(s=>s.time>=shot.start&&s.time<shot.end);
-      const faces=samples.flatMap(s=>s.faces.filter(f=>f.confidence>=.8));
-      const ids=[...new Set(faces.map(f=>f.track_id).filter((id): id is string=>!!id))];
-      const body=associatedBodyEnvelope(samples,ids);
-      const lefts=[...regions.map(r=>Math.max(0,r.x-.015)),...faces.map(f=>Math.max(0,f.x-.025)),...(body?[body.left]:[])];
-      const rights=[...regions.map(r=>Math.min(1,r.x+r.width+.015)),...faces.map(f=>Math.min(1,f.x+f.width+.025)),...(body?[body.right]:[])];
-      const minimumCenter=rights.length?Math.max(width/2,...rights.map(x=>x-width/2)):width/2;
-      const maximumCenter=lefts.length?Math.min(1-width/2,...lefts.map(x=>x+width/2)):1-width/2;
-      const conflict=minimumCenter>maximumCenter;
+      const {width,samples,body,minimumCenter,maximumCenter,conflict}=subjectFitEval(shot,maxWidth,regions);
       // A preferred presentation ratio cannot overrule measured content.
       // Preserve the full source when no 4:3 window can contain it together.
       // Failure at a shallow crop height is not failure of every 4:3 view.
@@ -2978,7 +3027,7 @@ export class SmartReframeService {
     person_detector?: string | null;
     measured_capabilities?: MeasuredReframeCapabilities;
     face_resolution_passes?:number[][]|null;
-    scene_cut_discovery?:{mode:string;status:string;reason?:string;duration_seconds:number;frame_budget:number};
+    scene_cut_discovery?:{mode:string;status:string;reason?:string;duration_seconds:number;frame_budget?:number;budget?:{unit:string;max_pixel_frames:number;max_duration_seconds:number;max_width?:number;max_height?:number;max_fps?:number;pixel_frames:number|null;source_width?:number;source_height?:number;source_fps?:number;note?:string}};
     source_text_detector?:string|null;
     source_text_coverage?: {status:string;detectors:string[];sample_count:number;max_unsampled_gap_seconds:number;region_count:number;absence_means:string;limitations:string[]};
     scene_cut_evidence?: Array<{ time: number; coarse_time: number; refined: boolean; uncertainty_seconds?: number; correlation?: number;method?:string }>;
