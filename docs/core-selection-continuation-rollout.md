@@ -58,9 +58,11 @@ behavior and do not accumulate into this saved-result error; successful legacy
 ticks reset saved-result accounting. Temporary saved-result errors still retry;
 reload can check that same request, never replay generation. Poll callbacks are
 single-flight so slow reads cannot multiply concurrent requests.
-Mounted browser recovery, reload and pixel evidence is still required before
-claiming browser verification. Local browser fixture launch/connect is blocked;
-source/API tests alone do not establish these mounted behaviors.
+The initial source/API-only qualification did not establish mounted behavior.
+That earlier local fixture blocker was later cleared. Synthetic mounted recovery,
+reload, account-change and unmount checks now passed, with inspected screenshots
+and source-bound decisive reruns. These checks do not prove real-account backend
+export or automatic clip quality; source/API tests alone remain insufficient.
 
 
 ## Mounted synthetic regression
