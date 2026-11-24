@@ -1,0 +1,14 @@
+import test from'node:test';import assert from'node:assert/strict';import crypto from'node:crypto';
+test('candidate publication fences deletion before and during replacement, including receipt-free calls',async(t)=>{
+ Object.assign(process.env,{NODE_ENV:'test',MONGODB_URI:process.env.VIREO_BOUNDARY_TEST_MONGO_URI||'mongodb://127.0.0.1:27029/?replicaSet=hook1172',MONGODB_DB_NAME:'selection_deletion_'+crypto.randomUUID().replaceAll('-','')});
+ const{getMongoDb,getMongoClient,closeMongo}=await import('../db/mongoClient.js'),{replaceSuggestedCandidates:replace}=await import('../db/repositories/clipCandidateRepository.js'),{admitProjectDeletion}=await import('../services/deletionAdmissionService.js');const db=await getMongoDb(),client=await getMongoClient(),originalDb=client.db,u=crypto.randomUUID(),p=crypto.randomUUID(),base=db.collection.bind(db),original=db.collection;
+ client.db=(()=>db)as any;
+ try{
+  await db.collection('projects').insertOne({id:p,user_id:u});await db.collection('clip_candidates').insertMany(['suggested','selected'].map((status,i)=>({id:crypto.randomUUID(),project_id:p,user_id:u,status,start_segment_index:i,end_segment_index:i+1})));const before=await db.collection('clip_candidates').find({project_id:p}).sort({id:1}).toArray();
+  assert.equal(await admitProjectDeletion(u,p),true);await assert.rejects(replace(u,p,[]),{code:'PROJECT_NOT_FOUND'});assert.deepEqual(await db.collection('clip_candidates').find({project_id:p}).sort({id:1}).toArray(),before);await db.collection('projects').updateOne({id:p},{$unset:{deletion_started_at:''}});
+  let injected=false;(db as any).collection=(name:string,...args:any[])=>{const c=(base as any)(name,...args);if(name==='projects'){const update=c.updateOne.bind(c);c.updateOne=async(...params:any[])=>{if(params[2]?.session&&!injected){injected=true;await base('projects').updateOne({id:p},{$set:{deletion_started_at:new Date()}});}return(update as any)(...params);};}return c;};
+  await assert.rejects(replace(u,p,[]),{code:'PROJECT_NOT_FOUND'});assert(injected);assert.deepEqual(await db.collection('clip_candidates').find({project_id:p}).sort({id:1}).toArray(),before);assert.equal((await db.collection('projects').findOne({id:p}))?.clip_selection_fence,undefined);
+  (db as any).collection=original;await db.collection('projects').updateOne({id:p},{$unset:{deletion_started_at:''}});const rows=await replace(u,p,[]);assert.equal(rows.length,1);assert.equal(rows[0].status,'selected');assert.equal(typeof(await db.collection('projects').findOne({id:p}))?.clip_selection_fence,'string');
+  t.diagnostic('Real replica-set deletion marker and independent write before publication fence cause transaction conflict/retry/refusal; selected/suggested records survive. No model/provider/storage effects.');
+ }finally{client.db=originalDb;(db as any).collection=original;await db.dropDatabase();await closeMongo();}
+});

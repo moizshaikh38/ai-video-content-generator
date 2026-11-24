@@ -1,3 +1,4 @@
+import {DELETION_MARKER_FIELD} from '../../services/deletionAdmissionService.js';
 import {selectionContextIdentity} from '../../shared/selectionContextIdentity.js';
 import {selectionSourceReceiptMatches, type SelectionSourceReceipt} from '../../shared/selectionSourceReceipt.js';
 import crypto from 'node:crypto';
@@ -13,16 +14,17 @@ export async function replaceSuggestedCandidates(userId: string, projectId: stri
   const session = client.startSession();
   try {
     return await session.withTransaction(async () => {
-      const project = await db.collection('projects').findOne({ id: projectId, user_id: userId }, { session });
+      const project = await db.collection('projects').findOne({ id: projectId, user_id: userId, [DELETION_MARKER_FIELD]:{$exists:false} }, { session });
       if (!project) throw new AppError('Project not found.', 404, 'PROJECT_NOT_FOUND');
+      // Contend with deletion admission even when no context receipt was supplied.
+      // Snapshot reads alone would allow publication after cleanup had begun.
+      const owned=await db.collection('projects').updateOne({id:projectId,user_id:userId,[DELETION_MARKER_FIELD]:{$exists:false}},{$set:{clip_selection_fence:crypto.randomUUID()}},{session});
+      if(owned.matchedCount!==1)throw new AppError('Project is unavailable for clip selection.',409,'PROJECT_DELETION_IN_PROGRESS');
       if (expectedContextIdentity !== undefined) {
         if (selectionContextIdentity({clip_preferences:project.clip_preferences,notes:project.notes,semantic_genre_receipt:project.semantic_genre_receipt}) !== expectedContextIdentity) {
           throw new AppError('Clip settings or notes changed during analysis. Existing suggestions were kept. Run analysis again with the current settings.',409,'CLIP_SELECTION_CONTEXT_CHANGED');
         }
-        // Reading a Mongo snapshot alone does not fence a concurrent project
-        // edit. A real write makes that race conflict/retry; the retry checks
-        // current intent before deleting any existing candidate rows.
-        await db.collection('projects').updateOne({id:projectId,user_id:userId},{$set:{clip_selection_fence:crypto.randomUUID()}},{session});
+
       }
       if (selectionReceipt) {
         const transcript = await db.collection('transcripts').findOne({project_id:projectId,user_id:userId},{session});
