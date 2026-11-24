@@ -1,0 +1,12 @@
+import test from 'node:test';import assert from 'node:assert/strict';import crypto from 'node:crypto';import{MongoClient}from'mongodb';
+import{enqueueCoreProcessing as enqueue,claimCoreProcessing as claim}from'../db/repositories/coreProcessingDispatchRepository.js';
+test('core intent idempotency, same-project single flight and shared count are durable without reservations',async(t)=>{
+ const uri=process.env.VIREO_BOUNDARY_TEST_MONGO_URI||'mongodb://127.0.0.1:27029/?replicaSet=hook1172',a=new MongoClient(uri),b=new MongoClient(uri);await Promise.all([a.connect(),b.connect()]);const db=a.db('core_queue_'+crypto.randomUUID().replaceAll('-','')),other=b.db(db.databaseName),u=crypto.randomUUID(),p=crypto.randomUUID(),attempt=crypto.randomUUID();
+ try{
+  await db.collection('projects').insertOne({id:p,user_id:u,source_url:'source',source_type:'upload',video_status:'uploaded'});const input={userId:u,projectId:p,sourceUrl:'source',attemptId:attempt};const [one,two]=await Promise.all([enqueue(a,db,input),enqueue(b,other,input)]);assert.equal(one!.id,two!.id);assert.equal(await db.collection('core_processing_jobs').countDocuments({}),1);assert.equal(await db.collection('credit_reservations').countDocuments({}),0);
+  await assert.rejects(enqueue(a,db,{...input,attemptId:crypto.randomUUID()}),{code:'PROCESSING_ACTIVE'});await assert.rejects(enqueue(a,db,{...input,sourceUrl:'changed'}),{code:'PROCESSING_ATTEMPT_CHANGED'});await assert.rejects(enqueue(a,db,{...input,userId:'wrong',attemptId:crypto.randomUUID()}),{code:'PROCESSING_ATTEMPT_CHANGED'});
+  const p2=crypto.randomUUID();await db.collection('projects').insertOne({id:p2,user_id:u,source_url:'source2',video_status:'uploaded'});await enqueue(a,db,{userId:u,projectId:p2,sourceUrl:'source2',attemptId:crypto.randomUUID()});
+  const claims=await Promise.all([claim(a,db,1,'a'),claim(b,other,1,'b')]);assert.equal(claims.filter(Boolean).length,1);const owned=claims.find(Boolean)!;await db.collection('core_processing_jobs').updateOne({id:owned.id},{$set:{status:'review_required',claimed_at:new Date(0)}});assert.equal(await claim(b,other,1,'no-timeout'),null);await assert.rejects(claim(b,other,2,'mismatch'),{code:'CORE_CAPACITY_POLICY_MISMATCH'});
+  t.diagnostic('Actual separate-client replica-set transactions. Queue intent is same-attempt idempotent, same-project single-flight, owner/source fenced; shared count includes unknown work. No credits or media/provider effects.');
+ }finally{await db.dropDatabase();await Promise.all([a.close(),b.close()]);}
+});

@@ -1,0 +1,15 @@
+# Core processing intent dispatch V1
+
+Dormant, not enabled or deployed. Requires explicit `VIREO_CORE_PROCESSING_DISPATCH_V1=1` and positive operator-supplied `VIREO_CORE_PROCESSING_MAX_ACTIVE`. No production count is chosen. Defaults retain existing API-only refusal and combined inline behavior.
+
+API admission persists owner/project/source/request-attempt intent before credit reservation. Waiting jobs hold no wallet credits. Same attempt is idempotent; another queued/processing/review-required intent for that owner/project refuses. Current completed-attempt readback and explicit recover-only behavior precede queue admission. This is a new processing request, not permission inferred from an email or another account.
+
+The worker atomically claims queued work under a shared persisted active-count policy. Processing/review-required jobs count until known terminal; no stale timeout reclaim. Process-local single-flight and WorkLifecycle cover claim, awaited existing admission/pipeline and final reconciliation. Unknown outcomes retain claim and quarantine the process slot. A 202 idempotent reservation acknowledgement is not completion or stop proof and requires review.
+
+Worker continues through the existing core controller's current ownership/source/state/provider/entitlement checks, transcript reuse, reservation, project claim and existing processing executor, awaited rather than detached. It establishes owner context from the persisted intent. The request contains no user-controlled internal-worker bypass. Existing wallet settlement, completion receipt and source/run-token fences remain the authority. The queue itself never reserves, charges or refunds credits. A source replacement/deletion before worker continuation refuses. Active-source changes later still rely on existing executor fences.
+
+Current core executor ends at transcription. Clip moment selection, genre/layout/framing, caption review, render admission and final clip output are separate existing stages. This handoff is not automatic upload-to-final-clip completion or output quality evidence.
+
+Do not enable without compatible API/workers, database/storage/provider configuration and source-disclosure/cost permission. Worker readiness handshake, measured CPU/RAM/scratch budget, operational indexes/retention, cancellation/recovery UI and explicit stopped-worker reconciliation are absent. The active count is not a measured host-resource budget. No automatic policy migration or expiry-based capacity release. A crash after claim can block indefinitely and needs explicit stopped-worker review, not blind retry. Do not change count policy during active work.
+
+Local tests use a synthetic source-bound transcript and local HEAD fixture through actual API, durable queue, worker continuation and existing zero-credit settlement/publication. No external ASR/provider or source media upload, and no automatic clipping/GPU claim. The new fresh paid-provider path is not externally exercised by this qualification. Queue jobs may wait indefinitely without workers. Flag off does not cancel already queued/claimed work or release a wallet reservation.

@@ -1,12 +1,12 @@
-import {runsBackgroundWorkers} from '../services/runtimePolicy.js';
+import {coreProcessingDispatchEnabled,runsBackgroundWorkers} from '../services/runtimePolicy.js';
 import {AppError} from '../types/index.js';
 import {transcriptReviewCode} from '../shared/transcriptReviewErrors.js';
 import {insertProjectWithinQuota, projectQuotaPolicy} from '../db/repositories/projectQuotaRepository.js';
 import {workLifecycle} from '../services/queue/workLifecycle.js';
 import {assertTranscriptReusable} from '../services/transcriptSourceBindingService.js';
 import {withNewProjectFraming} from '../shared/newProjectFraming.js';
-import { isMongoConfigured, getMongoDb } from '../db/mongoClient.js';
-import { dataRepository } from '../db/repositories/dataRepository.js';
+import { isMongoConfigured, getMongoDb,getMongoClient } from '../db/mongoClient.js';
+import { dataRepository,ownerContext } from '../db/repositories/dataRepository.js';
 import { Response } from 'express';
 import crypto from 'crypto';
 import {
@@ -797,7 +797,8 @@ export const deleteProject = async (req: AuthenticatedRequest, res: Response): P
  * POST /api/projects/:id/process
  * Start video processing and transcription pipeline with state machine checks & recovery
  */
-export const processProject = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const processProject = async (req: AuthenticatedRequest, res: Response): Promise<void> => processProjectRequest(req,res);
+async function processProjectRequest(req:AuthenticatedRequest,res:Response,queuedSource?:string):Promise<void>{
   const userId = req.user?.id;
   const projectId = req.params.id;
 
@@ -846,6 +847,8 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
+    if(queuedSource!==undefined&&(project.source_url!==queuedSource||project.deletion_started_at)){res.status(409).json({status:'error',code:'PROCESSING_ATTEMPT_CHANGED',message:'Queued source is no longer current.'});return;}
+
     const resumeAttempt=req.headers['x-processing-attempt-id'] as string;
     if(resumeAttempt&&isValidUUID(resumeAttempt)&&project.source_url){const {readProcessingCompletion}=await import('../services/transcription/processingCompletion.js');const done=await readProcessingCompletion(await getMongoDb(),userId,projectId,project.source_url,resumeAttempt);if(done){res.status(200).json({status:'ok',message:'Processing attempt completed.',projectId,processingAttemptId:resumeAttempt,video_status:'transcribed',completionIsCurrent:done.completionIsCurrent,credits_charged:done.settledAmount});return;}}
 
@@ -859,6 +862,15 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
     // Completed-attempt readback and explicit reconciliation above do not
     // launch media work. New admission must not reserve credits in API-only
     // mode while a durable remote processing dispatcher is not implemented.
+    if(coreProcessingDispatchEnabled()&&queuedSource===undefined){
+      if(!project.source_url||!['upload','url'].includes(project.source_type)||!['uploaded','failed','transcribed','completed'].includes(project.video_status)){
+        res.status(409).json({status:'error',code:'PROCESSING_ATTEMPT_CHANGED',message:'Project is not ready for queued processing.'});return;
+      }
+      const attemptId=resumeAttempt&&isValidUUID(resumeAttempt)?resumeAttempt:crypto.randomUUID();
+      const {enqueueCoreProcessing}=await import('../db/repositories/coreProcessingDispatchRepository.js');
+      const job=await enqueueCoreProcessing(await getMongoClient(),await getMongoDb(),{userId,projectId,sourceUrl:project.source_url,attemptId,email:req.user?.email});
+      res.status(202).json({status:'ok',message:'Processing queued. No credits reserved until worker admission.',projectId,processingAttemptId:attemptId,processingJobId:job.id,video_status:project.video_status,credits_reserved:0,queued:true});return;
+    }
     if (!runsBackgroundWorkers()) {
       res.status(503).json({status:'error',code:'PROCESSING_DISPATCH_UNAVAILABLE',message:'Video processing requires an available processing worker. No new processing was started and no credits were reserved.'});
       return;
@@ -1077,6 +1089,10 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
 
     // 5. Initiate processing pipeline asynchronously
     // Run pipeline in background with unique processing_attempt_id
+    if(queuedSource!==undefined){
+      const result=await processProjectVideo(projectId,userId,project.source_url,attemptId);
+      res.status(result.status==='transcribed'?200:409).json({status:result.status==='transcribed'?'ok':'error',projectId,processingAttemptId:attemptId,video_status:result.status,...(result.reviewCode?{code:result.reviewCode}:{})});return;
+    }
     void workLifecycle.run('project-processing-outcome',()=>processProjectVideo(projectId, userId, project.source_url, attemptId)
       .then((result) => {
         if (result.status === 'transcribed') {
@@ -1121,7 +1137,7 @@ export const processProject = async (req: AuthenticatedRequest, res: Response): 
       message: 'Could not start video processing. Please try again.',
     });
   }
-};
+}
 
 /**
  * GET /api/projects/:id/transcript
@@ -1456,3 +1472,11 @@ export const updateProjectContent = async (req: AuthenticatedRequest, res: Respo
     res.status(500).json({ status: 'error', code: 'UPDATE_FAILED', message: 'Failed to update output.' });
   }
 };
+
+/** Internal worker continuation. Not an HTTP route; no request-body bypass. */
+export async function executeQueuedProjectProcessing(job:any):Promise<{code:number;body:any}>{
+ const req={user:{id:job.user_id,email:job.email??undefined},params:{id:job.project_id},headers:{'x-processing-attempt-id':job.attempt_id},body:{}}as unknown as AuthenticatedRequest;
+ const res={code:200,body:null as any,status(n:number){this.code=n;return this;},json(value:any){this.body=value;return this;}};
+ await ownerContext.run(job.user_id,()=>processProjectRequest(req,res as unknown as Response,job.source_url));
+ return {code:res.code,body:res.body};
+}

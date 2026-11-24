@@ -1,10 +1,11 @@
+import {processNextCoreProcessingJob} from './services/coreProcessingDispatchService.js';
 import {SubtitleStudioService} from './services/subtitleStudioService.js';
 import {startAutopilotContinuationWorker,stopAutopilotContinuationWorker} from './services/autopilotContinuationWorker.js';
 import {DatabaseBootstrapAttempt} from './services/databaseBootstrapAttempt.js';
 import {databaseBootstrapAdmission} from './middleware/databaseBootstrapAdmission.js';
 import {setDatabaseBootstrapState} from './services/databaseBootstrapState.js';
 import {startRenderQueueWake} from './services/queue/renderQueueWake.js';
-import {subtitleBurnDispatchEnabled,runsBackgroundWorkers,acceptsApiRequests,validateRuntimePolicy,renderSweepInterval,runsPublishingWorker,runsMultimodalWorker} from './services/runtimePolicy.js';
+import {coreProcessingDispatchEnabled,subtitleBurnDispatchEnabled,runsBackgroundWorkers,acceptsApiRequests,validateRuntimePolicy,renderSweepInterval,runsPublishingWorker,runsMultimodalWorker} from './services/runtimePolicy.js';
 import {workLifecycle,createShutdown,workAdmission} from './services/queue/workLifecycle.js';
 import express from 'express';
 import cors from 'cors';
@@ -110,6 +111,7 @@ let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 let oauthCleanupTimer: ReturnType<typeof setInterval> | null = null;
 let stopRenderWake:(()=>void)|undefined;
 let renderSweepTimer: ReturnType<typeof setInterval> | null = null;
+let coreProcessingTimer:ReturnType<typeof setInterval>|null=null;
 let subtitleBurnTimer: ReturnType<typeof setInterval> | null = null;
 let multimodalSweepTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -218,6 +220,11 @@ if (process.env.NODE_ENV !== 'test') {
       renderSweepTimer = setInterval(() => trackedRenderSweep('interval'), RENDER_SWEEP_INTERVAL_MS);
       renderSweepTimer.unref();
 
+      if(coreProcessingDispatchEnabled()){
+        const drainCore=()=>{if(!workLifecycle.isDraining())void processNextCoreProcessingJob().catch(error=>logger.warn('Core processing queue drain failed',{error:String(error)}));};
+        drainCore();coreProcessingTimer=setInterval(drainCore,5000);coreProcessingTimer.unref();
+      }
+
       // Durable subtitle burns use a separate opt-in queue. One local drain at
       // a time; atomic claims handle other worker processes. No stale reclaim.
       let subtitleBurnRunning=false;
@@ -275,7 +282,7 @@ if (process.env.NODE_ENV !== 'test') {
       stopPublishingWorker();
       stopAutopilotContinuationWorker();
       stopRenderWake?.();
-      for(const timer of[cleanupTimer,oauthCleanupTimer,renderSweepTimer,multimodalSweepTimer,subtitleBurnTimer])if(timer)clearInterval(timer);
+      for(const timer of[cleanupTimer,oauthCleanupTimer,renderSweepTimer,multimodalSweepTimer,subtitleBurnTimer,coreProcessingTimer])if(timer)clearInterval(timer);
     },
     closeHttp:()=>new Promise<void>((resolve,reject)=>{if(!server){resolve();return;}server.close(error=>error?reject(error):resolve());server.closeIdleConnections();}),
     closeDatabase:()=>closeMongo(),
