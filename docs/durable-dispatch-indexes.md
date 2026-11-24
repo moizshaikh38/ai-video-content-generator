@@ -21,5 +21,10 @@ helper twice, verifies rows unchanged and no unique/TTL additions, and checks
 hinted execution plans for representative claim/read/delivery queries. A hinted
 plan proves the named index can serve the query, not that the optimizer will
 always select it or that production workload latency/resources are measured.
-Other rollout blockers, including readiness handshake, capacity sizing,
-retention/deletion cleanup, manual recovery and mounted client proof, remain.
+Recent compatible stage registration and startup count-policy validation are
+implemented separately, neither proves worker liveness or resource sizing.
+Narrow queue/outbox deletion payload cleanup exists; financial snapshots and
+uncertain lifecycle fences remain. Production index deployment, measured
+capacity, retention/audit policy, verified manual recovery and mounted client
+proof remain open. See `durable-worker-handshake.md` and
+`durable-dispatch-inspection.md`.

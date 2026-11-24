@@ -30,19 +30,45 @@ are explicit and never resubmit generation. A completed-job read returns its
 recorded candidate ids only, not newer unrelated suggestions. Project source
 and settings changes or missing candidates refuse old completion readback.
 
+## Current integrated boundaries
+
+Candidate replacement and exact job/worker/context completion receipt commit in
+one transaction. A lost selector acknowledgement reconciles that receipt, not
+another provider call. Tests cover wrong-worker rollback and acknowledged or
+lost-acknowledgement completion. This does not certify external provider quality.
+
+Explicit core continuation can persist a selection outbox in the transcription
+settlement transaction and deliver the same immutable selection intent without
+a browser remaining open. See `core-selection-continuation-rollout.md`. This is
+an opt-in backend contract, not the default mounted UI or final clip rendering.
+The client continuation change remains held locally pending mounted lifecycle
+and pixel evidence; source/callback tests do not substitute for that proof.
+
+New intents require the recent compatible registration described in
+`durable-worker-handshake.md`. Registration is not current worker liveness,
+free slots, provider readiness or measured resource capacity. A worker may stop
+immediately after admission. Exact saved-intent replay does not need renewal.
+Additive index definitions exist but no deployed index build is certified.
+Startup refuses a known persisted count-policy mismatch; claim-time checks
+remain necessary for policy changes after that read.
+
+Project deletion removes continuation outbox and redacts durable core/selection
+payload while preserving uncertain processing/review capacity and worker fences.
+Financial completion snapshots remain unchanged. This is not all-storage erasure
+or a complete retention policy. `durable-dispatch-inspection.md` describes a
+read-only exact-job diagnostic; it never proves stop or performs recovery.
+
 ## Not rollout-ready
 
-Still required before enabling: compatible API/worker/client rollout handshake;
-measured provider/CPU/memory limits; production indexes and retention policy;
-verified stopped-worker/manual reconciliation procedure; durable atomic
-publication/job receipt to distinguish successful publication with lost job
-acknowledgement; browser navigation/reload UX that rejoins a saved request
-without triggering a new analysis; actual provider and source-disjoint editorial
-quality evaluation. Current tests substitute selector method output and use
-local synthetic source HEAD only. They do not prove real moment quality,
-automatic gaming framing, final rendered clips or production readiness.
+Still required before enabling: staged compatible deployment and monitoring;
+measured provider/CPU/RAM/scratch envelopes; planned production index build and
+retention/audit-snapshot policy; verified stopped-worker/manual reconciliation;
+mounted navigation/reload UX; actual provider and source-disjoint editorial
+quality evaluation. No stage/count/flag is enabled here.
 
-No browser-independent orchestration from transcription to selection is added:
-the present app still initiates selection when it observes transcription done.
-This durable stage survives disconnect after selection has been accepted, not
-a disconnect before that request. Final clip creation/render remains separate.
+Local evidence includes a tiny synthetic video through actual download/audio
+extraction, substituted ASR/selection replies and persisted unranked fallback
+candidate, plus a real selector path with a synthetic proposed moment. These
+prove narrow wiring, not editorial selection quality, automatic gaming framing,
+final rendered clips or production readiness. Final clip creation/render remains
+separate. Never select production concurrency from this tiny synthetic fixture.
