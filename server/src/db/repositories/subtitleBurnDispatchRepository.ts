@@ -40,6 +40,7 @@ export async function executeClaimedSubtitleBurn(db:Db,job:any,execute:(job:any)
  try{await execute(owned);}catch{
   // Unknown execution/child-stop outcome is NOT permission to retry or clear
   // the project token. Keep claimed work blocked for explicit review.
+  await db.collection('projects').updateOne(projectFilter,{$set:{subtitle_export_status:'failed',subtitle_export_stage:'stop_unverified',subtitle_export_error:'Rendering outcome could not be verified. Retry is blocked pending worker review.',updated_at:new Date()}});
   await db.collection(jobs).updateOne(filter,{$set:{status:'review_required',updated_at:new Date()}});return true;
  }
  const after=await db.collection('projects').findOne({id:owned.project_id,user_id:owned.user_id});
