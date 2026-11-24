@@ -1,3 +1,4 @@
+import {coreSelectionContinuationEnabled} from '../services/runtimePolicy.js';
 import {withCoreProcessingStatus} from '../services/coreProcessingStatusService.js';
 import {coreProcessingDispatchEnabled,runsBackgroundWorkers} from '../services/runtimePolicy.js';
 import {AppError} from '../types/index.js';
@@ -865,13 +866,17 @@ async function processProjectRequest(req:AuthenticatedRequest,res:Response,queue
     // Completed-attempt readback and explicit reconciliation above do not
     // launch media work. New admission must not reserve credits in API-only
     // mode while a durable remote processing dispatcher is not implemented.
+    if(queuedSource===undefined&&req.body?.continue_to_selection===true&&(!coreSelectionContinuationEnabled()||!coreProcessingDispatchEnabled())){res.status(409).json({status:'error',code:'CORE_SELECTION_CONTINUATION_UNAVAILABLE',message:'Saved automatic selection continuation is unavailable. No processing was started.'});return;}
     if(coreProcessingDispatchEnabled()&&queuedSource===undefined){
       if(!project.source_url||!['upload','url'].includes(project.source_type)||!['uploaded','failed','transcribed','completed'].includes(project.video_status)){
         res.status(409).json({status:'error',code:'PROCESSING_ATTEMPT_CHANGED',message:'Project is not ready for queued processing.'});return;
       }
       const attemptId=resumeAttempt&&isValidUUID(resumeAttempt)?resumeAttempt:crypto.randomUUID();
       const {enqueueCoreProcessing}=await import('../db/repositories/coreProcessingDispatchRepository.js');
-      const job=await enqueueCoreProcessing(await getMongoClient(),await getMongoDb(),{userId,projectId,sourceUrl:project.source_url,attemptId,email:req.user?.email});
+      let selectionContinuation:undefined|{customNotes?:string;preferences?:any};
+      if(req.body?.continue_to_selection===true){if(!coreSelectionContinuationEnabled()||req.headers['x-vireo-core-continuation']!=='1'||project.project_type==='subtitles'){res.status(409).json({status:'error',code:'CORE_SELECTION_CONTINUATION_UNAVAILABLE',message:'Saved automatic selection continuation is unavailable. No processing was queued.'});return;}
+       const customNotes=typeof req.body.customNotes==='string'?req.body.customNotes:undefined;selectionContinuation={customNotes,preferences:GenreIntelligenceService.normalizePreferences(req.body.clip_preferences||project.clip_preferences,customNotes)};}
+      const job=await enqueueCoreProcessing(await getMongoClient(),await getMongoDb(),{userId,projectId,sourceUrl:project.source_url,attemptId,email:req.user?.email,selectionContinuation});
       res.status(202).json({status:'ok',message:'Processing queued. No credits reserved until worker admission.',projectId,processingAttemptId:attemptId,processingJobId:job.id,video_status:project.video_status,credits_reserved:0,queued:true});return;
     }
     if (!runsBackgroundWorkers()) {

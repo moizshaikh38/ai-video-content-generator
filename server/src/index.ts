@@ -1,3 +1,5 @@
+import {processNextCoreSelectionContinuation} from './services/coreSelectionContinuationService.js';
+import {coreSelectionContinuationEnabled} from './services/runtimePolicy.js';
 import {processNextClipSelectionJob} from './services/clipSelectionDispatchService.js';
 import {clipSelectionDispatchEnabled} from './services/runtimePolicy.js';
 import {processNextCoreProcessingJob} from './services/coreProcessingDispatchService.js';
@@ -113,6 +115,7 @@ let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 let oauthCleanupTimer: ReturnType<typeof setInterval> | null = null;
 let stopRenderWake:(()=>void)|undefined;
 let renderSweepTimer: ReturnType<typeof setInterval> | null = null;
+let coreSelectionContinuationTimer:ReturnType<typeof setInterval>|null=null;
 let clipSelectionTimer:ReturnType<typeof setInterval>|null=null;
 let coreProcessingTimer:ReturnType<typeof setInterval>|null=null;
 let subtitleBurnTimer: ReturnType<typeof setInterval> | null = null;
@@ -223,6 +226,7 @@ if (process.env.NODE_ENV !== 'test') {
       renderSweepTimer = setInterval(() => trackedRenderSweep('interval'), RENDER_SWEEP_INTERVAL_MS);
       renderSweepTimer.unref();
 
+      if(coreSelectionContinuationEnabled()){const deliver=()=>{if(!workLifecycle.isDraining())void processNextCoreSelectionContinuation().catch(error=>logger.warn('Core selection continuation delivery failed',{error:String(error)}));};deliver();coreSelectionContinuationTimer=setInterval(deliver,5000);coreSelectionContinuationTimer.unref();}
       if(clipSelectionDispatchEnabled()){const drainSelection=()=>{if(!workLifecycle.isDraining())void processNextClipSelectionJob().catch(error=>logger.warn('Selection queue drain failed',{error:String(error)}));};drainSelection();clipSelectionTimer=setInterval(drainSelection,5000);clipSelectionTimer.unref();}
       if(coreProcessingDispatchEnabled()){
         const drainCore=()=>{if(!workLifecycle.isDraining())void processNextCoreProcessingJob().catch(error=>logger.warn('Core processing queue drain failed',{error:String(error)}));};
@@ -286,7 +290,7 @@ if (process.env.NODE_ENV !== 'test') {
       stopPublishingWorker();
       stopAutopilotContinuationWorker();
       stopRenderWake?.();
-      for(const timer of[cleanupTimer,oauthCleanupTimer,renderSweepTimer,multimodalSweepTimer,subtitleBurnTimer,coreProcessingTimer,clipSelectionTimer])if(timer)clearInterval(timer);
+      for(const timer of[cleanupTimer,oauthCleanupTimer,renderSweepTimer,multimodalSweepTimer,subtitleBurnTimer,coreProcessingTimer,clipSelectionTimer,coreSelectionContinuationTimer])if(timer)clearInterval(timer);
     },
     closeHttp:()=>new Promise<void>((resolve,reject)=>{if(!server){resolve();return;}server.close(error=>error?reject(error):resolve());server.closeIdleConnections();}),
     closeDatabase:()=>closeMongo(),

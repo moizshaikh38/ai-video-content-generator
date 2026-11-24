@@ -1,3 +1,7 @@
+import {coreSelectionContinuationEnabled} from '../runtimePolicy.js';
+import {selectionContextIdentity} from '../../shared/selectionContextIdentity.js';
+import {selectionSourceReceipt} from '../../shared/selectionSourceReceipt.js';
+import crypto from 'node:crypto';
 import type {ClientSession,Db} from 'mongodb';
 import {getMongoClient} from '../../db/mongoClient.js';
 import {buildCanonicalIdempotencyKey} from '../../db/repositories/creditRepository.js';
@@ -37,10 +41,10 @@ export async function publishProcessingCompletion(db:Db,session:ClientSession,ow
  }
  // Preference edits win over enrichment calculated against the earlier snapshot.
  const preferred=await projects.updateOne({...filter,clip_preferences:expectedPreferences??null},{$set:completion},{session});
- if(preferred.matchedCount)return projects.findOne({id:owner.projectId,user_id:owner.userId},{session});
+ if(preferred.matchedCount){const completed=await projects.findOne({id:owner.projectId,user_id:owner.userId},{session});await persistSelectionOutbox(db,session,owner,completed,saved,project);return completed;}
  const {clip_preferences:ignored,...preserved}=completion;
  if((await projects.updateOne(filter,{$set:preserved},{session})).matchedCount!==1)throw new AppError('Processing owner changed before completion.',409,'PROCESSING_ATTEMPT_CHANGED');
- return projects.findOne({id:owner.projectId,user_id:owner.userId},{session});
+ const completed=await projects.findOne({id:owner.projectId,user_id:owner.userId},{session});await persistSelectionOutbox(db,session,owner,completed,saved,project);return completed;
 }
 /** Reconcile an acknowledged or unknown commit without dispatching or changing credits. */
 export async function readProcessingCompletion(db:Db,userId:string,projectId:string,sourceUrl:string,attemptId:string){
@@ -54,4 +58,13 @@ export async function readProcessingCompletion(db:Db,userId:string,projectId:str
   const current=await db.collection('projects').findOne({id:projectId,user_id:userId,source_url:sourceUrl,processing_attempt_id:attemptId,processing_completed_run_token:c.runToken,processing_completed_transcript_id:c.transcriptId,video_status:'transcribed'},{session});
   result={project:current??receipt.project,completedProject:receipt.project,transcript:receipt.transcript,runToken:c.runToken,settledAmount:r.settled_amount??r.amount,completionIsCurrent:Boolean(current)};
  },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'}});return result;}finally{await session.endSession()}
+}
+
+/** Transactional outbox only. Selection provider work never runs in settlement. */
+async function persistSelectionOutbox(db:Db,session:ClientSession,owner:ProcessingOwnership,project:any,transcript:any,admittedProject:any){
+ const intent=project?.core_selection_continuation;
+ if(!coreSelectionContinuationEnabled()||!owner.attemptId||project?.project_type==='subtitles'||intent?.attemptId!==owner.attemptId||intent?.sourceUrl!==owner.sourceUrl)return;
+ const notesChanged=(project.notes??null)!==intent.notes||selectionContextIdentity({clip_preferences:admittedProject.clip_preferences??null})!==selectionContextIdentity({clip_preferences:intent.project_preferences??null});
+ const key=crypto.createHash('sha256').update(JSON.stringify([owner.userId,owner.projectId,owner.attemptId])).digest('hex');
+ await db.collection('core_selection_outbox').updateOne({_id:key as any},{$setOnInsert:{id:crypto.randomUUID(),version:1,user_id:owner.userId,project_id:owner.projectId,attempt_id:owner.attemptId,source_url:owner.sourceUrl,context:selectionContextIdentity({clip_preferences:project.clip_preferences,notes:project.notes,semantic_genre_receipt:project.semantic_genre_receipt}),receipt:selectionSourceReceipt(transcript,owner.sourceUrl),custom_notes:intent.customNotes??null,preferences:intent.preferences??null,status:notesChanged?'review_required':'pending',...(notesChanged?{result_code:'CLIP_SELECTION_CONTEXT_CHANGED'}:{}),created_at:new Date(),updated_at:new Date()}},{upsert:true,session});
 }
