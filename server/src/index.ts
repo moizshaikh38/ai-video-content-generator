@@ -1,3 +1,4 @@
+import {startDurableWorkerAnnouncements} from './services/durableWorkerHandshake.js';
 import {processNextCoreSelectionContinuation} from './services/coreSelectionContinuationService.js';
 import {coreSelectionContinuationEnabled} from './services/runtimePolicy.js';
 import {processNextClipSelectionJob} from './services/clipSelectionDispatchService.js';
@@ -115,6 +116,7 @@ let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 let oauthCleanupTimer: ReturnType<typeof setInterval> | null = null;
 let stopRenderWake:(()=>void)|undefined;
 let renderSweepTimer: ReturnType<typeof setInterval> | null = null;
+let stopDurableWorkerAnnouncements:(()=>void)|undefined;
 let coreSelectionContinuationTimer:ReturnType<typeof setInterval>|null=null;
 let clipSelectionTimer:ReturnType<typeof setInterval>|null=null;
 let coreProcessingTimer:ReturnType<typeof setInterval>|null=null;
@@ -226,6 +228,7 @@ if (process.env.NODE_ENV !== 'test') {
       renderSweepTimer = setInterval(() => trackedRenderSweep('interval'), RENDER_SWEEP_INTERVAL_MS);
       renderSweepTimer.unref();
 
+      stopDurableWorkerAnnouncements=startDurableWorkerAnnouncements(await getMongoDb(),error=>logger.warn('Durable worker announcement failed',{error:String(error)}));
       if(coreSelectionContinuationEnabled()){const deliver=()=>{if(!workLifecycle.isDraining())void processNextCoreSelectionContinuation().catch(error=>logger.warn('Core selection continuation delivery failed',{error:String(error)}));};deliver();coreSelectionContinuationTimer=setInterval(deliver,5000);coreSelectionContinuationTimer.unref();}
       if(clipSelectionDispatchEnabled()){const drainSelection=()=>{if(!workLifecycle.isDraining())void processNextClipSelectionJob().catch(error=>logger.warn('Selection queue drain failed',{error:String(error)}));};drainSelection();clipSelectionTimer=setInterval(drainSelection,5000);clipSelectionTimer.unref();}
       if(coreProcessingDispatchEnabled()){
@@ -287,6 +290,7 @@ if (process.env.NODE_ENV !== 'test') {
   // Timeout never closes Mongo under active work or claims a graceful exit.
   const shutdown=createShutdown({lifecycle:workLifecycle,timeoutMs:10_000,
     stopPollers:()=>{
+      stopDurableWorkerAnnouncements?.();
       stopPublishingWorker();
       stopAutopilotContinuationWorker();
       stopRenderWake?.();

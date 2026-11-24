@@ -1134,6 +1134,8 @@ async function processProjectRequest(req:AuthenticatedRequest,res:Response,queue
       error: err instanceof Error ? err.message : String(err),
     });
 
+    if((err as any)?.code==='DURABLE_WORKER_UNAVAILABLE'){res.status(503).json({status:'error',code:'DURABLE_WORKER_UNAVAILABLE',message:'A recent compatible processing worker announcement is unavailable. No new processing was queued and no credits were reserved.'});return;}
+
     const reviewCode=transcriptReviewCode((err as any)?.code);
     if(reviewCode){
       res.status(409).json({status:'error',code:reviewCode,message:err instanceof Error?err.message:'Transcript and source need review before processing.'});

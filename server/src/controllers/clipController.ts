@@ -133,6 +133,8 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
       code: err.code,
     });
 
+    if(err.code==='DURABLE_WORKER_UNAVAILABLE'){res.status(503).json({status:'error',code:err.code,message:err.message});return;}
+
     if (err.code === 'CLIP_ANALYSIS_ACTIVE') {
       res.status(409).json({
         status: 'error',
