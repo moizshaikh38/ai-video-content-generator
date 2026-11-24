@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
  * Unknown/review-required status and measured protection remain unchanged.
  * Planner revisions must bump this ID so old geometry cannot silently survive.
  */
-export const AUTOMATIC_SCENE_PLANNER_VERSION = 'normal-auto-pair-bracketed-gap-v8';
+export const AUTOMATIC_SCENE_PLANNER_VERSION = 'normal-auto-balanced-split-v9';
 export interface AutomaticSceneSegment {
   start:number; end:number; kind:'group'|'solo'|'fit'; windowW:number; windowH:number;
   keyframes:Array<{time:number;centerX:number;centerY:number}>;

@@ -1,3 +1,4 @@
+import {balanceExistingSplitPlan} from '../shared/balancedSplitComposition.js';
 import {boundCutLocalRecoveryPlan} from '../shared/cutLocalRecoveryTimeline.js';
 import {AUTOMATIC_SHOT_FPS} from '../shared/shotFrameClock.js';
 import {separatedPairBodyEnvelopes} from '../shared/separatedPairBodyEnvelopes.js';
@@ -1498,7 +1499,7 @@ export class SmartReframeService {
     if(gaming)return gaming;
     const persisted=readAutomaticScenePlan(track,cropConfig,duration);
     if(persisted)return boundCutLocalRecoveryPlan(persisted as ReturnType<typeof SmartReframeService.computeShotComposition>,track.cutLocalRecoveryEligible===true)!;
-    return boundCutLocalRecoveryPlan(this.computeNormalAutoLayoutPlan(track,cropConfig,duration,outputAspect),track.cutLocalRecoveryEligible===true) as ReturnType<typeof SmartReframeService.computeShotComposition>|undefined;
+    return boundCutLocalRecoveryPlan(balanceExistingSplitPlan(this.computeNormalAutoLayoutPlan(track,cropConfig,duration,outputAspect),outputAspect==='9:16'&&cropConfig?.layout_mode_source==='auto'?track.raw_samples:[],track.source_width,track.source_height,track.metadata?.protected_content_regions),track.cutLocalRecoveryEligible===true) as ReturnType<typeof SmartReframeService.computeShotComposition>|undefined;
   }
 
   private static verifiedGamingReviewPlan(track:any,crop:any,duration:number,aspect?:string):ReturnType<typeof SmartReframeService.computeShotComposition>|undefined {

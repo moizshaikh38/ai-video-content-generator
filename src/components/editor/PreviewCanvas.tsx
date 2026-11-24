@@ -52,7 +52,7 @@ import { BackgroundControl } from './BackgroundControl';
 import { TrackerControl } from './TrackerControl';
 import { CropBoxControl } from './CropBoxControl';
 import { PanelsPreview } from './PanelsPreview';
-import { normalizePanels, panelSourceWindow, panelTargetRects, panelPixelRects,  PANEL_LABELS } from '../../../server/src/shared/panelLayouts';
+import { normalizePanels, materializePanels, panelTargetRects, panelPixelRects,  PANEL_LABELS } from '../../../server/src/shared/panelLayouts';
 import { FIT_BAND_ASPECT, effectiveFitBand, fitBandApplies } from '../../../server/src/shared/fitBand';
 
 interface PreviewCanvasProps {
@@ -568,7 +568,11 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
     const focus=activePlanShot?.split?.focusPanels;
     if(focus){
       const dims=getAspectRatioDimensions(),boxW=parseFloat(dims.width)||360,boxH=(parseFloat(dims.height)||640)/2;
-      const r=panelSourceWindow(focus.slots[panel],videoDims.w,videoDims.h,boxW/boxH);
+      // Use the export tier for identical integer view rounding.
+      // Balanced fixture tier parity is pinned by the composition tests.
+      const numeric: import('../../../server/src/shared/numericPanelGeometry').NumericPanelGeometry | undefined = materializePanels(focus,videoDims.w,videoDims.h,geometryOutputSize?.width||1080,geometryOutputSize?.height||1920);
+      const r=numeric?.panels[panel]?.view;
+      if(!r)return null;
       const z=boxW/r.w,elW=videoDims.w*z,elH=videoDims.h*z;
       return {left:`${-r.x*z}px`,top:`${-r.y*z}px`,width:`${elW}px`,height:`${elH}px`,panelH:boxH,
         clipPath:`inset(${r.y/videoDims.h*100}% ${(videoDims.w-r.x-r.w)/videoDims.w*100}% ${(videoDims.h-r.y-r.h)/videoDims.h*100}% ${r.x/videoDims.w*100}%)`};
