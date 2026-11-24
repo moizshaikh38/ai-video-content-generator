@@ -21,6 +21,19 @@ export async function deleteProjectRecords(userId: string, projectId: string): P
         for(const name of ['render_jobs','editor_projects','producer_plans'])
           await db.collection(name).deleteMany({user_id:userId,clip_id:{$in:clipIds}},{session});
       }
+      // Delete project payload, not uncertain worker capacity. Processing/review
+      // rows retain their status and worker fence until explicit reconciliation.
+      // An allowlist removes source URLs, notes, preferences, transcript receipts,
+      // candidate IDs and provider/context details, including future payload keys.
+      await db.collection('core_selection_outbox').deleteMany({ user_id: userId, project_id: projectId }, { session });
+      for (const name of ['core_processing_jobs', 'clip_selection_jobs']) {
+        await db.collection(name).updateMany({ user_id: userId, project_id: projectId }, [{ $replaceWith: {
+          _id: '$_id', id: '$id', version: '$version', user_id: '$user_id', project_id: '$project_id',
+          attempt_id: '$attempt_id', worker_id: '$worker_id', created_at: '$created_at', claimed_at: '$claimed_at',
+          finished_at: '$finished_at', status: { $cond: [{ $eq: ['$status', 'queued'] }, 'failed', '$status'] },
+          result_code: 'PROJECT_DELETED', project_deleted_at: '$$NOW', updated_at: '$$NOW',
+        } }], { session });
+      }
       await db.collection('projects').deleteOne({ id: projectId, user_id: userId }, { session });
     });
   } finally {
