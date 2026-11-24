@@ -35,6 +35,7 @@ import {
 const ffmpegBin = (ffmpegStatic as unknown as string) || 'ffmpeg';
 
 export class SubtitleStudioService {
+  private static burnDispatchRunning=false;
   /**
    * Creates a dedicated Subtitle Studio project
    */
@@ -593,11 +594,23 @@ export class SubtitleStudioService {
 
   /** Opt-in durable worker. Claimed jobs are never timed out or auto-reclaimed. */
   public static async processNextBurnJob():Promise<boolean>{
-    if(!runsBackgroundWorkers()||!subtitleBurnDispatchEnabled()||workLifecycle.isDraining())return false;
-    const {claimSubtitleBurn,executeClaimedSubtitleBurn}=await import('../db/repositories/subtitleBurnDispatchRepository.js');
-    const db=await getMongoDb(),job=await claimSubtitleBurn(db,crypto.randomUUID());
-    if(!job)return false;
-    return executeClaimedSubtitleBurn(db,job,j=>this.runBurnWorker(j.project_id,j.user_id,j.run_token,j.identity,j.project_snapshot));
+    if(!runsBackgroundWorkers()||!subtitleBurnDispatchEnabled()||workLifecycle.isDraining()||this.burnDispatchRunning)return false;
+    // Own process-local capacity before the first database await. The startup
+    // timer is not the admission boundary: other callers share this entry.
+    this.burnDispatchRunning=true;
+    let releaseSafe=true;
+    try{
+      const {claimSubtitleBurn,executeClaimedSubtitleBurn}=await import('../db/repositories/subtitleBurnDispatchRepository.js');
+      const db=await getMongoDb(),job=await claimSubtitleBurn(db,crypto.randomUUID());
+      if(!job)return false;
+      // Once execution may begin, uncertainty quarantines this local slot.
+      // A review-required job can still own an unverified child process.
+      releaseSafe=false;
+      const processed=await executeClaimedSubtitleBurn(db,job,j=>this.runBurnWorker(j.project_id,j.user_id,j.run_token,j.identity,j.project_snapshot));
+      const terminal=await db.collection('subtitle_burn_jobs').findOne({id:job.id,worker_id:job.worker_id});
+      releaseSafe=Boolean(terminal&&['completed','failed','cancelled'].includes(terminal.status));
+      return processed;
+    }finally{if(releaseSafe)this.burnDispatchRunning=false;}
   }
 
   /**
