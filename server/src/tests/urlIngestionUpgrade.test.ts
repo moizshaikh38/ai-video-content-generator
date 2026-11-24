@@ -10,6 +10,7 @@ import { GenreIntelligenceService } from '../services/genreIntelligenceService.j
 import { ClipRenderService } from '../services/clipRenderService.js';
 import { UrlValidator } from '../utils/urlValidator.js';
 import { AppError } from '../types/index.js';
+import { config } from '../config/index.js';
 
 describe('UrlIngestionService Upgrade Test Suite', { concurrency: 1 }, () => {
   let testServer: http.Server;
@@ -146,7 +147,7 @@ describe('UrlIngestionService Upgrade Test Suite', { concurrency: 1 }, () => {
   // 1. probeVideoFile Accuracy & Stream Detection
   // =========================================================================
   describe('1. probeVideoFile with Real FFmpeg Output', () => {
-    it('accurately probes real media fixture when present', async () => {
+    it('accurately probes real media fixture when present', async (t) => {
       // Find candidate local fixture in project tree
       const candidates = [
         path.resolve(process.cwd(), 'artifacts/vireo-launch/vireo-launch-preview-1080p.mp4'),
@@ -157,7 +158,8 @@ describe('UrlIngestionService Upgrade Test Suite', { concurrency: 1 }, () => {
 
       const fixture = candidates.find((c) => fs.existsSync(c));
       if (!fixture) {
-        // Skip on CI without fixtures
+        // Missing media is not positive probe coverage.
+        t.skip('No historical real-media fixture is available.');
         return;
       }
 
@@ -296,42 +298,32 @@ describe('UrlIngestionService Upgrade Test Suite', { concurrency: 1 }, () => {
       });
 
       assert.equal(suggestion.genre, 'motivation');
-      assert.ok(suggestion.confidence >= 0.5);
+      // Two exact motivation keywords yield a 0.30 heuristic score, not a probability.
+      assert.equal(suggestion.confidence, 0.3);
+      assert.equal(suggestion.evidence?.confidenceIsProbability, false);
+      assert.deepEqual(suggestion.evidence?.matchedKeywords?.motivation, ['discipline','mindset']);
     });
   });
 
   // =========================================================================
   // 4. Cache Seeding & ClipRenderService Immediate Cache Hit
   // =========================================================================
-  describe('4. vireo-source-cache Seeding & Instant Cache Hit Integration', () => {
-    it('seeds shared cache so ensureSourceVideo produces an instant cache_hit without R2 fetch', async () => {
-      const cacheDir = path.join(os.tmpdir(), 'vireo-source-cache');
-      if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir, { recursive: true });
-      }
-
-      const mockKey = `users/user-123/projects/proj-456/source/ingested-video-${Date.now()}.mp4`;
-      const hash = crypto.createHash('sha256').update(mockKey).digest('hex');
-      const cachedFile = path.join(cacheDir, `${hash}.mp4`);
-      const testContent = 'MOCK_SOURCE_VIDEO_PAYLOAD_FOR_CACHE_HIT_TEST';
-
-      // Simulate cache seeding performed by UrlIngestionService
-      fs.writeFileSync(cachedFile, testContent);
-
-      const targetPath = path.join(tmpDir, `rendered_target_${Date.now()}.mp4`);
-
-      // Call ClipRenderService.ensureSourceVideo
-      const sourceResolution = await ClipRenderService.ensureSourceVideo(mockKey, targetPath);
-
-      assert.equal(sourceResolution, 'cache_hit', 'ensureSourceVideo must recognize seeded cache file');
-      assert.ok(fs.existsSync(targetPath), 'Target path must be populated');
-      assert.equal(fs.readFileSync(targetPath, 'utf8'), testContent);
-
-      // Cleanup
-      try {
-        fs.unlinkSync(cachedFile);
-        fs.unlinkSync(targetPath);
-      } catch {}
+  describe('4. Legacy path-only cache seeding is not immutable identity', () => {
+    it('ignores unverified seeded bytes and reuses only a receipt from the current object download', async () => {
+      const payload=Buffer.from('CURRENT_REMOTE_SOURCE'),etag='"url-fixture-v1"';let gets=0,heads=0;
+      const storage=http.createServer((req,res)=>{res.setHeader('Content-Length',payload.length);res.setHeader('ETag',etag);if(req.method==='HEAD'){heads++;res.end();}else{gets++;res.end(payload);}});
+      await new Promise<void>(resolve=>storage.listen(0,'127.0.0.1',resolve));
+      const old={r2AccountId:config.r2AccountId,r2AccessKeyId:config.r2AccessKeyId,r2SecretAccessKey:config.r2SecretAccessKey,r2SourceBucket:config.r2SourceBucket,r2Endpoint:config.r2Endpoint};
+      Object.assign(config,{r2AccountId:'fixture',r2AccessKeyId:'fixture',r2SecretAccessKey:'fixture',r2SourceBucket:'source',r2Endpoint:'http://127.0.0.1:'+(storage.address() as any).port});
+      const key='fixture/'+crypto.randomUUID()+'.mp4',cacheDir=path.join(os.tmpdir(),'vireo-source-cache');fs.mkdirSync(cacheDir,{recursive:true});
+      const legacy=path.join(cacheDir,crypto.createHash('sha256').update(key).digest('hex')+'.mp4');
+      const bound=path.join(cacheDir,crypto.createHash('sha256').update(JSON.stringify([key,etag,payload.length])).digest('hex')+'.mp4');
+      fs.writeFileSync(legacy,'UNVERIFIED_LEGACY_BYTES');
+      try{
+        const first=path.join(tmpDir,'current-source'),second=path.join(tmpDir,'reused-source');
+        assert.equal(await ClipRenderService.ensureSourceVideo(key,first),'downloaded');assert.deepEqual(fs.readFileSync(first),payload);assert.equal(gets,1);
+        assert.equal(await ClipRenderService.ensureSourceVideo(key,second),'cache_hit');assert.deepEqual(fs.readFileSync(second),payload);assert.equal(gets,1);assert(heads>=3,'initial download and reuse verify object identity');
+      }finally{Object.assign(config,old);storage.closeAllConnections();await new Promise<void>(resolve=>storage.close(()=>resolve()));for(const file of [legacy,bound,bound+'.receipt.json'])fs.rmSync(file,{force:true});}
     });
   });
 
@@ -341,6 +333,8 @@ describe('UrlIngestionService Upgrade Test Suite', { concurrency: 1 }, () => {
   describe('5. probeUrlMetadata Static Helper', () => {
     it('returns direct provider metadata for direct media URLs without full download', async () => {
       const origValidate = UrlValidator.validateVideoUrl;
+      const originalPrivate=UrlValidator.isPrivateIp;
+      UrlValidator.isPrivateIp=(ip:string)=>ip==='127.0.0.1'?false:originalPrivate.call(UrlValidator,ip);
       (UrlValidator as any).validateVideoUrl = async (u: string) => ({
         normalizedUrl: u,
         hostname: '127.0.0.1',
@@ -358,6 +352,7 @@ describe('UrlIngestionService Upgrade Test Suite', { concurrency: 1 }, () => {
         assert.equal(probeResult.contentType, 'video/mp4');
       } finally {
         UrlValidator.validateVideoUrl = origValidate;
+        UrlValidator.isPrivateIp = originalPrivate;
       }
     });
 
