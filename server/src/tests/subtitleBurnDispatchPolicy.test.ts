@@ -1,2 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {subtitleBurnDispatchEnabled as enabled} from '../services/runtimePolicy.js';
+import test from 'node:test';import assert from 'node:assert/strict';import {subtitleBurnMaxActive as maximum,subtitleBurnDispatchEnabled as enabled} from '../services/runtimePolicy.js';
 test('subtitle durable dispatch is explicit off by default and malformed configuration fails closed',()=>{for(const value of [undefined,'','0'])assert.equal(enabled({VIREO_SUBTITLE_BURN_DISPATCH_V1:value}),false);assert.equal(enabled({VIREO_SUBTITLE_BURN_DISPATCH_V1:'1'}),true);for(const value of ['true','yes','2',' 1'])assert.throws(()=>enabled({VIREO_SUBTITLE_BURN_DISPATCH_V1:value}));});
+
+test('shared active-count policy is explicit positive safe integer, never inferred',()=>{for(const value of [undefined,'','0','-1','1.5','NaN'])assert.throws(()=>maximum({VIREO_SUBTITLE_BURN_MAX_ACTIVE:value}));assert.equal(maximum({VIREO_SUBTITLE_BURN_MAX_ACTIVE:'1'}),1);});

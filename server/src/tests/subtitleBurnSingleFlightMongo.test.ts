@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import crypto from 'node:crypto';
 test('actual durable burn worker entry reserves one process-local slot before awaits and releases on completion or error',async(t)=>{
- Object.assign(process.env,{NODE_ENV:'test',VIREO_SERVICE_ROLE:'worker',VIREO_SUBTITLE_BURN_DISPATCH_V1:'1',MONGODB_URI:process.env.VIREO_BOUNDARY_TEST_MONGO_URI||'mongodb://127.0.0.1:27029/?replicaSet=hook1172',MONGODB_DB_NAME:'burn_single_'+crypto.randomUUID().replaceAll('-','')});
+ Object.assign(process.env,{NODE_ENV:'test',VIREO_SERVICE_ROLE:'worker',VIREO_SUBTITLE_BURN_DISPATCH_V1:'1',VIREO_SUBTITLE_BURN_MAX_ACTIVE:'1',MONGODB_URI:process.env.VIREO_BOUNDARY_TEST_MONGO_URI||'mongodb://127.0.0.1:27029/?replicaSet=hook1172',MONGODB_DB_NAME:'burn_single_'+crypto.randomUUID().replaceAll('-','')});
  const {getMongoDb,getMongoClient,closeMongo}=await import('../db/mongoClient.js'),{SubtitleStudioService:S}=await import('../services/subtitleStudioService.js'),{enqueueSubtitleBurn}=await import('../db/repositories/subtitleBurnDispatchRepository.js');
  const db=await getMongoDb(),client=await getMongoClient(),u=crypto.randomUUID(),original=(S as any).runBurnWorker;
  async function add(){const p:any={id:crypto.randomUUID(),user_id:u,source_url:'fixture',subtitle_cues:[{start:0,end:1,text:'Synthetic'}],subtitle_style:{preset:'clean'},subtitle_export_status:'idle'};await db.collection('projects').insertOne(p);await enqueueSubtitleBurn(client,db,{userId:u,projectId:p.id,project:p});return p;}

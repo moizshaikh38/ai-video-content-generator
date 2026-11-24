@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import crypto from 'node:crypto';
 for(const failure of ['project-review','job-review','final-read'])test('unknown '+failure+' write/read keeps durable burn token and quarantines local capacity',async(t)=>{
- Object.assign(process.env,{NODE_ENV:'test',VIREO_SERVICE_ROLE:'worker',VIREO_SUBTITLE_BURN_DISPATCH_V1:'1',MONGODB_URI:process.env.VIREO_BOUNDARY_TEST_MONGO_URI||'mongodb://127.0.0.1:27029/?replicaSet=hook1172',MONGODB_DB_NAME:'burn_ambiguous_'+crypto.randomUUID().replaceAll('-','')});
+ Object.assign(process.env,{NODE_ENV:'test',VIREO_SERVICE_ROLE:'worker',VIREO_SUBTITLE_BURN_DISPATCH_V1:'1',VIREO_SUBTITLE_BURN_MAX_ACTIVE:'1',MONGODB_URI:process.env.VIREO_BOUNDARY_TEST_MONGO_URI||'mongodb://127.0.0.1:27029/?replicaSet=hook1172',MONGODB_DB_NAME:'burn_ambiguous_'+crypto.randomUUID().replaceAll('-','')});
  const {getMongoDb,getMongoClient,closeMongo}=await import('../db/mongoClient.js'),{SubtitleStudioService:S}=await import('../services/subtitleStudioService.js'),{enqueueSubtitleBurn:enqueue}=await import('../db/repositories/subtitleBurnDispatchRepository.js'),{Collection}=await import('mongodb');
  const db=await getMongoDb(),client=await getMongoClient(),u=crypto.randomUUID(),old={run:(S as any).runBurnWorker,update:Collection.prototype.updateOne,find:Collection.prototype.findOne};
  // Test isolation only: a process-lifetime quarantine is reset here between

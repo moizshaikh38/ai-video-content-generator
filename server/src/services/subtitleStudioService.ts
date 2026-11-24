@@ -600,8 +600,8 @@ export class SubtitleStudioService {
     this.burnDispatchRunning=true;
     let releaseSafe=true;
     try{return await workLifecycle.run('subtitle-burn-dispatch',async()=>{
-      const {claimSubtitleBurn,executeClaimedSubtitleBurn}=await import('../db/repositories/subtitleBurnDispatchRepository.js');
-      const db=await getMongoDb(),job=await claimSubtitleBurn(db,crypto.randomUUID());
+      const {claimCapacityBoundSubtitleBurn,executeClaimedSubtitleBurn}=await import('../db/repositories/subtitleBurnDispatchRepository.js');
+      const db=await getMongoDb(),job=await claimCapacityBoundSubtitleBurn(await getMongoClient(),db,crypto.randomUUID());
       if(!job)return false;
       // Once execution may begin, uncertainty quarantines this local slot.
       // A review-required job can still own an unverified child process.

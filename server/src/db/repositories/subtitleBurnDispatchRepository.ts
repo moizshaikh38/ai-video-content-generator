@@ -1,3 +1,4 @@
+import {subtitleBurnMaxActive} from '../../services/runtimePolicy.js';
 import crypto from 'node:crypto';
 import type {MongoClient,Db} from 'mongodb';
 import {AppError} from '../../types/index.js';
@@ -25,6 +26,22 @@ export async function enqueueSubtitleBurn(client:MongoClient,db:Db,input:{userId
 export async function claimSubtitleBurn(db:Db,workerId:string){
  return db.collection(jobs).findOneAndUpdate({version:1,status:'queued',worker_id:null},{$set:{status:'processing',worker_id:workerId,claimed_at:new Date(),updated_at:new Date()}},{sort:{created_at:1,_id:1},returnDocument:'after',writeConcern:{w:'majority'}});
 }
+/** Shared count admission serializes competing workers on one contention row.
+ * It does not expire unknown work or infer memory/CPU/scratch capacity. */
+export async function claimCapacityBoundSubtitleBurn(client:MongoClient,db:Db,workerId:string){
+ const maximum=subtitleBurnMaxActive();
+ const pool=db.collection('subtitle_burn_capacity');
+ try{await pool.updateOne({_id:'v1' as any},{$setOnInsert:{maximum,serial:0}},{upsert:true,writeConcern:{w:'majority'}});}catch(error:any){if(error?.code!==11000)throw error;}
+ const session=client.startSession();
+ try{return await session.withTransaction(async()=>{
+  const fence=await pool.updateOne({_id:'v1' as any,maximum},{$inc:{serial:1}},{session});
+  if(fence.matchedCount!==1)throw new AppError('Subtitle worker capacity policy differs. Admission stopped.',503,'SUBTITLE_CAPACITY_POLICY_MISMATCH');
+  const active=await db.collection(jobs).countDocuments({version:1,status:{$in:['processing','executing','review_required']}},{session});
+  if(active>=maximum)return null;
+  return db.collection(jobs).findOneAndUpdate({version:1,status:'queued',worker_id:null},{$set:{status:'processing',worker_id:workerId,claimed_at:new Date(),updated_at:new Date()}},{sort:{created_at:1,_id:1},returnDocument:'after',session});
+ },{readPreference:'primary',readConcern:{level:'snapshot'},writeConcern:{w:'majority'},timeoutMS:10000});}finally{await session.endSession();}
+}
+
 /** Claim is permanent until this exact worker records a terminal outcome. */
 export async function executeClaimedSubtitleBurn(db:Db,job:any,execute:(job:any)=>Promise<void>){
  const filter={id:job.id,status:'processing',worker_id:job.worker_id,run_token:job.run_token};
