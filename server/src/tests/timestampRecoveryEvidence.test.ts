@@ -31,7 +31,7 @@ test('single-word preset override emits one real timed token per cue without sub
 test('diarization is opt-in, Scribe-only and requests real labels without a paid call',async()=>{
  const {OpenRouterTranscriptionProvider}=await import('../services/transcription/openRouterTranscriptionProvider.js');
  const {config}=await import('../config/index.js');const oldFetch=globalThis.fetch,oldKey=config.openrouterApiKey;let calls=0;
- try{config.openrouterApiKey='fixture';globalThis.fetch=async(_input,init)=>{calls++;const form=init?.body as FormData;assert.equal(form.get('diarize'),'true');return new Response(JSON.stringify({text:'Hello',language:'eng',words:[{word:'Hello',start:0,end:.2,speaker:0,speaker_label:'speaker_0',confidence:.9}]}),{status:200});};
+ try{config.openrouterApiKey='fixture';globalThis.fetch=async(_input,init)=>{calls++;const body=JSON.parse(init?.body as string);assert.equal(body.diarize,true);return new Response(JSON.stringify({text:'Hello',language:'eng',words:[{word:'Hello',start:0,end:.2,speaker:0,speaker_label:'speaker_0',confidence:.9}]}),{status:200});};
  const result=await new OpenRouterTranscriptionProvider('elevenlabs/scribe-v2').transcribeAudio(Buffer.from('fixture'),'fixture.wav','audio/wav',{diarize:true});assert.equal(result.words[0].speakerId,'speaker_0');assert.equal(calls,1);
  await assert.rejects(new OpenRouterTranscriptionProvider().transcribeAudio(Buffer.from('fixture'),'fixture.wav','audio/wav',{diarize:true}),/not supported/);assert.equal(calls,1);
  }finally{globalThis.fetch=oldFetch;config.openrouterApiKey=oldKey;}

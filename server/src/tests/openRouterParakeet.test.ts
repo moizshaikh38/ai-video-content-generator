@@ -40,9 +40,9 @@ test('Configured OpenRouter factory selects Parakeet without changing the defaul
  }
  assert.equal(calls.length,2);assert(calls.every(c=>c.url.startsWith('https://openrouter.ai/')));
 }));
-test('Existing default Whisper remains multipart and model is not silently changed',async()=>fixture(async calls=>{
+test('Existing default Whisper uses privacy-bearing JSON and model is not silently changed',async()=>fixture(async calls=>{
  await new OpenRouterTranscriptionProvider().transcribeAudio(Buffer.from('fixture'),'x.mp3','audio/mp3',{language:'hi'});
- assert(calls[0].init.body instanceof FormData);assert.equal(calls[0].init.body.get('model'),'openai/whisper-large-v3-turbo');assert.equal(calls[0].init.body.get('language'),'hi');
+ assert.equal(typeof calls[0].init.body,'string');assert.equal(JSON.parse(calls[0].init.body).model,'openai/whisper-large-v3-turbo');assert.equal(JSON.parse(calls[0].init.body).language,'hi');
 }));
 test('Unrecognized model is refused rather than substituted',()=>assert.throws(()=>new OpenRouterTranscriptionProvider('not-a-model')));
 
@@ -52,5 +52,5 @@ test('Configured English opt-in keeps Hindi/Hinglish/auto on existing OpenRouter
   const r=await getTranscriptionProviderWithFailover().transcribeAudio(Buffer.from('fixture'),'x.wav','audio/wav',{language});
   assert.equal(r.provenance?.model,'openai/whisper-large-v3-turbo');
  }
- assert.equal(calls.length,4);assert(calls.every(c=>c.init.body instanceof FormData));
+ assert.equal(calls.length,4);assert(calls.every(c=>typeof c.init.body==='string'&&JSON.parse(c.init.body).model==='openai/whisper-large-v3-turbo'));
 }));

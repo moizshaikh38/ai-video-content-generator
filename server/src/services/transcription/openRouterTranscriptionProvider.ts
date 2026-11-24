@@ -101,10 +101,10 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
       'X-Title': 'Vireo AI Video Content Generator',
     };
 
-    // Use the exact JSON STT contract qualified for Parakeet. Existing
-    // multipart Whisper/Scribe paths remain unchanged.
+    // Use the documented JSON STT contract for every supported model so
+    // data-policy filters cannot be lost on the multipart upload path.
     let requestBody: NonNullable<Parameters<typeof fetch>[1]>['body'] = formData;
-    if ([PARAKEET_MODEL,MAI_MODEL].includes(this.model)) {
+    if (MODELS.includes(this.model)) {
       const formats: Record<string,string> = {'audio/wav':'wav','audio/x-wav':'wav','audio/mp3':'mp3','audio/mpeg':'mp3','audio/flac':'flac','audio/ogg':'ogg','audio/webm':'webm','audio/mp4':'m4a','audio/aac':'aac'};
       const format = formats[mimeType];
       if (!format) throw new Error('Unsupported audio format for Parakeet. No audio was sent.');
@@ -112,7 +112,8 @@ export class OpenRouterTranscriptionProvider implements TranscriptionProvider {
       requestBody = JSON.stringify({model:this.model,input_audio:{data:audioBuffer.toString('base64'),format},
         response_format:'verbose_json',timestamp_granularities:['word','segment'],
         provider:{...STT_DATA_POLICY,...(this.model===MAI_MODEL?{options:{azure:{enhancedMode:{modelOptions:{transcribeStyle:'verbatim'}},...(options?.diarize?{diarization:{enabled:true}}:{})}}}:{})},
-        ...(this.model === PARAKEET_MODEL ? {language:'en'} : {}),
+        ...(this.model === PARAKEET_MODEL ? {language:'en'} : (this.model !== MAI_MODEL && options?.language ? {language:options.language} : {})),
+        ...(![PARAKEET_MODEL,MAI_MODEL].includes(this.model) ? {temperature:0,...(options?.diarize ? {diarize:true} : {})} : {}),
         ...(options?.prompt ? {prompt:options.prompt} : {})});
     }
 
