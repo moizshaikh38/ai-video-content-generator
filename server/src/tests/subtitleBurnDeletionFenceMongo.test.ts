@@ -1,0 +1,16 @@
+import test from 'node:test';import assert from 'node:assert/strict';import crypto from 'node:crypto';import {MongoClient} from 'mongodb';
+import {publishSubtitleBurn as publish} from '../db/repositories/subtitleBurnRepository.js';import {subtitleBurnIdentity as identity} from '../shared/subtitleBurnIdentity.js';import {DELETION_MARKER_FIELD} from '../services/deletionAdmissionService.js';
+test('real subtitle publication cannot cross admitted deletion, including transaction read/write race',async(t)=>{
+ const client=new MongoClient(process.env.VIREO_BOUNDARY_TEST_MONGO_URI||'mongodb://127.0.0.1:27029/?replicaSet=hook1172');await client.connect();const db=client.db('burn_delete_'+crypto.randomUUID().replaceAll('-','')),other=new MongoClient(process.env.VIREO_BOUNDARY_TEST_MONGO_URI||'mongodb://127.0.0.1:27029/?replicaSet=hook1172');await other.connect();const concurrent=other.db(db.databaseName);
+ const u=crypto.randomUUID(),sourceReceipt={key:'fixture',size:7,etag:'"fixture"',sha256:'a'.repeat(64)};
+ async function fixture(){const p:any={id:crypto.randomUUID(),user_id:u,source_url:'fixture',subtitle_cues:[{start:0,end:1,text:'Synthetic fixture'}],subtitle_style:{preset:'clean'},subtitle_export_status:'rendering',subtitle_export_path:'prior.mp4',subtitle_export_run_token:crypto.randomUUID()};await db.collection('projects').insertOne(p);return{p,input:{projectId:p.id,userId:u,runToken:p.subtitle_export_run_token,identity:identity(p),exportKey:'late.mp4',watermarkRequired:false,sourceReceipt}};}
+ try{
+  const live=await fixture();assert.equal(await publish(client,db,live.input),true);assert.equal((await db.collection('projects').findOne({id:live.p.id}))?.subtitle_export_path,'late.mp4');
+  const deleted=await fixture();await concurrent.collection('projects').updateOne({id:deleted.p.id},{$set:{[DELETION_MARKER_FIELD]:new Date()}});const before=await db.collection('projects').findOne({id:deleted.p.id});assert.equal(await publish(client,db,deleted.input),false);assert.deepEqual(await db.collection('projects').findOne({id:deleted.p.id}),before);
+  const race=await fixture(),originalCollection=db.collection,base=db.collection.bind(db);let injected=false;
+  (db as any).collection=(name:string,...args:any[])=>{const c=(base as any)(name,...args);if(name==='projects'){const update=c.updateOne.bind(c);c.updateOne=async(...params:any[])=>{if(params[2]?.session&&!injected){injected=true;await concurrent.collection('projects').updateOne({id:race.p.id},{$set:{[DELETION_MARKER_FIELD]:new Date()}});}return update(...params);};}return c;};
+  try{assert.equal(await publish(client,db,race.input),false);assert(injected);}finally{db.collection=originalCollection;}
+  const after=await db.collection('projects').findOne({id:race.p.id});assert(after?.[DELETION_MARKER_FIELD]);assert.equal(after.subtitle_export_path,'prior.mp4');assert.equal(after.subtitle_export_run_token,race.p.subtitle_export_run_token);assert.equal(after.subtitle_export_status,'rendering');
+  t.diagnostic('Actual separate-client Mongo transaction conflict/retry. Already-admitted deletion and marker injected after transactional read both reject publication, preserving prior export and owned token. No media/storage deletion performed.');
+ }finally{await db.dropDatabase();await client.close();await other.close();}
+});
