@@ -1,8 +1,10 @@
+import {waitForClipSelection} from '../lib/waitForClipSelection';
 import { backendRequest } from './backendClient';
 import { ClipCandidate, ClipCandidateStatus, ClipPreferences } from '../types';
 
 export interface AnalyzeClipsResponse {
   status: 'ok';
+  queued?:boolean;selectionJobId?:string;selectionStatus?:string;
   projectId: string;
   count: number;
   candidates: ClipCandidate[];
@@ -29,10 +31,12 @@ class ClipService {
     customNotes?: string,
     clipPreferences?: Partial<ClipPreferences>
   ): Promise<AnalyzeClipsResponse> {
-    return backendRequest<AnalyzeClipsResponse>(`/projects/${projectId}/analyze-clips`, {
+    const initial=await backendRequest<AnalyzeClipsResponse>(`/projects/${projectId}/analyze-clips`, {
       method: 'POST',
+      headers:{'x-vireo-selection-dispatch':'1'},
       body: JSON.stringify({ customNotes, clip_preferences: clipPreferences }),
     });
+    return waitForClipSelection(initial,projectId,jobId=>backendRequest<AnalyzeClipsResponse>(`/projects/${projectId}/clip-candidates?selection_job_id=${encodeURIComponent(jobId)}`));
   }
 
   /**

@@ -1,3 +1,10 @@
+import {selectionSourceReceiptMatches} from '../shared/selectionSourceReceipt.js';
+import {clipSelectionDispatchEnabled} from '../services/runtimePolicy.js';
+import {enqueueClipSelection} from '../db/repositories/clipSelectionDispatchRepository.js';
+import {getMongoClient} from '../db/mongoClient.js';
+import {selectionContextIdentity} from '../shared/selectionContextIdentity.js';
+import {selectionSourceReceipt} from '../shared/selectionSourceReceipt.js';
+import {assertTranscriptReusable} from '../services/transcriptSourceBindingService.js';
 import {reframeWordPreviewFreshness} from '../shared/reframeWordPreviewFreshness.js';
 import {normalGamingManualEnvelope} from '../services/normalGamingManualChoiceService.js';
 import {splitReviewCropConfig,createBareSmartSplitReview} from '../shared/automaticSplitEvidence.js';
@@ -83,6 +90,17 @@ export const analyzeProjectClips = async (req: AuthenticatedRequest, res: Respon
       ? GenreIntelligenceService.normalizePreferences(rawPreferences, customNotes)
       : undefined;
 
+    if(clipSelectionDispatchEnabled()){
+      // Explicit protocol support prevents old clients treating a queued202 as
+      // empty successful candidates. No settings mutation before this check.
+      if(req.headers?.['x-vireo-selection-dispatch']!=='1'){res.status(409).json({status:'error',code:'CLIP_SELECTION_CLIENT_UPGRADE_REQUIRED',message:'Reload the app before starting saved clip selection.'});return;}
+      const db=await getMongoDb(),project=await db.collection('projects').findOne({id:projectId,user_id:userId,deletion_started_at:{$exists:false}}),transcript=await db.collection('transcripts').findOne({project_id:projectId,user_id:userId});
+      if(!project){res.status(404).json({status:'error',code:'PROJECT_NOT_FOUND',message:'Project not found.'});return;}
+      if(!transcript)throw Object.assign(Error('Transcript is not available.'),{code:'TRANSCRIPT_NOT_FOUND'});
+      await assertTranscriptReusable(transcript,project.source_url);
+      const job=await enqueueClipSelection(await getMongoClient(),db,{userId,projectId,sourceUrl:project.source_url,receipt:selectionSourceReceipt(transcript,project.source_url),context:selectionContextIdentity({clip_preferences:project.clip_preferences,notes:project.notes,semantic_genre_receipt:project.semantic_genre_receipt}),customNotes,preferences:normalizedPreferences});
+      res.status(202).json({status:'ok',projectId,queued:true,selectionJobId:job!.id,selectionStatus:job!.status});return;
+    }
     if (normalizedPreferences) {
       await dataRepository
         .from('projects')
@@ -202,6 +220,15 @@ export const getProjectClipCandidates = async (req: AuthenticatedRequest, res: R
   }
 
   try {
+    if(typeof req.query?.selection_job_id==='string'){
+      const db=await getMongoDb(),project=await db.collection('projects').findOne({id:projectId,user_id:userId,deletion_started_at:{$exists:false}});
+      const job=project?await db.collection('clip_selection_jobs').findOne({id:req.query.selection_job_id,project_id:projectId,user_id:userId}):null;
+      if(!job){res.status(404).json({status:'error',code:'SELECTION_REQUEST_NOT_FOUND',message:'Saved selection request was not found.'});return;}
+      const completedTranscript=job.status==='completed'?await db.collection('transcripts').findOne({project_id:projectId,user_id:userId}):null;
+      const candidates=job.status==='completed'?await db.collection('clip_candidates').find({user_id:userId,project_id:projectId,id:{$in:job.candidate_ids??[]}}).project({_id:0}).toArray():[];
+      if(job.status==='completed'&&(!project||!completedTranscript||!selectionSourceReceiptMatches(job.source_receipt,completedTranscript,project.source_url)||project.source_url!==job.source_url||selectionContextIdentity({clip_preferences:project.clip_preferences,notes:project.notes,semantic_genre_receipt:project.semantic_genre_receipt})!==job.context||candidates.length!==(job.candidate_ids??[]).length)){res.status(409).json({status:'error',code:'CLIP_SELECTION_CONTEXT_CHANGED',message:'Saved selection results changed. Reload current project results; no new generation was started.'});return;}
+      res.status(200).json({status:'ok',projectId,selectionJobId:job.id,selectionStatus:job.status,resultCode:job.result_code??null,candidates,count:candidates.length});return;
+    }
     const candidates = await ClipAnalysisService.getCandidates(projectId, userId);
     res.status(200).json({
       status: 'ok',

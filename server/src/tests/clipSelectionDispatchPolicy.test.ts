@@ -1,0 +1,5 @@
+import fs from'node:fs';
+import test from'node:test';import assert from'node:assert/strict';import{clipSelectionDispatchEnabled as enabled,clipSelectionMaxActive as maximum}from'../services/runtimePolicy.js';
+test('selection durable dispatch is off unless explicit and positive count required',()=>{assert.equal(enabled({}),false);assert.equal(enabled({VIREO_CLIP_SELECTION_DISPATCH_V1:'0'}),false);assert.equal(enabled({VIREO_CLIP_SELECTION_DISPATCH_V1:'1'}),true);assert.throws(()=>enabled({VIREO_CLIP_SELECTION_DISPATCH_V1:'true'}));for(const value of[undefined,'0','-1','1.5'])assert.throws(()=>maximum({VIREO_CLIP_SELECTION_MAX_ACTIVE:value}));assert.equal(maximum({VIREO_CLIP_SELECTION_MAX_ACTIVE:'2'}),2);});
+
+test('durable selector consumes immutable semantic snapshot without pre-gate genre provider refresh',()=>{const source=fs.readFileSync(new URL('../services/clipAnalysisService.ts',import.meta.url),'utf8');assert(source.includes("if(!options.expectedDispatch&&process.env.VIREO_AUTO_GENRE_REVIEW==='free')"));assert(source.indexOf('if(options.expectedDispatch&&')<source.indexOf('const selectionReceipt = selectionSourceReceipt('));});

@@ -1,3 +1,4 @@
+import {selectionSourceReceiptMatches} from '../shared/selectionSourceReceipt.js';
 import {settleClipSelectionWindows} from '../shared/settleClipSelectionWindows.js';
 import {applySemanticGenreReceipt} from '../shared/semanticGenreEvidence.js';
 import {effectiveClipDurationBounds} from '../shared/clipDurationPreferences.js';
@@ -56,6 +57,8 @@ export interface AnalyzeClipsOptions {
   customNotes?: string;
   preferences?: Partial<ClipPreferences>;
   clipPreferences?: Partial<ClipPreferences>;
+  /** Worker immutable intent, rechecked after any genre refresh and before provider entry. */
+  expectedDispatch?:{context:string;receipt:any};
 }
 
 export interface RefineWordBoundariesParams {
@@ -621,7 +624,7 @@ export class ClipAnalysisService {
 
     return await ownerContext.run(userId, async () => {
       try {
-        if(process.env.VIREO_AUTO_GENRE_REVIEW==='free'){const {refreshStoredGenreReview}=await import('./retainedGenreReviewService.js');await refreshStoredGenreReview(userId,projectId);}
+        if(!options.expectedDispatch&&process.env.VIREO_AUTO_GENRE_REVIEW==='free'){const {refreshStoredGenreReview}=await import('./retainedGenreReviewService.js');await refreshStoredGenreReview(userId,projectId);}
         // 1. Verify project exists and belongs to user
       const { data: project, error: projErr } = await dataRepository
         .from('projects')
@@ -657,6 +660,7 @@ export class ClipAnalysisService {
         throw transNotFound;
       }
 
+      if(options.expectedDispatch&&(selectionContextIdentity(project)!==options.expectedDispatch.context||!selectionSourceReceiptMatches(options.expectedDispatch.receipt,transcript,project.source_url||'')))throw new AppError('Saved selection inputs changed.',409,'CLIP_SELECTION_CONTEXT_CHANGED');
       await assertTranscriptReusable(transcript, project.source_url || '');
       const selectionReceipt = selectionSourceReceipt(transcript, project.source_url || '');
       const rawSegments = transcript.segments;
