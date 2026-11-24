@@ -1,3 +1,4 @@
+import {runsBackgroundWorkers} from './runtimePolicy.js';
 import {assFontsDirArg} from './editorFontFiles.js';
 import {subtitleRenderCues} from '../shared/subtitleWordClockReview.js';
 import {subtitleBurnIdentity,subtitleBurnCurrent,subtitleBurnInvalidation} from '../shared/subtitleBurnIdentity.js';
@@ -269,6 +270,13 @@ export class SubtitleStudioService {
     }
 
     if(processingAttemptId){const {readProcessingCompletion}=await import('./transcription/processingCompletion.js');const done=await readProcessingCompletion(await getMongoDb(),userId,projectId,project.source_url,processingAttemptId);if(done)return{project:done.project as unknown as SubtitleProjectRecord,cues:done.project.subtitle_cues||[],creditsCharged:done.settledAmount,isReusedTranscript:done.settledAmount===0,attemptId:processingAttemptId,completionIsCurrent:done.completionIsCurrent};}
+
+    // Exact completed-attempt readback above is metadata-only. With no
+    // durable remote dispatcher, API-only instances cannot admit new work,
+    // clone reusable transcripts, or reserve credits for inline processing.
+    if (!runsBackgroundWorkers()) {
+      throw new AppError('Video processing requires an available processing worker. No new processing was started and no credits were reserved.',503,'PROCESSING_DISPATCH_UNAVAILABLE');
+    }
 
     // Validate duration against plan entitlement if known
     const entitlements = await EntitlementService.resolveUserEntitlements(userId, userEmail);
