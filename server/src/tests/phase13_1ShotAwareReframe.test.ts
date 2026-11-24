@@ -14,7 +14,7 @@ import { buildSmartCropFilter } from '../services/clipRenderService.js';
 
 const execFileAsync = promisify(execFile);
 
-describe('Phase 13.1: Shot-Aware Framing, AV Active Speaker & Anti-Whip Tracking', () => {
+describe('Phase 13.1: Shot-Aware Framing, Visual Mouth Heuristic & Anti-Whip Tracking', () => {
   it('1. Scene-Cut Partitioning: emits hard-cut keyframe pair and prevents pan glitch across cut', () => {
     // Shot 1 (0.0s - 2.0s): Subject on the left (x = 0.2)
     // Shot 2 (2.0s - 4.0s): Subject on the right (x = 0.8)
@@ -70,9 +70,9 @@ describe('Phase 13.1: Shot-Aware Framing, AV Active Speaker & Anti-Whip Tracking
     assert.equal(midPanKf, undefined, 'No intermediate panning keyframe allowed across scene cut');
   });
 
-  it('2. Audio-Visual Active Speaker Selection: prioritizes active speaker over passive listener', () => {
-    // Subject 1: on screen for 10 samples, mouth_score = 0.05 (passive listener)
-    // Subject 2: on screen for 7 samples, mouth_score = 0.85 (active speaker)
+  it('2. Visual mouth heuristic influences anchor ranking, without speaker verification', () => {
+    // Synthetic subject 1: 10 observations, low mouth activity. No speaker truth.
+    // Synthetic subject 2: 7 observations, high mouth activity. No speaker truth.
     const tracks = new Map<string, NormalizedFaceDetection[]>();
 
     const sub1Dets: NormalizedFaceDetection[] = [];
@@ -101,14 +101,14 @@ describe('Phase 13.1: Shot-Aware Framing, AV Active Speaker & Anti-Whip Tracking
       speechIntervals: [{ start: 0.0, end: 3.0 }],
     });
 
-    assert.equal(result.dominantTrackId, 'speaker', 'Active speaker must be selected despite fewer presence frames');
+    assert.equal(result.dominantTrackId, 'speaker', 'Existing visual mouth heuristic wins despite fewer presence frames');
     assert.ok(result.score > 0.45);
   });
 
-  it('3. Conversational Turn-Taking across Shots: switches focus to active speaker after cut', () => {
+  it('3. Visual mouth changes can switch heuristic focus after a cut', () => {
     // Two speakers present in both shots:
-    // Shot 1 (0-2s): Speaker A speaks (mouth=0.8), Speaker B silent (mouth=0.1)
-    // Shot 2 (2-4s): Speaker B speaks (mouth=0.85), Speaker A silent (mouth=0.1)
+    // Shot 1: synthetic A mouth=.8, B=.1. These are not audio labels.
+    // Shot 2: synthetic B mouth=.85, A=.1. These are not audio labels.
     const samples: ReframeSample[] = [];
 
     for (let t = 0.0; t <= 1.8; t += 0.2) {

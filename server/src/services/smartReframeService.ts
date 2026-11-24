@@ -327,8 +327,10 @@ export class SmartReframeService {
 
   /**
    * Deterministically selects the dominant subject track based on:
-   * When mouth_score is present: Presence (30%), Active Speaker Score (35%), Face Area (20%), Confidence & Centrality (15%).
+   * When mouth_score is present: Presence (30%), Visual Mouth Activity (35%), Face Area (20%), Confidence & Centrality (15%).
    * Legacy fallback: Presence (40%), Face Area (30%), Confidence (20%), Centrality (10%).
+   * This is a visual heuristic, not active-speaker verification. Speech interval
+   * presence supplies no voice-to-face identity or calibrated speaker confidence.
    */
   public static selectDominantTrack(
     tracks: Map<string, NormalizedFaceDetection[]>,
@@ -409,8 +411,8 @@ export class SmartReframeService {
           const rawMouth = d.mouth_score ?? 0;
           let weight = 1.0;
           if (options?.speechIntervals && options.speechIntervals.length > 0) {
-            // Check if detection falls within any speech interval
-            // Detections don't carry sample time directly, but if speech intervals exist, give weight
+            // Legacy constant weight, not a timestamp join. It cancels during
+            // normalization and supplies no audio-to-face evidence.
             weight = 1.2;
           }
           activeSpeakerScoreSum += rawMouth * weight;
@@ -426,7 +428,7 @@ export class SmartReframeService {
 
       let score: number;
       if (hasMouthScores) {
-        // Presence (30%), ActiveSpeakerScore (35%), Area (20%), Confidence & Centrality (15%)
+        // Presence (30%), visual mouth activity (35%), area (20%), confidence/centrality (15%)
         const confCentrality = 0.5 * avgConfidence + 0.5 * avgCentrality;
         score =
           0.30 * presenceRatio +
@@ -509,7 +511,7 @@ export class SmartReframeService {
 
   /**
    * Temporal smoothing, dead-zone application, maximum velocity clamping,
-   * shot-aware partitioning, audio-visual active speaker selection,
+   * shot-aware partitioning, visual crop-anchor selection,
    * and true instantaneous hard cuts across scene boundaries.
    */
   public static smoothAndGenerateKeyframes(params: {
@@ -630,7 +632,7 @@ export class SmartReframeService {
         }
       }
 
-      // Audio-Visual Active Speaker Selection for this shot
+      // Visual crop-anchor selection. No verified voice-to-face association.
       let shotDominantTrackId = dominantTrackId;
       let midpointPair: [string, string] | null = null;
 
