@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {subtitleBurnDispatchEnabled as enabled} from '../services/runtimePolicy.js';
+test('subtitle durable dispatch is explicit off by default and malformed configuration fails closed',()=>{for(const value of [undefined,'','0'])assert.equal(enabled({VIREO_SUBTITLE_BURN_DISPATCH_V1:value}),false);assert.equal(enabled({VIREO_SUBTITLE_BURN_DISPATCH_V1:'1'}),true);for(const value of ['true','yes','2',' 1'])assert.throws(()=>enabled({VIREO_SUBTITLE_BURN_DISPATCH_V1:value}));});

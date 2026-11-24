@@ -1,4 +1,4 @@
-import {runsBackgroundWorkers} from './runtimePolicy.js';
+import {runsBackgroundWorkers,subtitleBurnDispatchEnabled} from './runtimePolicy.js';
 import {assFontsDirArg} from './editorFontFiles.js';
 import {subtitleRenderCues} from '../shared/subtitleWordClockReview.js';
 import {subtitleBurnIdentity,subtitleBurnCurrent,subtitleBurnInvalidation} from '../shared/subtitleBurnIdentity.js';
@@ -553,7 +553,7 @@ export class SubtitleStudioService {
     }
     // Existing render readback above remains available. New burns still run
     // inline, so refuse on the API before source HEAD/admission/worker launch.
-    if (!runsBackgroundWorkers()) throw new AppError('Subtitle rendering requires an available processing worker. No new render was started.',503,'PROCESSING_DISPATCH_UNAVAILABLE');
+    if (!runsBackgroundWorkers()&&!subtitleBurnDispatchEnabled()) throw new AppError('Subtitle rendering requires an available processing worker. No new render was started.',503,'PROCESSING_DISPATCH_UNAVAILABLE');
     if(!transcript)throw new AppError('A source-bound transcript is required before burning subtitles.',409,'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
     await assertTranscriptReusable(transcript,project.source_url);
     const binding=(project as any).subtitle_cues_binding;
@@ -571,6 +571,12 @@ export class SubtitleStudioService {
     }
 
 
+    if(subtitleBurnDispatchEnabled()){
+      const {enqueueSubtitleBurn}=await import('../db/repositories/subtitleBurnDispatchRepository.js');
+      await enqueueSubtitleBurn(await getMongoClient(),await getMongoDb(),{userId,projectId,project});
+      return {message:'Subtitle burn queued for a processing worker.',exportStatus:'rendering'};
+    }
+
     const runToken=crypto.randomUUID(),identity=subtitleBurnIdentity(project);
     const admitted=await (await getMongoDb()).collection('projects').updateOne({id:projectId,user_id:userId,
       source_url:project.source_url,subtitle_cues:project.subtitle_cues,subtitle_style:project.subtitle_style,
@@ -583,6 +589,15 @@ export class SubtitleStudioService {
     });
 
     return { message: 'Subtitle burn rendering started.', exportStatus: 'rendering' };
+  }
+
+  /** Opt-in durable worker. Claimed jobs are never timed out or auto-reclaimed. */
+  public static async processNextBurnJob():Promise<boolean>{
+    if(!runsBackgroundWorkers()||!subtitleBurnDispatchEnabled()||workLifecycle.isDraining())return false;
+    const {claimSubtitleBurn,executeClaimedSubtitleBurn}=await import('../db/repositories/subtitleBurnDispatchRepository.js');
+    const db=await getMongoDb(),job=await claimSubtitleBurn(db,crypto.randomUUID());
+    if(!job)return false;
+    return executeClaimedSubtitleBurn(db,job,j=>this.runBurnWorker(j.project_id,j.user_id,j.run_token,j.identity,j.project_snapshot));
   }
 
   /**
