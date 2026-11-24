@@ -58,7 +58,7 @@ export interface AnalyzeClipsOptions {
   preferences?: Partial<ClipPreferences>;
   clipPreferences?: Partial<ClipPreferences>;
   /** Worker immutable intent, rechecked after any genre refresh and before provider entry. */
-  expectedDispatch?:{context:string;receipt:any};
+  expectedDispatch?:{context:string;receipt:any;jobId?:string;workerId?:string};
 }
 
 export interface RefineWordBoundariesParams {
@@ -1356,7 +1356,7 @@ export class ClipAnalysisService {
           cold_open: candidate.cold_open,
           director_plan: directorPlans[`${candidate.start_seconds}`] || null,
           metadata: {...(candidate.metadata || {}), selection_source_receipt: selectionReceipt},
-        })), selectionReceipt, expectedSelectionContext);
+        })), selectionReceipt, expectedSelectionContext,options.expectedDispatch?.jobId&&options.expectedDispatch.workerId?{jobId:options.expectedDispatch.jobId,workerId:options.expectedDispatch.workerId,context:options.expectedDispatch.context}:undefined);
       return allProjectCandidates as unknown as ClipCandidate[];
     } finally {
       activeClipAnalysisSet.delete(projectId);

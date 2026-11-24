@@ -1,3 +1,4 @@
+import {publishClipSelectionCompletion,type ClipSelectionOwner} from './clipSelectionCompletionRepository.js';
 import {DELETION_MARKER_FIELD} from '../../services/deletionAdmissionService.js';
 import {selectionContextIdentity} from '../../shared/selectionContextIdentity.js';
 import {selectionSourceReceiptMatches, type SelectionSourceReceipt} from '../../shared/selectionSourceReceipt.js';
@@ -8,7 +9,7 @@ import { validateRecord } from '../schemaValidation.js';
 
 /** Replace suggestions atomically while preserving candidates the user selected. */
 export async function replaceSuggestedCandidates(userId: string, projectId: string,
-  candidates: Array<Record<string, unknown>>, selectionReceipt?: SelectionSourceReceipt, expectedContextIdentity?: string) {
+  candidates: Array<Record<string, unknown>>, selectionReceipt?: SelectionSourceReceipt, expectedContextIdentity?: string,dispatchOwner?:ClipSelectionOwner) {
   const client = await getMongoClient();
   const db = await getMongoDb();
   const session = client.startSession();
@@ -45,8 +46,10 @@ export async function replaceSuggestedCandidates(userId: string, projectId: stri
       await collection.deleteMany({ project_id: projectId, user_id: userId,
         status: { $in: ['suggested', 'dismissed'] } }, { session });
       if (rows.length) await collection.insertMany(rows, { session });
-      return collection.find({ project_id: projectId, user_id: userId }, { session, projection: { _id: 0 } })
+      const published=await collection.find({ project_id: projectId, user_id: userId }, { session, projection: { _id: 0 } })
         .sort({ engagement_score: -1 }).toArray();
+      if(dispatchOwner){if(dispatchOwner.context!==expectedContextIdentity)throw new AppError('Selection context does not match saved owner.',409,'CLIP_SELECTION_OWNER_CHANGED');await publishClipSelectionCompletion(db,session,userId,projectId,dispatchOwner,published.map(row=>row.id));}
+      return published;
     });
   } finally {
     await session.endSession();
