@@ -1,3 +1,4 @@
+import type{PlaybackSlice}from'../../lib/editorPlaybackTime';
 import {templateCanvasConsentKey} from '../../lib/templateCanvasConsent';
 import {normalGamingManualChoices,type NormalGamingManualEnvelope} from '../../../server/src/shared/normalGamingManualChoice';
 import{placementUpdate}from'../../../server/src/shared/manualVideoPlacement';
@@ -162,6 +163,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     ? (primaryVideoItem?.source_start ?? (Number(clip.start_seconds || 0) + Number(clip.trim_start_offset || 0)))
     : 0;
 
+  // Keep the slice pipeline out of contextual hook-argument inference.
+  const playbackSourceSlices:PlaybackSlice[]=isCleanSource ? (project.tracks.find(t => t.type === 'VIDEO' && !t.hidden)?.items || [])
+      .filter(i => !i.hidden && !(i as any).is_title_card && !(i as any).is_freeze)
+      .slice().sort((a,b) => a.timeline_start-b.timeline_start) : [];
   const [adaptivePlanExpected,setAdaptivePlanExpected]=useState(false);
   // Playback hook
   const {
@@ -192,9 +197,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     initialTime: project.playhead || 0,
     fps: project.canvas.fps || 30,
     sourceOffset,
-    sourceSlices: isCleanSource ? (project.tracks.find(t => t.type === 'VIDEO' && !t.hidden)?.items || [])
-      .filter(i => !i.hidden && !(i as any).is_title_card && !(i as any).is_freeze)
-      .slice().sort((a,b) => a.timeline_start-b.timeline_start) : [],
+    sourceSlices:playbackSourceSlices,
     onTimeUpdate: (t) => {
       // Keep playhead aligned in project
       project.playhead = t;
