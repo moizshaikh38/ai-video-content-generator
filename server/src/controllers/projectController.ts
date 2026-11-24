@@ -1,3 +1,4 @@
+import {withCoreProcessingStatus} from '../services/coreProcessingStatusService.js';
 import {coreProcessingDispatchEnabled,runsBackgroundWorkers} from '../services/runtimePolicy.js';
 import {AppError} from '../types/index.js';
 import {transcriptReviewCode} from '../shared/transcriptReviewErrors.js';
@@ -90,7 +91,8 @@ export const listProjects = async (req: AuthenticatedRequest, res: Response): Pr
     // Listing is read-only. Failed projects may contain recoverable sources/transcripts.
     // Cleanup belongs to an explicit, separately authorized lifecycle operation.
     // Sign existing HD posters inline so the dashboard needs no extra request per card.
-    const projectsWithPosters = await Promise.all(rawList.map(withPosterUrl));
+    const projected=await withCoreProcessingStatus(await getMongoDb(),userId,rawList);
+    const projectsWithPosters = await Promise.all(projected.map(withPosterUrl));
 
     res.status(200).json({
       status: 'ok',
@@ -160,7 +162,8 @@ export const getProject = async (req: AuthenticatedRequest, res: Response): Prom
       return;
     }
 
-    res.status(200).json({ status: 'ok', project: await withPosterUrl(data) });
+    const [projected]=await withCoreProcessingStatus(await getMongoDb(),userId,[data]);
+    res.status(200).json({ status: 'ok', project: await withPosterUrl(projected) });
   } catch (err) {
     logger.error('Unexpected error fetching project', {
       requestId: req.requestId,

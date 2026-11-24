@@ -13,3 +13,26 @@ Current core executor ends at transcription. Clip moment selection, genre/layout
 Do not enable without compatible API/workers, database/storage/provider configuration and source-disclosure/cost permission. Worker readiness handshake, measured CPU/RAM/scratch budget, operational indexes/retention, cancellation/recovery UI and explicit stopped-worker reconciliation are absent. The active count is not a measured host-resource budget. No automatic policy migration or expiry-based capacity release. A crash after claim can block indefinitely and needs explicit stopped-worker review, not blind retry. Do not change count policy during active work.
 
 Local tests use a synthetic source-bound transcript and local HEAD fixture through actual API, durable queue, worker continuation and existing zero-credit settlement/publication. No external ASR/provider or source media upload, and no automatic clipping/GPU claim. The new fresh paid-provider path is not externally exercised by this qualification. Queue jobs may wait indefinitely without workers. Flag off does not cancel already queued/claimed work or release a wallet reservation.
+
+## Project status read projection
+
+New queued intents atomically attach an exact job-key/source/attempt pointer to
+the owned project. List/get reads use those indexed job keys, not history scans.
+A queued successor stays queued even when its earlier transcript is complete.
+Source replacement or a newer actual attempt supersedes the pointer. Reads do
+not fabricate a run token, reserve credits or change stored admission status.
+
+Pre-pointer dormant intents from earlier builds remain claimable but are not
+discovered by this projection. Explicitly reconcile/drain those rows before
+rollout. There is no implicit migration and toggling the flag does not repair
+them. Persisted pointers are still read after the rollout flag is turned off.
+
+Lookup errors, missing pointed rows or mismatched data are unknown, not proof
+of completion. They leave list/get available and conservatively project the
+pointed project as in-progress with unavailable status and an explanatory error.
+That can hide an actually completed project until status storage is readable.
+Unrelated projects without pointers do not query the dispatch collection.
+
+Qualification here is API/status evidence only. Existing frontend queued
+polling is the intended consumer; mounted browser polling/reload behavior has
+not been demonstrated by these tests and is not claimed as verified.
