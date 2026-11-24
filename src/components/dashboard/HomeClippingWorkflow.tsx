@@ -421,6 +421,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   // Do not clear a saved workflow while mount recovery is still reading it.
   // StrictMode replays effects, so only the current recovery may finish hydration.
   const [workflowRecoveryHydrated, setWorkflowRecoveryHydrated] = useState(false);
+  const [savedSelectionReadRecovery, setSavedSelectionReadRecovery] = useState(false);
+  useEffect(() => { if (workflowState !== 'error') setSavedSelectionReadRecovery(false); }, [workflowState]);
   // 1. Persistence Recovery: Check localStorage on Mount
   useEffect(() => {
     try {
@@ -562,7 +564,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             if(!isMounted)return;
             navigate(`/dashboard?view=review&project=${activeProjectId}`,{replace:false});await loadResults(activeProjectId,true);onRefreshProjects();return;
           }
-          clearInterval(interval);setWorkflowState('error');setErrorMessage('Saved clip selection needs review or its status is unavailable. Your source is saved. Reload to check again; no new generation was started.');return;
+          clearInterval(interval);setSavedSelectionReadRecovery(true);setWorkflowState('error');setErrorMessage('Saved clip selection needs review or its status is unavailable. Your source is saved. Reload to check again; no new generation was started.');return;
         }
         consecutiveReadFailures=0;
         if (status === 'queued') {
@@ -588,7 +590,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         if(!isMounted)return;
         if(!readingSavedResult)return;
         consecutiveReadFailures++;
-        if(consecutiveReadFailures>=3){clearInterval(interval);setWorkflowState('error');setErrorMessage('Could not read your saved processing request after three checks. Your source and request are saved. Reload this project to check again; no new generation was started.');}
+        if(consecutiveReadFailures>=3){clearInterval(interval);setSavedSelectionReadRecovery(true);setWorkflowState('error');setErrorMessage('Could not read your saved processing request after three checks. Your source and request are saved. Reload this project to check again; no new generation was started.');}
       }finally{pollInFlight=false;}
     }, 2500);
 
@@ -2367,12 +2369,12 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             {selectedSource && !needsTranscriptReview && !creationRecoveryTarget && candidates.length===0 && renderedClips.length===0 && (
               <button
                 type="button"
-                onClick={handleGenerateClips}
+                onClick={savedSelectionReadRecovery ? () => window.location.reload() : handleGenerateClips}
                 disabled={isSubmitting}
                 className={`px-5 py-2.5 text-xs font-semibold cursor-pointer flex items-center gap-1.5 ${BTN_PILL_BRAND}`}
               >
                 {isSubmitting ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-                <span>{isSubmitting ? 'Retrying...' : 'Retry Generation'}</span>
+                <span>{savedSelectionReadRecovery ? 'Reload saved request' : isSubmitting ? 'Retrying...' : 'Retry Generation'}</span>
               </button>
             )}
 
