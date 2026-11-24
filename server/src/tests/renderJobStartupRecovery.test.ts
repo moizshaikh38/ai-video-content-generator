@@ -87,7 +87,7 @@ describe('VireoClip — Render Job Startup Recovery & Owner Context Regression T
     assert.equal(capturedOwnerContext, testUserA, 'ownerContext.getStore() inside worker must equal job user_id');
   });
 
-  it('2. Valid clip job progresses through dataRepository without AUTH_REQUIRED', async () => {
+  it('2. Owned clip without source provenance passes owner fetch but fails closed before download', async () => {
     const clipId = crypto.randomUUID();
     const jobId = crypto.randomUUID();
     createdClipIds.push(clipId);
@@ -117,7 +117,11 @@ describe('VireoClip — Render Job Startup Recovery & Owner Context Regression T
       updated_at: new Date(),
     });
 
-    // Call renderClipJob with ownerContext - it should read clip without AUTH_REQUIRED
+    // An owned row is readable, but this intentionally incomplete fixture is
+    // not legitimate export evidence. Do not forge a receipt to reach download.
+    const owned = await ownerContext.run(testUserA, () => ClipRenderService.getClip(clipId, testUserA));
+    assert.equal(owned.id, clipId);
+    // Actual worker must reject missing source/transcript binding before I/O.
     let reachedStagePastClipFetch = false;
     const originalEnsureSource = (ClipRenderService as any).ensureSourceVideo;
     (ClipRenderService as any).ensureSourceVideo = async () => {
@@ -141,7 +145,11 @@ describe('VireoClip — Render Job Startup Recovery & Owner Context Regression T
       (ClipRenderService as any).ensureSourceVideo = originalEnsureSource;
     }
 
-    assert.equal(reachedStagePastClipFetch, true, 'Job must fetch clip and proceed past dataRepository fetch');
+    assert.equal(reachedStagePastClipFetch, false, 'Unverified source must not reach video download');
+    const rejected = await db.collection('render_jobs').findOne({id: jobId});
+    assert.equal(rejected.status, 'failed');
+    assert.equal(rejected.error_code, 'TRANSCRIPT_SOURCE_REVIEW_REQUIRED');
+    assert.notEqual(rejected.error_code, 'AUTH_REQUIRED');
   });
 
   it('3. Orphaned job (clip does not exist) transitions to failed with CLIP_NOT_FOUND', async () => {
@@ -343,7 +351,8 @@ describe('VireoClip — Render Job Startup Recovery & Owner Context Regression T
 
     const jobAfter = await db.collection('render_jobs').findOne({ id: jobId });
     assert.equal(jobAfter.status, 'queued', 'Transient error must keep job status as queued for retry');
-    assert.equal(jobAfter.attempts, 1, 'Attempts must be incremented by 1');
+    assert.equal(jobAfter.attempts, 0, 'A pre-lease error must not consume an acquired execution attempt');
+    assert.equal(jobAfter.prelease_failures, 1, 'Pre-lease failure has its own bounded retry counter');
     assert.ok(jobAfter.next_retry_at instanceof Date, 'next_retry_at must be populated with future backoff date');
     assert.ok(jobAfter.next_retry_at.getTime() > Date.now(), 'next_retry_at must be in the future');
   });
