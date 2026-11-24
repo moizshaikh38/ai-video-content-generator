@@ -22,7 +22,7 @@ from sample_clock import sample_relative_time
 
 
 def short_auto_cut_budget(duration, width, height, fps):
-    return all(np.isfinite(v) for v in [duration,width,height,fps]) and 0 < duration <= 30 and 0 < width <= 1920 and 0 < height <= 1080 and 0 < fps <= 60 and duration*fps <= 1800
+    return all(np.isfinite(v) for v in [duration,width,height,fps]) and 0 < duration <= 60 and 0 < width <= 1920 and 0 < height <= 1080 and 0 < fps <= 60 and duration*fps <= 1800
 
 
 def short_auto_refine_budget(duration,width,height,fps,count):

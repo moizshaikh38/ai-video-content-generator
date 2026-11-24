@@ -35,12 +35,31 @@ class RefinementTests(unittest.TestCase):
     def test_short_auto_source_budget_rejects_4k_highfps_long_and_invalid(self):
         self.assertTrue(m.short_auto_cut_budget(30,1920,1080,60))
         self.assertTrue(m.short_auto_cut_budget(12,1280,720,24))
-        for args in [(12,3840,2160,30),(30.01,1280,720,24),(12,1280,720,120),(0,1280,720,24),(12,0,720,24),(12,1280,720,float('nan'))]:
+        self.assertTrue(m.short_auto_cut_budget(39.658,1280,720,25))
+        self.assertTrue(m.short_auto_cut_budget(60,1920,1080,30))
+        for args in [(12,3840,2160,30),(60.01,1280,720,24),(30.01,1280,720,60),(60,1280,720,60),(12,1280,720,120),(0,1280,720,24),(12,0,720,24),(12,1280,720,float('nan'))]:
             self.assertFalse(m.short_auto_cut_budget(*args))
     def test_refine_budget_is_bounded_without_full_decode(self):
         self.assertTrue(m.short_auto_refine_budget(35.729,1280,720,25,7))
         for args in [(61,1280,720,25,7),(35,3840,2160,25,7),(35,1280,720,120,7),(35,1280,720,25,31),(35,1280,720,25,0),(35,1280,720,float('nan'),7)]:
             self.assertFalse(m.short_auto_refine_budget(*args))
+    def test_40s_auto_budget_discovers_tail_return_without_new_frame_budget(self):
+        # Regression: a clip above the old 30s opt-in cap lost its final
+        # gameplay-to-interview cut. A visual boundary is not subject identity.
+        self.assertTrue(m.short_auto_cut_budget(40,160,90,25))
+        with tempfile.TemporaryDirectory() as d:
+            path=os.path.join(d,'tail.avi')
+            writer=cv2.VideoWriter(path,cv2.VideoWriter_fourcc(*'MJPG'),25,(160,90))
+            self.assertTrue(writer.isOpened())
+            for i in range(1000):
+                frame=np.zeros((90,160,3),dtype=np.uint8)
+                frame[:]=255 if i>=891 else 0
+                writer.write(frame)
+            writer.release()
+            result=m.discover_dense_scene_cuts(path,0,40,25)
+            self.assertTrue(any(abs(e['time']-35.64)<1/25 for e in result),result)
+            self.assertTrue(all(e['refined'] and e['uncertainty_seconds']<=.04 for e in result))
+
     def test_dense_is_bounded(self):
         self.assertEqual(m.discover_dense_scene_cuts('/not/a/file',0,181,24),[])
     def test_empty_does_not_invent_cuts(self):
