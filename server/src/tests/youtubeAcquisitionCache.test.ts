@@ -1,9 +1,14 @@
-import test from 'node:test';
+import test,{beforeEach,afterEach} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {YouTubeAcquisitionCache,type YouTubeAcquisitionKey} from '../services/youtubeAcquisitionCache.js';
+const originalStatfs=fs.statfs;
+// Isolate optional cache tests from the host's real 1GB safety margin.
+// The production guard is unchanged; explicit refusal cases remain below.
+beforeEach(()=>{fs.statfs=(async()=>({bavail:2*1024*1024,bsize:1024}))as typeof fs.statfs;});
+afterEach(()=>{fs.statfs=originalStatfs;});
 const key:YouTubeAcquisitionKey={userId:'owner-a',videoId:'BaW_jenozKc',profile:'bounded-1080-v1'};
 async function setup(){const root=await fs.mkdtemp(path.join(os.tmpdir(),'vireo-youtube-cache-test-'));const input=path.join(root,'input.mp4');await fs.writeFile(input,'completed fixture bytes');return {root,input,cache:new YouTubeAcquisitionCache(path.join(root,'cache')),close:()=>fs.rm(root,{recursive:true,force:true})};}
 test('exact completed acquisition reused as private caller-owned copy',async()=>{const s=await setup();try{assert.equal(await s.cache.put(key,s.input,true,'video/mp4'),true);const r=await s.cache.take(key,true,1000);assert.ok(r);assert.equal(await fs.readFile(r.tempFilePath,'utf8'),'completed fixture bytes');assert.notEqual(r.tempFilePath,s.input);await fs.unlink(r.tempFilePath);assert.ok(await s.cache.take(key,true,1000).then(async x=>{if(x)await fs.unlink(x.tempFilePath);return x;}));}finally{await s.close();}});
@@ -14,3 +19,6 @@ test('expired and future receipt timestamps refuse reuse',async()=>{const s=awai
 test('invalid keys/types/ranges and non-MP4 cannot enter cache',async()=>{const s=await setup();try{for(const k of [{...key,userId:''},{...key,videoId:'../x'},{...key,startSec:-1},{...key,endSec:0},{...key,startSec:2,endSec:1},{...key,startSec:NaN}])assert.equal(await s.cache.put(k,s.input,true,'video/mp4'),false);assert.equal(await s.cache.put(key,s.input,true,'text/html'),false);}finally{await s.close();}});
 test('concurrent puts cannot exceed global slot bound or overwrite prior receipt',async()=>{const s=await setup();try{const results=await Promise.all(Array.from({length:8},(_,i)=>s.cache.put({...key,userId:'user-'+i},s.input,true,'video/mp4')));assert.ok(results.filter(Boolean).length<=4);for(let i=0;i<8;i++)await s.cache.put({...key,userId:'user-'+i},s.input,true,'video/mp4');assert.equal((await fs.readdir(path.join(s.root,'cache'))).filter(x=>!x.startsWith('.')).length,4);}finally{await s.close();}});
 test('cache root symlink is a miss, not an alternate write destination',async()=>{const s=await setup();try{await fs.symlink(s.root,path.join(s.root,'cache'));assert.equal(await s.cache.put(key,s.input,true,'video/mp4'),false);assert.equal(await s.cache.take(key,true,1000),null);}finally{await s.close();}});
+
+test('low disk space refuses new cache writes and private copies',async()=>{const s=await setup();try{assert.equal(await s.cache.put(key,s.input,true,'video/mp4'),true);fs.statfs=(async()=>({bavail:1024,bsize:1024}))as typeof fs.statfs;assert.equal(await s.cache.put({...key,userId:'other'},s.input,true,'video/mp4'),false);assert.equal(await s.cache.take(key,true,1000),null);}finally{await s.close();}});
+test('unavailable filesystem capacity refuses optional reuse safely',async()=>{const s=await setup();try{assert.equal(await s.cache.put(key,s.input,true,'video/mp4'),true);fs.statfs=(async()=>{throw new Error('fixture capacity unavailable');})as typeof fs.statfs;assert.equal(await s.cache.put({...key,userId:'other'},s.input,true,'video/mp4'),false);assert.equal(await s.cache.take(key,true,1000),null);}finally{await s.close();}});
