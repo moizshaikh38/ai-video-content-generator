@@ -1,3 +1,4 @@
+import {editorExportStale} from '../../lib/editorExportStaleness';
 import type{PlaybackSlice}from'../../lib/editorPlaybackTime';
 import {templateCanvasConsentKey} from '../../lib/templateCanvasConsent';
 import {normalGamingManualChoices,type NormalGamingManualEnvelope} from '../../../server/src/shared/normalGamingManualChoice';
@@ -1002,16 +1003,9 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     if (renderSuccessMsg) setExportStale(false);
   }, [renderSuccessMsg]);
 
-  // Persistent staleness: the rendered file predates the current editor
-  // project whenever the project was SAVED after the snapshot taken at render
-  // start (updated_at comparison; a never-edited project - updated_at equals
-  // created_at - matches the default state the render already reflects).
-  const editorProjectStale =
-    !!clip &&
-    clip.render_status === 'ready' &&
-    !!(clip as any).rendered_editor_saved_at &&
-    project.updated_at > (clip as any).rendered_editor_saved_at &&
-    project.updated_at !== project.created_at;
+  // Dirty/saving/error state covers edits before their version acknowledgment.
+  // Saved versions cover reloads even when local timestamps were not advanced.
+  const editorProjectStale = editorExportStale({clip, project, saveStatus});
 
   // Discoverable Captions On/Off. Hiding the track already preserves the
   // item's caption config, so re-enabling just unhides - the chosen style
