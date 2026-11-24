@@ -1316,6 +1316,13 @@ export interface PresetTimedWord {
   customStyle?: WordCustomStyle;
 }
 
+/** Module-private, non-serializable provenance minted only by regroupCuesForPreset (JSON/persistence drops symbols). */
+const SHORT_GAP_HOLD=Symbol('shortGapHoldUntil');
+export function getShortGapHoldUntil(cue: object): number|undefined {
+  const v=(cue as any)?.[SHORT_GAP_HOLD];return typeof v==='number'&&Number.isFinite(v)?v:undefined;
+}
+function withoutHoldMark<T extends object>(cue:T):T{const c:any={...cue};delete c[SHORT_GAP_HOLD];return c;}
+
 export interface PresetTimedCue {
   /** Preserved placement provenance supplied by the scene-placement owner. */
   position_anchor?: 'bottom' | 'center';
@@ -1571,12 +1578,12 @@ export function regroupCuesForPreset(cues: PresetTimedCue[], style: ResolvedCapt
   for (const cue of cues || []) {
     const words = getValidCueWords(cue).map(w => ({...w, text:style.uppercase ? w.text.toUpperCase() : w.text}));
     if (!words.length) {
-      result.push({...cue,text:formatSegmentCueText(cue.text,style)});
+      result.push({...withoutHoldMark(cue),text:formatSegmentCueText(cue.text,style)});
       continue;
     }
     hasWords = true;
     if (canUseCaptionRollingRows(cue,style)) {
-      result.push({...cue, words, text:words.map(w=>w.text).join(' ')});
+      result.push({...withoutHoldMark(cue), words, text:words.map(w=>w.text).join(' ')});
       continue;
     }
     // An edited cue is a metadata/timeline boundary. Never merge across it:
@@ -1604,10 +1611,11 @@ export function regroupCuesForPreset(cues: PresetTimedCue[], style: ResolvedCapt
       const keepIdleCaret=style.presetId==='typewriter' && !nextPart;
       const end=Math.min(cue.end,keepIdleCaret?cue.end:holdShortGap?nextPart.start:part.end);
       if (end<=start) continue;
-      result.push({...cue,...part,id:parts.length===1?cue.id:`${cue.id}:part${i+1}`,start,end,
+      result.push({...withoutHoldMark(cue),...part,id:parts.length===1?cue.id:`${cue.id}:part${i+1}`,start,end,
         tokens:part.words,
         position_x:cue.position_x,position_y:cue.position_y,position_anchor:cue.position_anchor,
-        presetOverride:cue.presetOverride,styleOverrides:cue.styleOverrides});
+        presetOverride:cue.presetOverride,styleOverrides:cue.styleOverrides,
+        ...(holdShortGap&&nextPart&&end===nextPart.start?{[SHORT_GAP_HOLD]:nextPart.start}:{})});
     }
   }
   return {timingMode:hasWords?'word':'segment',cues:enforceZeroOverlap(result)};
@@ -1659,13 +1667,33 @@ export function getValidCueWords(cue: PresetTimedCue): PresetTimedWord[] {
  * Splits a cue into strictly sequential slices, one per active word plus pauses.
  * Small gaps (≤ 0.25s) keep the previous word highlighted to avoid flicker.
  */
-export function computeCueWordSlices(cue: PresetTimedCue, validWords = getValidCueWords(cue)): CueWordSlice[] {
+/**
+ * Word Cut / Soft Cut single-word cues keep the displayed word through a short
+ * inter-word pause. regroupCuesForPreset already ends such a cue at the next
+ * word's onset (never beyond it); this tells the slice builder to show the word
+ * until that cue end. Display only: the measured word clocks are not changed.
+ */
+export function shouldHoldSingleWordThroughGap(style: Pick<ResolvedCaptionStyle,'presetId'|'maxWordsPerCue'>, cue: Pick<PresetTimedCue,'presetOverride'>): boolean {
+  return (style.presetId==='word_cut'||style.presetId==='soft_cut')&&style.maxWordsPerCue===1
+    &&(!cue.presetOverride||cue.presetOverride===style.presetId)
+    &&getShortGapHoldUntil(cue)!==undefined;
+}
+
+export function computeCueWordSlices(cue: PresetTimedCue, validWords = getValidCueWords(cue), holdSingleWord = false): CueWordSlice[] {
   if (validWords.length === 0) return [];
   // A one-word cue must not grow into the next measured onset just to meet
-  // a display-duration floor. Preserve its actual positive window.
+  // a display-duration floor. Preserve its actual positive window, except for
+  // the explicit Word Cut / Soft Cut short-gap hold (a trailing no-active slice up to cue.end,
+  // which regroupCuesForPreset caps at the next onset).
   if (validWords.length === 1) {
     const w=validWords[0],start=Math.max(0,cue.start,w.start),end=Math.min(cue.end,w.end);
-    return end>start ? [{start,end,activeIdx:0,progressIdx:0}] : [];
+    if(end<=start)return [];
+    const active:CueWordSlice={start,end,activeIdx:0,progressIdx:0};
+    // Display-only hold after the measured word window: same text, no active word.
+    // Hold only when regroup left provenance (shortGapHoldUntil = next measured onset), the gap is <=0.45s
+    // and the cue was not extended past that onset; never invents a hold for a final word or long silence.
+    const until=getShortGapHoldUntil(cue),holdEnd=typeof until==='number'?Math.min(cue.end,until):end;
+    return holdSingleWord&&typeof until==='number'&&until-w.end>0&&until-w.end<=0.45+1e-6&&holdEnd>end?[active,{start:end,end:holdEnd,activeIdx:-1,progressIdx:0}]:[active];
   }
   const cueStart = Math.max(0, cue.start);
   const cueEnd = Math.max(cueStart + 0.05, cue.end);
@@ -1841,7 +1869,7 @@ function canUseWordLift(words:PresetTimedWord[],style:ResolvedCaptionStyle):bool
   return !!style.wordLift && words.length<=6 && !words.some(w=>w.customStyle?.effect || w.customStyle?.fontSizeMultiplier);
 }
 function getPresetCueSlices(cue:PresetTimedCue,words:PresetTimedWord[],style:ResolvedCaptionStyle):CueWordSlice[] {
-  const slices=computeCueWordSlices(cue,words);if(!canUseWordLift(words,style))return slices;
+  const slices=computeCueWordSlices(cue,words,shouldHoldSingleWordThroughGap(style,cue));if(!canUseWordLift(words,style))return slices;
   return slices.flatMap(slice=>{
     const word=words[slice.activeIdx];if(!word)return [slice];
     const bounds=[slice.start,slice.end];
@@ -1928,7 +1956,7 @@ export function getPreviewFrame(cue: PresetTimedCue, time: number, style: Resolv
     };
   }
 
-  const slices = computeCueWordSlices(cue, validWords);
+  const slices = computeCueWordSlices(cue, validWords, shouldHoldSingleWordThroughGap(style, cue));
   const slice = slices.find((s) => time >= s.start && time < s.end) || (time >= cue.end ? slices[slices.length - 1] : null) || null;
   const states = getWordVisualStates(slice, validWords.length, style.highlight);
   const breakIdx = getCueLineBreakIndex(cue, validWords.length);
