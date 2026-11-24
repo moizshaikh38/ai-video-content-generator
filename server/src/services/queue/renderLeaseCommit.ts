@@ -41,6 +41,16 @@ export async function commitFencedRenderOutcome(client:MongoClient,db:Db,identit
    if(superseded){
     if(outcome.preserveSupersedingClip&&outcome.job.status!=='completed'){
      await db.collection('render_jobs').updateOne({id:identity.jobId,clip_id:identity.clipId,user_id:identity.userId},{$set:{status:'failed',stage:'failed',worker_id:null,locked_at:null,next_retry_at:null,error_code:'RENDER_INPUT_CHANGED',error_message:'Clip inputs changed during rendering. Start a fresh render.',updated_at:new Date()}},{session});
+     // Release only the render lease this job held. A newer save changes editor
+     // inputs, not render ownership, so leaving render_status at rendering/uploading
+     // would block every later admission with no job left to recover it. Touch
+     // the clip only while it is still on THIS job's render_version with no other
+     // live job; editor_version, outputs and every other field stay as the newer
+     // revision left them, and a newer admission (different render_version) is untouched.
+     if(identity.renderVersion!==undefined&&Number(current.render_version||1)===identity.renderVersion&&['rendering','uploading'].includes(String(current.render_status))){
+      const live=await db.collection('render_jobs').findOne({clip_id:identity.clipId,user_id:identity.userId,id:{$ne:identity.jobId},status:{$in:['queued','processing','uploading']}},{session});
+      if(!live)await db.collection('clips').updateOne({id:identity.clipId,user_id:identity.userId,render_version:current.render_version,render_status:{$in:['rendering','uploading']},[DELETION_MARKER_FIELD]:{$exists:false}},{$set:{render_status:'failed',render_error_code:'RENDER_INPUT_CHANGED',render_error_message:'Clip inputs changed during rendering. Start a fresh render.',updated_at:new Date()}},{session});
+     }
      return;
     }
     throw new AppError('Clip inputs changed during rendering. Start a fresh render.',409,'RENDER_INPUT_CHANGED');
