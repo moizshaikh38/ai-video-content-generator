@@ -1,3 +1,4 @@
+import {runsBackgroundWorkers} from '../services/runtimePolicy.js';
 import {closeSavedRenderSubmission} from '../db/repositories/renderSubmissionCloseRepository.js';
 import {parseRenderSubmission, lookupRenderSubmission} from '../db/repositories/renderSubmissionRepository.js';
 import {assertRenderPlanPreflight} from '../services/renderPlanPreflight.js';
@@ -279,6 +280,12 @@ export const captureEditorSnapshot = async (
 
   try {
     const project = await ProEditorService.getEditorProject(projectId, userId);
+    // Snapshot extraction still runs inline. Keep ownership errors first, but
+    // do not open source media or launch FFmpeg on a thin API instance.
+    if (!runsBackgroundWorkers()) {
+      res.status(503).json({status: 'error', code: 'PROCESSING_DISPATCH_UNAVAILABLE', message: 'Snapshot processing is not available on this API instance.'});
+      return;
+    }
     const { data: clip } = await dataRepository
       .from('clips')
       .select('*')
