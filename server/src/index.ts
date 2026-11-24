@@ -1,4 +1,5 @@
 import {startDurableWorkerAnnouncements} from './services/durableWorkerHandshake.js';
+import {processNextAutomaticOneExport} from './services/automaticOneExportService.js';
 import {processNextCoreSelectionContinuation} from './services/coreSelectionContinuationService.js';
 import {coreSelectionContinuationEnabled} from './services/runtimePolicy.js';
 import {processNextClipSelectionJob} from './services/clipSelectionDispatchService.js';
@@ -229,7 +230,7 @@ if (process.env.NODE_ENV !== 'test') {
       renderSweepTimer.unref();
 
       stopDurableWorkerAnnouncements=startDurableWorkerAnnouncements(await getMongoDb(),error=>logger.warn('Durable worker announcement failed',{error:String(error)}));
-      if(coreSelectionContinuationEnabled()){const deliver=()=>{if(!workLifecycle.isDraining())void processNextCoreSelectionContinuation().catch(error=>logger.warn('Core selection continuation delivery failed',{error:String(error)}));};deliver();coreSelectionContinuationTimer=setInterval(deliver,5000);coreSelectionContinuationTimer.unref();}
+      if(coreSelectionContinuationEnabled()){const deliver=()=>{if(!workLifecycle.isDraining()){void processNextAutomaticOneExport().catch(error=>logger.warn('Automatic export handoff failed',{error:String(error)}));}if(!workLifecycle.isDraining())void processNextCoreSelectionContinuation().catch(error=>logger.warn('Core selection continuation delivery failed',{error:String(error)}));};deliver();coreSelectionContinuationTimer=setInterval(deliver,5000);coreSelectionContinuationTimer.unref();}
       if(clipSelectionDispatchEnabled()){const drainSelection=()=>{if(!workLifecycle.isDraining())void processNextClipSelectionJob().catch(error=>logger.warn('Selection queue drain failed',{error:String(error)}));};drainSelection();clipSelectionTimer=setInterval(drainSelection,5000);clipSelectionTimer.unref();}
       if(coreProcessingDispatchEnabled()){
         const drainCore=()=>{if(!workLifecycle.isDraining())void processNextCoreProcessingJob().catch(error=>logger.warn('Core processing queue drain failed',{error:String(error)}));};

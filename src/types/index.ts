@@ -62,6 +62,8 @@ export interface ContentOutput {
 export interface Project {
   error_code?: string | null;
   processing_run_token?:string|null;
+  automatic_export_capable?:boolean;
+  automatic_export_status?:{state:string;clipId?:string;renderStatus?:string};
   core_selection_capable?:boolean;
   core_selection_status?:{attemptId:string;state:string;selectionJobId?:string};
   processing_failure?:{version?:number;stage?:string;code?:string;attemptId?:string;windowFailureSummary?:import('../../server/src/shared/transcriptionWindowFailureSummary').TranscriptionWindowFailureSummary}|null;

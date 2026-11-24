@@ -3,12 +3,12 @@ import crypto from 'node:crypto';import type{MongoClient,Db}from'mongodb';
 import {AppError}from'../../types/index.js';import{DELETION_MARKER_FIELD}from'../../services/deletionAdmissionService.js';
 const jobs='core_processing_jobs';
 /** Queue intent BEFORE reserving credits. No media/provider/credit effect. */
-export async function enqueueCoreProcessing(client:MongoClient,db:Db,input:{userId:string;projectId:string;sourceUrl:string;attemptId:string;email?:string;selectionContinuation?:{customNotes?:string;preferences?:any}}){
+export async function enqueueCoreProcessing(client:MongoClient,db:Db,input:{userId:string;projectId:string;sourceUrl:string;attemptId:string;email?:string;selectionContinuation?:{customNotes?:string;preferences?:any;automaticExport?:any}}){
  const key=crypto.createHash('sha256').update(JSON.stringify([input.userId,input.attemptId])).digest('hex'),session=client.startSession();
  try{return await session.withTransaction(async()=>{
   const prior=await db.collection(jobs).findOne({_id:key as any},{session});
   if(prior){if(prior.project_id!==input.projectId||prior.source_url!==input.sourceUrl||JSON.stringify(prior.selection_continuation??null)!==JSON.stringify(input.selectionContinuation??null))throw new AppError('Saved processing request inputs changed.',409,'PROCESSING_ATTEMPT_CHANGED');return prior;}
-  await assertDurableWorker(db,'core',session);if(input.selectionContinuation){await assertDurableWorker(db,'selection',session);await assertDurableWorker(db,'continuation',session);}
+  await assertDurableWorker(db,'core',session);if(input.selectionContinuation){await assertDurableWorker(db,'selection',session);if(input.selectionContinuation.automaticExport)await assertDurableWorker(db,'export',session);await assertDurableWorker(db,'continuation',session);}
   const filter={id:input.projectId,user_id:input.userId,source_url:input.sourceUrl,[DELETION_MARKER_FIELD]:{$exists:false},processing_run_token:null,video_status:{$nin:['processing','transcribing']}};
   const project=await db.collection('projects').findOne(filter,{session});if(!project)throw new AppError('Project is unavailable for queued processing.',409,'PROCESSING_ATTEMPT_CHANGED');
   const active=await db.collection(jobs).findOne({project_id:input.projectId,user_id:input.userId,status:{$in:['queued','processing','review_required']}},{session});if(active)throw new AppError('A processing request is already queued or requires review.',409,'PROCESSING_ACTIVE');

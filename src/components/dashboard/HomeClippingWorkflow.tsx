@@ -206,6 +206,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     () => (loadSavedClipPreferences().preferredDurations as DurationPref) || 'auto'
   );
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
+  const [automaticExportOne,setAutomaticExportOne]=useState(false);
   const captionLang = clipPreferences.sourceLanguage || 'auto';
   const setCaptionLang = (value:string) => setClipPreferences(prev => {const next={...prev,sourceLanguage:value};saveClipPreferencesToStorage(next);return next;});
   const [estimateRetry, setEstimateRetry] = useState(0);
@@ -557,6 +558,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         setActiveProjectStatus(status);
 
         const continuation=proj.core_selection_status;
+        const automatic=proj.automatic_export_status;
+        if(automatic&&continuation?.state==='completed'){
+          if(automatic.state==='pending'||automatic.state==='queued'&&['queued','processing','pending'].includes(automatic.renderStatus||'')){consecutiveReadFailures=0;setProcessingStageMessage('Saved request is rendering one admitted clip. You can leave this page.');return;}
+          if(automatic.state==='review_required'||automatic.state==='queued'&&automatic.renderStatus!=='ready'&&automatic.renderStatus!=='completed'){setErrorMessage('Automatic export needs review. Your saved suggestions remain available; no extra export was started.');}
+        }
         if(continuation){
           if(['pending','queued','processing'].includes(continuation.state)){consecutiveReadFailures=0;setProcessingStageMessage('Saved request is continuing to clip selection...');return;}
           if(continuation.state==='completed'&&continuation.selectionJobId){
@@ -703,6 +709,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       if(current?.core_selection_status){
         const saved=current.core_selection_status;
         if(saved.state!=='completed'||!saved.selectionJobId){setWorkflowState('processing');setProcessingStageMessage('Checking saved clip selection request...');return;}
+        if(current.automatic_export_status&&(current.automatic_export_status.state==='pending'||current.automatic_export_status.state==='queued'&&['queued','processing','pending'].includes(current.automatic_export_status.renderStatus||''))){setWorkflowState('processing');setProcessingStageMessage('Saved request is rendering one admitted clip. You can leave this page.');return;}
         await clipService.readSavedSelection(projectId,saved.selectionJobId);
         if(session!==workflowSessionRef.current)return;
         navigate(`/dashboard?view=review&project=${projectId}`,{replace:false});await loadResults(projectId,true);return;
@@ -1002,7 +1009,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         setProcessingStageMessage('Starting AI transcription & video analysis...');
 
         // Start backend processing
-        await projectService.startProcessing(projectId,{preferences:clipPreferences,customNotes:customInstructions.trim()||undefined});
+        await projectService.startProcessing(projectId,{preferences:clipPreferences,customNotes:customInstructions.trim()||undefined,...(automaticExportOne?{automaticExport:{version:1 as const,enabled:true as const,aspectRatio,captionsEnabled,captionStyle:clipPreferences.captionStyle||undefined}}:{})});
         if (!isCurrentRequest()) return;
         setActiveProjectStatus('processing');
         onRefreshProjects();
@@ -1039,7 +1046,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         onRefreshProjects();
         setProcessingStageMessage('Queuing video for AI transcription...');
 
-        await projectService.startProcessing(projectId,{preferences:clipPreferences,customNotes:customInstructions.trim()||undefined});
+        await projectService.startProcessing(projectId,{preferences:clipPreferences,customNotes:customInstructions.trim()||undefined,...(automaticExportOne?{automaticExport:{version:1 as const,enabled:true as const,aspectRatio,captionsEnabled,captionStyle:clipPreferences.captionStyle||undefined}}:{})});
         if (!isCurrentRequest()) return;
         setActiveProjectStatus('processing');
         onRefreshProjects();
@@ -1055,14 +1062,14 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
         if (!isCurrentRequest()) return;
         const currentStatus = proj?.video_status || proj?.status || 'idle';
 
-        if (['completed', 'transcribed'].includes(currentStatus)) {
+        if (!automaticExportOne&&['completed', 'transcribed'].includes(currentStatus)) {
           // Project already transcribed, directly trigger AI clip analysis
           setProcessingStageMessage('Analyzing speech patterns and finding viral moments...');
           await handlePostProcessingReady(projectId);
         } else {
           // Start or resume processing
           setProcessingStageMessage('Processing video with AI...');
-          await projectService.startProcessing(projectId,{preferences:clipPreferences,customNotes:customInstructions.trim()||undefined});
+          await projectService.startProcessing(projectId,{preferences:clipPreferences,customNotes:customInstructions.trim()||undefined,...(automaticExportOne?{automaticExport:{version:1 as const,enabled:true as const,aspectRatio,captionsEnabled,captionStyle:clipPreferences.captionStyle||undefined}}:{})});
           if (!isCurrentRequest()) return;
           setActiveProjectStatus('processing');
         }
@@ -1575,10 +1582,11 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             <span>Credit estimate unavailable. Refresh it to confirm the cost before generating.</span>
             <button type="button" className="rounded-full border border-amber-200/30 px-3 py-1.5" onClick={()=>setEstimateRetry(n=>n+1)}>Refresh estimate</button>
           </div>}
+          <label className="flex items-start gap-2 text-xs text-vc-text-secondary"><input type="checkbox" checked={automaticExportOne} onChange={e=>setAutomaticExportOne(e.target.checked)} /><span>Automatically render one admitted clip after selection. Uses one render from your plan. Availability is checked before processing. No export if selection needs review. Does not post anywhere.</span></label>
           {/* Primary Action Button: Generate Clips */}
           <div className="cfg-actions pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="cfg-ready-text text-xs text-vc-text-secondary">
-              Ready to process. We will transcribe the audio and suggest clips in {aspectRatio}. Review framing and context before exporting.
+              {automaticExportOne?'We will transcribe, select, and render one admitted clip. Review its context and framing before publishing.':<>Ready to process. We will transcribe the audio and suggest clips in {aspectRatio}. Review framing and context before exporting.</>}
             </p>
 
             {creditEstimate?.estimated_credits != null && (

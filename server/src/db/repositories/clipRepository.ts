@@ -3,6 +3,7 @@ import {config} from '../../config/index.js';
 import {registerPendingHookInitialization} from './pendingHookInitializationRepository.js';
 import {candidateAutoHookTitle} from '../../shared/autoHookTitle.js';
 import {ensureRenderQuotaFence,assertTransactionalRenderQuota,type RenderQuotaPolicy} from './renderQuotaRepository.js';
+import {assertAutomaticExportCreation} from '../../services/automaticOneExportService.js';
 import {editorRenderSnapshot} from '../../shared/editorRenderSnapshot.js';
 import {assertPanelViewsAssigned} from '../../shared/panelLayouts.js';
 import {validateRecord} from '../schemaValidation.js';
@@ -98,6 +99,7 @@ export async function prepareCandidateCreation(projectId:string,candidateId:stri
   const db=await getMongoDb(),client=await getMongoClient(),session=client.startSession();
   try{return await session.withTransaction(async()=>{
     const prior=await findCandidateCreation(db,userId,creation.intent,session);if(prior)return prior;
+    if(creation)await assertAutomaticExportCreation(db,session,userId,projectId,candidateId,creation.intent.id);
     const inputs=await readCandidateCreationTemplate(db,session,projectId,candidateId,userId,aspectRatio,cropMode,options);
     await fenceCreationInputs(db,session,inputs,userId);
     const now=new Date(),plannedClipId=crypto.randomUUID();
@@ -136,7 +138,8 @@ export async function createClipWithJob(projectId: string, candidateId: string, 
         prepared=await db.collection<any>('candidate_creations').findOne({_id:candidateCreationKey(userId,creation.intent.id),user_id:userId},{session});
         if(prepared?.baseline_version!==1)throw new AppError('This older preparation has no admitted Studio baseline. Resolve it before preparing a new request.',409,'CREATION_BASELINE_REQUIRED');
       }
-      const inputs=await readCandidateCreationTemplate(db,session,projectId,candidateId,userId,aspectRatio,cropMode,options);
+      if(creation)await assertAutomaticExportCreation(db,session,userId,projectId,candidateId,creation.intent.id);
+    const inputs=await readCandidateCreationTemplate(db,session,projectId,candidateId,userId,aspectRatio,cropMode,options);
       // Fence unconditionally (not only the prepared path): every clip
       // insertion contends with deletion admission on the parent project.
       await fenceCreationInputs(db,session,inputs,userId);

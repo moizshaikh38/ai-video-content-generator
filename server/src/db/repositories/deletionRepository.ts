@@ -25,6 +25,7 @@ export async function deleteProjectRecords(userId: string, projectId: string): P
       // rows retain their status and worker fence until explicit reconciliation.
       // An allowlist removes source URLs, notes, preferences, transcript receipts,
       // candidate IDs and provider/context details, including future payload keys.
+      await db.collection('automatic_export_outbox').deleteMany({user_id:userId,project_id:projectId},{session});
       await db.collection('core_selection_outbox').deleteMany({ user_id: userId, project_id: projectId }, { session });
       for (const name of ['core_processing_jobs', 'clip_selection_jobs']) {
         await db.collection(name).updateMany({ user_id: userId, project_id: projectId }, [{ $replaceWith: {

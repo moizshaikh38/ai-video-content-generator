@@ -62,6 +62,8 @@ class ProjectService {
       clip_preferences: row.clip_preferences,
       error_code: row.error_code ?? null,
       processing_failure:row.processing_failure??null,
+      automatic_export_capable:row.automatic_export_capable===true,
+      automatic_export_status:row.automatic_export_status??undefined,
       core_selection_capable:row.core_selection_capable===true,
       core_selection_status:row.core_selection_status??undefined,
       processing_run_token:typeof row.processing_run_token==='string'?row.processing_run_token:null,
@@ -222,12 +224,13 @@ class ProjectService {
     return true;
   }
 
-  async startProcessing(projectId: string,selection?:{preferences?:any;customNotes?:string}): Promise<{ success: boolean; message?: string }> {
+  async startProcessing(projectId: string,selection?:{preferences?:any;customNotes?:string;automaticExport?:{version:1;enabled:true;aspectRatio:string;captionsEnabled:boolean;captionStyle?:string}}): Promise<{ success: boolean; message?: string }> {
     const scope = this.captureScope();
     const projectBefore=selection?await this.fetchProject(projectId):this.getProject(projectId);
     this.assertScope(scope);
+    if(selection?.automaticExport&&!projectBefore?.automatic_export_capable)throw Error('Automatic export is unavailable. No new processing was started.');
     const useContinuation=Boolean(selection&&projectBefore?.core_selection_capable);
-    const data = await this.scopedRequest<{ message?: string }>(scope, `/projects/${projectId}/process`, { method: 'POST',...(useContinuation?{headers:{'x-vireo-core-continuation':'1'},body:JSON.stringify({continue_to_selection:true,clip_preferences:selection?.preferences,customNotes:selection?.customNotes})}:{}) });
+    const data = await this.scopedRequest<{ message?: string }>(scope, `/projects/${projectId}/process`, { method: 'POST',...(useContinuation?{headers:{'x-vireo-core-continuation':'1'},body:JSON.stringify({continue_to_selection:true,clip_preferences:selection?.preferences,customNotes:selection?.customNotes,...(selection?.automaticExport?{automatic_export_one:selection.automaticExport}:{})})}:{}) });
     this.assertScope(scope);
     const project = this.getProject(projectId);
     if (project) { project.video_status = 'processing'; project.status = 'processing'; }

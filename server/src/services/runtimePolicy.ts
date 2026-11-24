@@ -1,3 +1,4 @@
+import{finalSpeechAdmissionEnabled}from'../shared/finalSpeechAdmission.js';
 import os from 'node:os';import fs from 'node:fs';
 export type ServiceRole='combined'|'api'|'worker';
 export function serviceRole(env:NodeJS.ProcessEnv=process.env):ServiceRole{const role=env.VIREO_SERVICE_ROLE??'combined';if(!['combined','api','worker'].includes(role))throw Error('VIREO_SERVICE_ROLE must be combined, api or worker');return role as ServiceRole;}
@@ -32,13 +33,15 @@ export function hostRenderCapacity(occupied=0,probe:RenderHostProbe={cpuCount:os
 export function ffmpegThreadArgs(env:NodeJS.ProcessEnv=process.env):string[]{const n=renderBudget(env).threads;return n===undefined?[]:['-threads',String(n),'-filter_threads',String(n),'-filter_complex_threads',String(n)];}
 export function ffmpegEncoderThreadArgs(env:NodeJS.ProcessEnv=process.env):string[]{const n=renderBudget(env).threads;return n===undefined?[]:['-threads',String(n)];}
 export function renderSweepInterval(env:NodeJS.ProcessEnv=process.env):number{const value=positive(env,'VIREO_RENDER_SWEEP_INTERVAL_MS')??60000;if(value<1000||value>60000)throw Error('Render sweep interval must be between 1000 and 60000 milliseconds');return value;}
-export function validateRuntimePolicy(){if(coreSelectionContinuationEnabled()&&(!coreProcessingDispatchEnabled()||!clipSelectionDispatchEnabled()))throw Error('Core selection continuation requires both durable stages');if(clipSelectionDispatchEnabled())clipSelectionMaxActive();if(coreProcessingDispatchEnabled())coreProcessingMaxActive();if(subtitleBurnDispatchEnabled())subtitleBurnMaxActive();serviceRole();renderBudget();renderSweepInterval();workerEnabled(process.env,'VIREO_PUBLISHING_WORKER_ENABLED');workerEnabled(process.env,'VIREO_MULTIMODAL_WORKER_ENABLED');}
+export function validateRuntimePolicy(){if(automaticOneExportEnabled()&&(!finalSpeechAdmissionEnabled()||process.env.VIREO_RENDER_ADMISSION_V1!=='1'))throw Error('Automatic export requires explicit final speech admission and transactional render admission');if(automaticOneExportEnabled()&&!coreSelectionContinuationEnabled())throw Error('Automatic export requires core selection continuation');if(coreSelectionContinuationEnabled()&&(!coreProcessingDispatchEnabled()||!clipSelectionDispatchEnabled()))throw Error('Core selection continuation requires both durable stages');if(clipSelectionDispatchEnabled())clipSelectionMaxActive();if(coreProcessingDispatchEnabled())coreProcessingMaxActive();if(subtitleBurnDispatchEnabled())subtitleBurnMaxActive();serviceRole();renderBudget();renderSweepInterval();workerEnabled(process.env,'VIREO_PUBLISHING_WORKER_ENABLED');workerEnabled(process.env,'VIREO_MULTIMODAL_WORKER_ENABLED');}
 
 /** Disabled until all API/worker builds understand durable subtitle jobs. */
 export function subtitleBurnDispatchEnabled(env:NodeJS.ProcessEnv=process.env):boolean{const value=env.VIREO_SUBTITLE_BURN_DISPATCH_V1;if(value===undefined||value===''||value==='0')return false;if(value==='1')return true;throw Error('VIREO_SUBTITLE_BURN_DISPATCH_V1 must be 1 or 0');}
 
 /** Operator supplied shared count bound, not measured host resource sizing. */
 export function subtitleBurnMaxActive(env:NodeJS.ProcessEnv=process.env):number{const n=positive(env,'VIREO_SUBTITLE_BURN_MAX_ACTIVE');if(n===undefined)throw Error('VIREO_SUBTITLE_BURN_MAX_ACTIVE is required for durable subtitle dispatch');return n;}
+
+export function automaticOneExportEnabled(env:NodeJS.ProcessEnv=process.env):boolean{const v=env.VIREO_AUTOMATIC_ONE_EXPORT_V1;if(v===undefined||v===''||v==='0')return false;if(v==='1')return true;throw Error('VIREO_AUTOMATIC_ONE_EXPORT_V1 must be 1 or 0');}
 
 export function coreProcessingDispatchEnabled(env:NodeJS.ProcessEnv=process.env):boolean{const v=env.VIREO_CORE_PROCESSING_DISPATCH_V1;if(v===undefined||v===''||v==='0')return false;if(v==='1')return true;throw Error('VIREO_CORE_PROCESSING_DISPATCH_V1 must be 1 or 0');}
 export function coreProcessingMaxActive(env:NodeJS.ProcessEnv=process.env):number{const n=positive(env,'VIREO_CORE_PROCESSING_MAX_ACTIVE');if(n===undefined)throw Error('VIREO_CORE_PROCESSING_MAX_ACTIVE is required for durable core dispatch');return n;}

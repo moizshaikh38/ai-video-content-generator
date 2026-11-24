@@ -1,12 +1,12 @@
 import type {Db,ClientSession} from 'mongodb';
 import {AppError} from '../types/index.js';
-import {coreProcessingDispatchEnabled,coreProcessingMaxActive,clipSelectionDispatchEnabled,clipSelectionMaxActive,coreSelectionContinuationEnabled,runsBackgroundWorkers} from './runtimePolicy.js';
+import {automaticOneExportEnabled,coreProcessingDispatchEnabled,coreProcessingMaxActive,clipSelectionDispatchEnabled,clipSelectionMaxActive,coreSelectionContinuationEnabled,runsBackgroundWorkers} from './runtimePolicy.js';
 import {workLifecycle} from './queue/workLifecycle.js';
-export type DurableStage='core'|'selection'|'continuation';
+export type DurableStage='core'|'selection'|'continuation'|'export';
 const protocol=1;
 const key=(stage:DurableStage,maximum:number)=>`${stage}:${protocol}:${maximum}`;
 function maximum(stage:DurableStage){return stage==='core'?coreProcessingMaxActive():clipSelectionMaxActive();}
-function enabled(stage:DurableStage){return stage==='core'?coreProcessingDispatchEnabled():stage==='selection'?clipSelectionDispatchEnabled():coreSelectionContinuationEnabled();}
+function enabled(stage:DurableStage){return stage==='export'?automaticOneExportEnabled():stage==='core'?coreProcessingDispatchEnabled():stage==='selection'?clipSelectionDispatchEnabled():coreSelectionContinuationEnabled();}
 /** Server-time announcement of compatible poller registration, not execution,
  * available capacity, provider readiness or stopped-work evidence. No TTL. */
 export async function announceDurableWorker(db:Db,stage:DurableStage):Promise<void>{
@@ -26,7 +26,7 @@ export async function assertDurableWorker(db:Db,stage:DurableStage,session?:Clie
 export function startDurableWorkerAnnouncements(db:Db,onError:(error:unknown)=>void):()=>void{
  let stopped=false,pending=false;
  const tick=()=>{if(stopped||pending||workLifecycle.isDraining())return;pending=true;void workLifecycle.run('durable-worker-announcement',async()=>{
-  for(const stage of ['core','selection','continuation'] as const){if(stopped||workLifecycle.isDraining())return;await announceDurableWorker(db,stage);}
+  for(const stage of ['core','selection','continuation','export'] as const){if(stopped||workLifecycle.isDraining())return;await announceDurableWorker(db,stage);}
  }).catch(onError).finally(()=>{pending=false;});};
  tick();const timer=setInterval(tick,10000);timer.unref();return()=>{stopped=true;clearInterval(timer);};
 }

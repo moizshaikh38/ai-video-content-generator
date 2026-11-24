@@ -48,7 +48,7 @@ export async function replaceSuggestedCandidates(userId: string, projectId: stri
       if (rows.length) await collection.insertMany(rows, { session });
       const published=await collection.find({ project_id: projectId, user_id: userId }, { session, projection: { _id: 0 } })
         .sort({ engagement_score: -1 }).toArray();
-      if(dispatchOwner){if(dispatchOwner.context!==expectedContextIdentity)throw new AppError('Selection context does not match saved owner.',409,'CLIP_SELECTION_OWNER_CHANGED');await publishClipSelectionCompletion(db,session,userId,projectId,dispatchOwner,published.map(row=>row.id));}
+      if(dispatchOwner){if(dispatchOwner.context!==expectedContextIdentity)throw new AppError('Selection context does not match saved owner.',409,'CLIP_SELECTION_OWNER_CHANGED');await publishClipSelectionCompletion(db,session,userId,projectId,dispatchOwner,published.map(row=>row.id),rows.map(row=>row.id));}
       return published;
     });
   } finally {
