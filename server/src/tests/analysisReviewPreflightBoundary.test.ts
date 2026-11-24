@@ -4,16 +4,20 @@ import crypto from 'node:crypto';
 import http from 'node:http';
 
 test('real analysis service and controller preserve early and specific review errors and clear the active guard',async(t)=>{
-  // Only repository reads are doubled. No live database, external storage,
+  // Repository reads and the deletion-admission database boundary are doubled.
+  // No live database, external storage,
   // model or auth is exercised. Storage HEAD uses a loopback fixture only.
   // The production service/controller and review gate run intact.
   const envKeys=['NODE_ENV','MONGODB_URI','MONGODB_DB_NAME','OPENROUTER_API_KEY','GROQ_API_KEY','VIREO_AUTO_GENRE_REVIEW','VIREO_AUTOMATIC_GAMING_REVIEW'];
   const oldEnv=Object.fromEntries(envKeys.map(k=>[k,process.env[k]]));
   Object.assign(process.env,{NODE_ENV:'test',MONGODB_URI:'mongodb://127.0.0.1:1',MONGODB_DB_NAME:'unused_analysis_review_fixture',OPENROUTER_API_KEY:'',GROQ_API_KEY:'',VIREO_AUTO_GENRE_REVIEW:'disabled',VIREO_AUTOMATIC_GAMING_REVIEW:'0'});
   const {MongoClient}=await import('mongodb');
-  const oldConnect=MongoClient.prototype.connect,oldFetch=globalThis.fetch;
-  let connections=0,networkCalls=0,providerCalls=0,reads=0;
-  MongoClient.prototype.connect=async function(){connections++;throw Error('Unexpected database connection in preflight fixture')};
+  const oldConnect=MongoClient.prototype.connect,oldDb=MongoClient.prototype.db,oldClose=MongoClient.prototype.close,oldFetch=globalThis.fetch;
+  let connections=0,networkCalls=0,providerCalls=0,reads=0,admissionReads=0;
+  let admissionProject:any;
+  MongoClient.prototype.connect=async function(){connections++;return this};
+  MongoClient.prototype.close=async function(){};
+  MongoClient.prototype.db=function(){return{command:async(command:any)=>{assert.deepEqual(command,{ping:1,maxTimeMS:2000});return{ok:1}},collection:(name:string)=>{assert.equal(name,'projects');return{findOne:async(filter:any,options:any)=>{assert.deepEqual(filter,{id:projectId,user_id:userId});assert.deepEqual(options,{projection:{id:1,deletion_started_at:1},maxTimeMS:1000});admissionReads++;return admissionProject}}}}as any};
   globalThis.fetch=async()=>{networkCalls++;throw Error('Unexpected external fetch in preflight fixture')};
   const {dataRepository,ownerContext}=await import('../db/repositories/dataRepository.js');
   const {config}=await import('../config/index.js');
@@ -29,6 +33,7 @@ test('real analysis service and controller preserve early and specific review er
   const oldFrom=dataRepository.from;
   const userId=crypto.randomUUID(),projectId=crypto.randomUUID(),key='fixture/key';
   const project={id:projectId,user_id:userId,title:'Synthetic preflight fixture',source_url:key};
+  admissionProject={id:projectId};
   let transcript:any;
   const observedCases:any[]=[];
   (dataRepository as any).from=(name:string)=>{
@@ -63,13 +68,21 @@ test('real analysis service and controller preserve early and specific review er
       assert.equal(status,409,item.name);assert.equal(payload.code,item.code,item.name);
       assert.equal(reads,beforeReads+4);assert.equal(activeClipAnalysisSet.has(projectId),false);
       assert.equal(heads,beforeHeads+expectedHeads*2);
-      assert.deepEqual(transcript,before);assert.equal(providerCalls,0);assert.equal(networkCalls,0);assert.equal(connections,0);
+      assert.deepEqual(transcript,before);assert.equal(providerCalls,0);assert.equal(networkCalls,0);assert.equal(connections,1);
       observedCases.push({fixture:item.name,controllerStatus:status,controllerCode:payload.code,repositoryReads:reads-beforeReads,loopbackStorageHeads:heads-beforeHeads,activeGuardCleared:!activeClipAnalysisSet.has(projectId)});
     }
-    assert.equal(reads,20);assert.equal(heads,2);
-    t.diagnostic(JSON.stringify({observedCases,repositoryReads:reads,loopbackStorageHeads:heads,unexpectedFetchCalls:networkCalls,providerCalls,databaseConnections:connections,syntheticFixtures:true,repositoryReadsDoubled:true,productionServiceAndController:true,liveDatabaseOrAuthOrHttpWireTest:false}));
+    assert.equal(reads,20);assert.equal(heads,2);assert.equal(admissionReads,10);
+    // The safety check stays first: deleting projects cannot reach transcript or provider.
+    admissionProject={id:projectId,deletion_started_at:new Date()};
+    await assert.rejects(service.analyzeAndPersistClips({projectId,userId}),{code:'PROJECT_DELETION_IN_PROGRESS',statusCode:409});
+    assert.equal(reads,20);assert.equal(heads,2);assert.equal(providerCalls,0);assert.equal(networkCalls,0);assert.equal(activeClipAnalysisSet.has(projectId),false);
+    admissionProject=null;
+    await assert.rejects(service.analyzeAndPersistClips({projectId,userId}),{code:'PROJECT_NOT_FOUND',statusCode:404});
+    assert.equal(reads,20);assert.equal(heads,2);assert.equal(providerCalls,0);assert.equal(networkCalls,0);assert.equal(activeClipAnalysisSet.has(projectId),false);
+    t.diagnostic(JSON.stringify({observedCases,repositoryReads:reads,loopbackStorageHeads:heads,unexpectedFetchCalls:networkCalls,providerCalls,databaseAdapterConnections:connections,deletionAdmissionReads:admissionReads,syntheticFixtures:true,repositoryReadsDoubled:true,productionServiceAndController:true,liveDatabaseOrAuthOrHttpWireTest:false}));
   }finally{
-    dataRepository.from=oldFrom;globalThis.fetch=oldFetch;MongoClient.prototype.connect=oldConnect;activeClipAnalysisSet.delete(projectId);Object.assign(config,oldStorage);
+    await(await import('../db/mongoClient.js')).closeMongo();
+    dataRepository.from=oldFrom;globalThis.fetch=oldFetch;MongoClient.prototype.connect=oldConnect;MongoClient.prototype.db=oldDb;MongoClient.prototype.close=oldClose;activeClipAnalysisSet.delete(projectId);Object.assign(config,oldStorage);
     storage.closeAllConnections();await new Promise<void>(r=>storage.close(()=>r()));
     for(const k of envKeys){const value=oldEnv[k];if(value===undefined)delete process.env[k];else process.env[k]=value;}
   }
