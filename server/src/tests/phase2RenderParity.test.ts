@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -243,7 +244,7 @@ describe('Phase 2 — output key idempotency on retry', () => {
   });
 
   it('renderClipJob uses immutable attempt objects within the clip render version', () => {
-    const src = fs.readFileSync(path.resolve(process.cwd(), 'src/services/clipRenderService.ts'), 'utf8');
+    const src = fs.readFileSync(fileURLToPath(new URL('../services/clipRenderService.ts',import.meta.url)), 'utf8');
     // Stable per-version retry keys let a late stale worker overwrite current
     // bytes. The helper remains for legacy reads; new writes isolate attempts.
     assert.match(src, /renderAttemptObjectKey\(clip\.user_id, clip\.project_id, clip\.id, renderVersion,attemptId\)/);
@@ -252,7 +253,7 @@ describe('Phase 2 — output key idempotency on retry', () => {
 });
 
 describe('Phase 2 — service wiring guards', () => {
-  const renderSource = fs.readFileSync(path.resolve(process.cwd(), 'src/services/clipRenderService.ts'), 'utf8');
+  const renderSource = fs.readFileSync(fileURLToPath(new URL('../services/clipRenderService.ts',import.meta.url)), 'utf8');
 
   it('both render paths share one reframing decision', () => {
     // Current worker also carries the verified downloaded source digest.

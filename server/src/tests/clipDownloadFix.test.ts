@@ -112,8 +112,8 @@ describe('Clip Download Fix & Session Verification Prevention Test Suite', () =>
   it('verifies that multi-slice FFmpeg render does not truncate source input before slicing', async () => {
     // Read ClipRenderService implementation to verify -t renderDuration is output option
     const fs = await import('node:fs');
-    const path = await import('node:path');
-    const servicePath = path.resolve(process.cwd(), 'server/src/services/clipRenderService.ts');
+    const { fileURLToPath } = await import('node:url');
+    const servicePath = fileURLToPath(new URL('../services/clipRenderService.ts', import.meta.url));
     const content = fs.readFileSync(servicePath, 'utf8');
 
     // Make sure -t is NOT before ...graph.inputArgs for multi-slice
