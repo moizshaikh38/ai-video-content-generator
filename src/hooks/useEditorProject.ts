@@ -55,6 +55,8 @@ export interface UseEditorProjectReturn {
   lastSavedAt: Date | null;
   persistedReframeSourceKey: string | null;
   saveError: string | null;
+  /** True only when the server rejected the save because a newer revision exists (not a transient failure). */
+  saveConflict: boolean;
   saveNow: () => Promise<boolean>;
   undo: () => void;
   redo: () => void;
@@ -157,7 +159,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
   const handleProjectVersionAck=useCallback((savedProject:EditorProject)=>{
     setProject(current=>acknowledgeEditorVersion(current,savedProject));
   },[]);
-  const { saveStatus, lastSavedAt, saveError, saveNow, markDirty } = useEditorAutosave(
+  const { saveStatus, lastSavedAt, saveError, saveConflict, acknowledgeExternalLoad, saveNow, markDirty } = useEditorAutosave(
     project,
     clip,
     { onSaved: handleSavedReframeSource,onProjectVersionAck:handleProjectVersionAck }
@@ -203,6 +205,9 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
       if (!isCurrent() || editSequence !== localEditSequenceRef.current) return;
       if (!proj || proj.clip_id !== clipId) throw new Error('The editor project did not match the requested clip.');
       if (ownerMismatch(proj.user_id, ownerAtStart) || (c.user_id && ownerMismatch(c.user_id, ownerAtStart))) throw new Error('This clip belongs to a different account.');
+      // Raw server-revision boundary: acknowledge BEFORE any healing below can mark the document dirty, so a repair edit it makes still saves.
+      // No await sits between the guard above and the apply below, so no local edit can interleave.
+      acknowledgeExternalLoad(proj.version);
       setClip(c);
       const cleanSrc = editorData.cleanSourceUrl || null;
       const renderedSrc = editorData.renderedPreviewUrl || null;
@@ -303,7 +308,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
         setLoading(false);
       }
     }
-  }, [clipId, resetHistory]);
+  }, [clipId, resetHistory, acknowledgeExternalLoad]);
 
   // Account change (sign-out or another account): drop everything of the previous account (project, clip, cues, media, history),
   // invalidate any load still in flight, and cancel a pending wait. Its unsaved drafts stay in scoped storage under its own user id
@@ -898,6 +903,7 @@ export function useEditorProject(clipId: string | undefined): UseEditorProjectRe
     lastSavedAt,
     persistedReframeSourceKey,
     saveError,
+    saveConflict,
     saveNow,
     undo,
     redo,

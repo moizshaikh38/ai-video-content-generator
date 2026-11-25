@@ -7,7 +7,7 @@ const ast = ts.createSourceFile('editor.ts', source, ts.ScriptTarget.Latest, tru
 let body;
 function visit(n) { if (ts.isVariableDeclaration(n) && n.name.getText(ast) === 'loadData') body = n.initializer.arguments[0].getText(ast); ts.forEachChild(n, visit); }
 visit(ast); assert(body);
-const names = ['clipId','loadSequenceRef','localEditSequenceRef','activeClipIdRef','setLoading','setError','clipRenderService','proEditorService','setClip','setWatermarkRequired','setCleanSourceUrl','setRenderedPreviewUrl','setPreviewUrl','setCues','setTimingMode','healCaptionTracks','markDirty','mergeExtendedCues','setProject','setPersistedReframeSourceKey','editorReframeSourceKey','resetHistory','deriveCaptionCuesFromProject','cancelWaitRef','getCurrentAuthOwner','ownerMismatch','waitForDrain','setDrainSlow'];
+const names = ['clipId','loadSequenceRef','localEditSequenceRef','activeClipIdRef','setLoading','setError','clipRenderService','proEditorService','setClip','setWatermarkRequired','setCleanSourceUrl','setRenderedPreviewUrl','setPreviewUrl','setCues','setTimingMode','healCaptionTracks','markDirty','acknowledgeExternalLoad','mergeExtendedCues','setProject','setPersistedReframeSourceKey','editorReframeSourceKey','resetHistory','deriveCaptionCuesFromProject','cancelWaitRef','getCurrentAuthOwner','ownerMismatch','waitForDrain','setDrainSlow'];
 const js = ts.transpileModule(`export function make(d:any){const {${names}}=d;return ${body}}`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
 let deriveBody;function findDerive(n){if(ts.isFunctionDeclaration(n)&&n.name?.text==='deriveCaptionCuesFromProject')deriveBody=n.getText(ast);ts.forEachChild(n,findDerive);}findDerive(ast);
 const deriveJs=ts.transpileModule(deriveBody+';export {deriveCaptionCuesFromProject};',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
@@ -21,6 +21,7 @@ function setup() {
   authBundle.setCurrentAuthOwner('owner');
   const events = [], d = { deriveCaptionCuesFromProject, cancelWaitRef: { current: null }, getCurrentAuthOwner: authBundle.getCurrentAuthOwner, ownerMismatch: authBundle.ownerMismatch, waitForDrain: saveCoordinator.waitForDrain, clipId: 'c', loadSequenceRef: { current: 0 }, localEditSequenceRef: { current: 0 }, activeClipIdRef: { current: 'c' }, clipRenderService: { getClipEditorData: async () => data(), getClipCaptions: async () => ({ cues: [], timingMode: 'segment' }) }, proEditorService: { getOrCreateEditorProject: async () => data().editorProject }, editorReframeSourceKey: () => 'key', healCaptionTracks: helpers.healCaptionTracks, mergeExtendedCues: helpers.mergeExtendedCues };
   for (const name of names.filter(n => n.startsWith('set') || ['resetHistory','markDirty'].includes(n))) d[name] = value => events.push([name, value]);
+  d.acknowledgeExternalLoad = version => events.push(['acknowledgeExternalLoad', version]);
   return { d, events, run: make(d) };
 }
 test('current matching clip/editor response loads the editor document', async () => { const s = setup(); await s.run(); assert(s.events.some(e => e[0] === 'setProject' && e[1].clip_id === 'c')); });
@@ -104,4 +105,20 @@ test('deleting the last legacy caption stamps coverage before its saved cues bec
   assert.deepEqual(cues,[]);assert.deepEqual(row.tracks[0].items[0].caption.cues,[]);assert.equal(row.tracks[0].items[0].caption.cues_covered_end,7);
   const s=setup();s.d.clipRenderService.getClipEditorData=async()=>({...data(),editorProject:row});s.d.clipRenderService.getClipCaptions=async()=>({cues:[{id:'original',start:1,end:7,text:'must remain deleted'}]});
   await s.run();assert.deepEqual(s.events.find(e=>e[0]==='setProject')[1].tracks[0].items[0].caption.cues,[]);
+});
+test('a load acknowledges the raw server revision once, before any healing marks the document dirty or the project is applied',async()=>{
+  const s=setup(),response=captionDataFixture(10);response.editorProject.version=7;
+  s.d.clipRenderService.getClipEditorData=async()=>response;
+  s.d.clipRenderService.getClipCaptions=async()=>({timingMode:'segment',cues:[{id:'extended',start:11,end:12.5,text:'newly extended speech'}]});
+  await s.run();const names=s.events.map(e=>e[0]);
+  assert.equal(names.filter(n=>n==='acknowledgeExternalLoad').length,1);
+  assert.deepEqual(s.events.find(e=>e[0]==='acknowledgeExternalLoad'),['acknowledgeExternalLoad',7]);
+  const ack=names.indexOf('acknowledgeExternalLoad'),dirty=names.indexOf('markDirty'),applied=names.indexOf('setProject');
+  assert(dirty>=0,'fixture must exercise a healing/extension repair that marks the document dirty');
+  assert(ack<dirty&&ack<applied,'acknowledge precedes both the repair dirty mark and the project apply');
+});
+test('a load that raced a local edit acknowledges nothing',async()=>{
+  const s=setup();let resolve;s.d.clipRenderService.getClipEditorData=()=>new Promise(r=>resolve=r);
+  const run=s.run();await new Promise(r=>setTimeout(r));s.d.localEditSequenceRef.current++;resolve(data());await run;
+  assert(!s.events.some(e=>e[0]==='acknowledgeExternalLoad'));
 });

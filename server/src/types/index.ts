@@ -676,6 +676,8 @@ export interface CropConfig {
    * provenance tracking; those keep their historical authoritative behavior.
    */
   layout_mode_source?: 'genre_recommendation' | 'user' | 'legacy_unknown' | 'auto';
+  /** Creation-resolved center intent: set when the cropMode that reached the repository was center (HTTP callers never default to center; the service signature does default an omitted cropMode to center, but a service call without a creation intent is refused before any clip is written). Records the request, not the resolved mode; project layout policy can still set crop_config.mode to fit_blur or manual. Absent on legacy rows and on smart/fit creates. */
+  framing_request?: 'explicit_center';
   focusX?: number; // 0 to 1, default 0.5 (center)
   focusY?: number; // 0 to 1, default 0.5 (center)
   smart?: {

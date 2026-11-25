@@ -1131,7 +1131,7 @@ export class ProEditorService {
       });
     }
 
-    if((item as any).crop_config?.layout_mode_source==='auto')return buildBackdropFitChain(ratio,1,{kind:'blur',bandAspect:4/3},'safe'+crypto.createHash('sha256').update(String(item.id||'x')).digest('hex').slice(0,12),cs);
+    if((item as any).crop_config?.layout_mode_source==='auto')return buildBackdropFitChain(ratio,1,{kind:'blur',bandAspect:4/3,bandPlaceY:automaticFitFocusY(ratio)},'safe'+crypto.createHash('sha256').update(String(item.id||'x')).digest('hex').slice(0,12),cs);
     return buildCropFilter(ratio, { focusX: 0.5, focusY: 0.5 }, cs);
   }
 
@@ -2561,7 +2561,7 @@ export class ProEditorService {
     const explicitCrop=(clip as any).crop_config;
     const prefDefault=projectPreferences?.layoutPolicy?.defaultLayout;
     const storedClipCrop = explicitCrop?.layout_mode_source!=='user'&&prefDefault&&prefDefault!=='auto'?{...explicitCrop,mode:prefDefault==='fit'?'fit_blur':'manual',layout_mode:'track',layout_mode_source:'user',layoutPolicy:projectPreferences?.layoutPolicy}:explicitCrop;
-    const newAutomaticDefault=projectPreferences?.framingDefaults?.version===1&&projectPreferences.framingDefaults.layout==='auto'&&!producerPlan&&storedClipCrop?.layout_mode_source!=='user'&&!['manual','custom','fit','fit_blur'].includes(storedClipCrop?.mode);
+    const newAutomaticDefault=projectPreferences?.framingDefaults?.version===1&&projectPreferences.framingDefaults.layout==='auto'&&!producerPlan&&storedClipCrop?.layout_mode_source!=='user'&&storedClipCrop?.framing_request!=='explicit_center'&&!['manual','custom','fit','fit_blur'].includes(storedClipCrop?.mode);
     const clipCrop = newAutomaticDefault?{...storedClipCrop,mode:'smart',layout_mode:'track',layout_mode_source:'auto',layoutPolicy:projectPreferences?.layoutPolicy||storedClipCrop?.layoutPolicy}:storedClipCrop;
     // First editor initialization must retain an existing explicit Quick crop zoom.
     // This seed is not applied to saved editor projects or scene overrides.

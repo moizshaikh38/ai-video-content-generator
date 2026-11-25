@@ -1,3 +1,4 @@
+import {presentSeek} from '../../lib/presentationSeek';
 import {usesAutomaticSourceClock} from '../../../server/src/shared/automaticSourceClock';
 import {automaticShotPreviewTime} from '../../../server/src/shared/shotFrameClock';
 import {boundCutLocalRecoveryPlan,cutLocalRecoveryTimelineEligible} from '../../../server/src/shared/cutLocalRecoveryTimeline';
@@ -108,6 +109,8 @@ interface PreviewCanvasProps {
     clipStartSec?: number;
   } | null;
   videoRef: React.RefObject<HTMLVideoElement>;
+  /** Clock identity of the render that computed targetVideoTime (from useEditorPlayback). */
+  presentationClock?: string;
   cues: TimedCaptionCue[];
   /**
    * Split-layout caption zones (mirrors the export's speakerSplit path):
@@ -272,6 +275,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   onSetTracker,
   smartReframe,
   videoRef,
+  presentationClock,
   cues: rawCues,
   speakerSplit,
   watermarkRequired = false,
@@ -802,10 +806,15 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused && Math.abs(v.currentTime - targetVideoTime) > 0.15) {
-      v.currentTime = targetVideoTime;
+    // Paused automatic-clock items: targetVideoTime already carries the export's
+    // output-frame mapping (automaticShotPreviewTime). A 0.15 s tolerance would leave
+    // the decoded frame on the earlier source frame while the layout has switched.
+    // Safe with a tight tolerance only because presentSeek echoes no longer write the playhead.
+    const auto = usesAutomaticSourceClock(baseVideoItem as any, automaticSourceClockCandidate) && !isPlaying;
+    if (v.paused && Math.abs(v.currentTime - targetVideoTime) > (auto ? 0.004 : 0.15)) {
+      presentSeek(v, targetVideoTime, presentationClock);
     }
-  }, [targetVideoTime, videoRef]);
+  }, [targetVideoTime, videoRef, baseVideoItem, automaticSourceClockCandidate, isPlaying, presentationClock]);
 
   // All auxiliary views display the primary decoder's frame. Separate media
   // elements required repeated seeking and drifted on long-GOP sources.
@@ -1595,7 +1604,7 @@ export const PreviewCanvas: React.FC<PreviewCanvasProps> = ({
               muted={project.tracks.some((t) => t.type === 'VIDEO' && t.muted)}
               onLoadedMetadata={() => {
                 if (videoRef.current) {
-                  videoRef.current.currentTime = targetVideoTime;
+                  presentSeek(videoRef.current, targetVideoTime, presentationClock);
                   if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
                     setVideoDims({ w: videoRef.current.videoWidth, h: videoRef.current.videoHeight });
                   }

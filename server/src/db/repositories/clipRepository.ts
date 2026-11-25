@@ -59,6 +59,12 @@ export async function readCandidateCreationTemplate(db:Db, session:ClientSession
           layoutPolicy:project.clip_preferences?.layoutPolicy,
           layout_mode: layoutMode,
           layout_mode_source: layoutModeSource,
+          // Creation-resolved center intent: the cropMode value this repository received was center. The HTTP controller
+          // defaults an omitted cropMode to 'smart', so a request that omits it is never tagged. ClipRenderService.createClipFromCandidate
+          // itself defaults an omitted argument to 'center'; a direct service call without a creation intent is refused (probe: "Verified render plan
+          // is required for admission", no clip row), and the with-intent omitted case is not exercised. Project layoutPolicy
+          // (fit/fill) still decides crop_config.mode below, so the tag records the request, not the resolved mode.
+          ...(String(cropMode)==='center'?{framing_request:'explicit_center' as const}:{}),
         },
         ...(effectiveGenre?{genre:effectiveGenre.genre}:{}),
         caption_position: captionPos,

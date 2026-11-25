@@ -16,10 +16,10 @@ export interface UseEditorAutosaveOptions{
  onProjectVersionAck?:(project:EditorProject)=>void;
  onError?:(err:Error)=>void;
 }
-export interface UseEditorAutosaveReturn{saveStatus:SaveStatus;lastSavedAt:Date|null;saveError:string|null;saveNow:()=>Promise<boolean>;markDirty:()=>void}
+export interface UseEditorAutosaveReturn{saveStatus:SaveStatus;lastSavedAt:Date|null;saveError:string|null;saveConflict:boolean;acknowledgeExternalLoad:(loadedVersion:number)=>void;saveNow:()=>Promise<boolean>;markDirty:()=>void}
 export function useEditorAutosave(project:EditorProject|null,clip:RenderedClip|null,options:UseEditorAutosaveOptions={}):UseEditorAutosaveReturn{
  const{debounceMs=1200,onSaved,onError,onProjectVersionAck}=options;
- const[saveStatus,setSaveStatus]=useState<SaveStatus>('saved');const[lastSavedAt,setLastSavedAt]=useState<Date|null>(null);const[saveError,setSaveError]=useState<string|null>(null);const[genTick,setGenTick]=useState(0);
+ const[saveStatus,setSaveStatus]=useState<SaveStatus>('saved');const[lastSavedAt,setLastSavedAt]=useState<Date|null>(null);const[saveError,setSaveError]=useState<string|null>(null);const[saveConflict,setSaveConflict]=useState(false);const conflictBase=useRef<number|null>(null);const reloadFence=useRef(0);const[genTick,setGenTick]=useState(0);
  const pending=useRef<EditorProject|null>(project),saving=useRef(false),timer=useRef<ReturnType<typeof setTimeout>|null>(null),generation=useRef(0),rerun=useRef(false),mounted=useRef(true),leaving=useRef(false);
  const session=useRef(newJournalSession()),journaledGen=useRef(0),editGen=useRef(0),journaledProject=useRef<EditorProject|null>(null),ackedGen=useRef(0),cleanGen=useRef(0),inflightEdit=useRef(0),savingEpoch=useRef(-1),drainOpen=useRef<{clip:string;token:string}|null>(null),clipIdRef=useRef<string|undefined>(clip?.id);clipIdRef.current=clip?.id;
  const closeDrain=()=>{const d=drainOpen.current;if(d){drainOpen.current=null;endDrain(d.clip,d.token);}};
@@ -36,12 +36,13 @@ export function useEditorAutosave(project:EditorProject|null,clip:RenderedClip|n
  const executeSave=useCallback(async():Promise<boolean>=>{
   const current=pending.current;if(!current||!clip||current.clip_id!==clip.id){closeDrain();return false;}
   if(saving.current){rerun.current=true;return false;}
-  const started=generation.current,startedEdit=editGen.current,sessionEpoch=projectSessionRef.current.epoch;saving.current=true;inflightEdit.current=startedEdit;savingEpoch.current=sessionEpoch;rerun.current=false;setSaveStatus('saving');setSaveError(null);let succeeded=false;
+  const started=generation.current,startedEdit=editGen.current,sessionEpoch=projectSessionRef.current.epoch,fence=reloadFence.current;saving.current=true;inflightEdit.current=startedEdit;savingEpoch.current=sessionEpoch;rerun.current=false;setSaveStatus('saving');setSaveError(null);let succeeded=false;
   try{
    const tokenA=await tokenForOwner(current.user_id);
+   if((!mounted.current&&!leaving.current)||pending.current?.id!==current.id||sessionEpoch!==projectSessionRef.current.epoch||fence!==reloadFence.current)return false;
    const updated=await proEditorService.updateEditorProject(current.id,{title:current.title,canvas:current.canvas,tracks:current.tracks,playhead:current.playhead,settings:current.settings,version:current.version},tokenA);
    if(ownerMismatch(current.user_id,getCurrentAuthOwner()))throw new AccountChangedError();
-   if((!mounted.current&&!leaving.current)||pending.current?.id!==current.id||sessionEpoch!==projectSessionRef.current.epoch)return false;
+   if((!mounted.current&&!leaving.current)||pending.current?.id!==current.id||sessionEpoch!==projectSessionRef.current.epoch||fence!==reloadFence.current)return false;
    if(!updated||updated.id!==current.id||updated.clip_id!==clip.id||!Number.isSafeInteger(updated.version)||updated.version<=current.version)throw new Error('The editor save response could not be verified. Your local edits are kept.');
    acknowledged.current={id:updated.id,version:updated.version};
    pending.current=acknowledgeEditorVersion(pending.current,updated);
@@ -49,16 +50,17 @@ export function useEditorAutosave(project:EditorProject|null,clip:RenderedClip|n
    if(mounted.current)onProjectVersionAck?.(updated);
    // A Pro acknowledgement never means this separate Quick-clip sync landed. Re-check the account: the credentials are read per request.
    const tokenC=await tokenForOwner(current.user_id);
+   if((!mounted.current&&!leaving.current)||pending.current?.id!==current.id||sessionEpoch!==projectSessionRef.current.epoch||fence!==reloadFence.current)return false;
    const updatedClip=await clipRenderService.updateClipEditor(clip.id,{...buildClipEditorUpdatePayload(current,clip),editorProjectRevision:{id:updated.id,version:updated.version}},tokenC);
    if(ownerMismatch(current.user_id,getCurrentAuthOwner()))throw new AccountChangedError();
-   if((!mounted.current&&!leaving.current)||pending.current?.id!==current.id||sessionEpoch!==projectSessionRef.current.epoch)return false;
+   if((!mounted.current&&!leaving.current)||pending.current?.id!==current.id||sessionEpoch!==projectSessionRef.current.epoch||fence!==reloadFence.current)return false;
    if(!updatedClip||updatedClip.id!==clip.id)throw new Error('The clip synchronization response could not be verified. Your local edits are kept.');
    const dirty=editorSaveStillDirty(started,generation.current);
    // Clear only after BOTH acknowledgements, only this session's record, only up to the exact generation that was sent.
-   journalClear(current,session.current,startedEdit);if(startedEdit===editGen.current)cleanGen.current=startedEdit;if(mounted.current){setSaveStatus(dirty?'dirty':'saved');setLastSavedAt(new Date());onSaved?.(updated,updatedClip);}succeeded=true;
+   journalClear(current,session.current,startedEdit);if(startedEdit===editGen.current)cleanGen.current=startedEdit;if(mounted.current){setSaveConflict(false);conflictBase.current=null;setSaveStatus(dirty?'dirty':'saved');setLastSavedAt(new Date());onSaved?.(updated,updatedClip);}succeeded=true;
    if(dirty)rerun.current=true;
    return !dirty;
-  }catch(err:any){if(mounted.current&&pending.current?.id===current.id&&sessionEpoch===projectSessionRef.current.epoch){setSaveError(err.message||'Failed to save changes.');setSaveStatus('error');onError?.(err);}return false;}
+  }catch(err:any){if(mounted.current&&pending.current?.id===current.id&&sessionEpoch===projectSessionRef.current.epoch&&fence===reloadFence.current){setSaveError(err.message||'Failed to save changes.');const isConflict=err?.code==='EDITOR_REVISION_CONFLICT';if(isConflict){conflictBase.current=typeof current.version==='number'?current.version:null;setSaveConflict(true);}/* a later non-conflict failure is not evidence the known conflict resolved: keep it until an accepted newer reload, a full save, or a project/account reset */setSaveStatus('error');onError?.(err);}return false;}
   finally{
    saving.current=false;
    // Retry only a NEW edit/explicit request after a successful save, never an
@@ -67,7 +69,7 @@ export function useEditorAutosave(project:EditorProject|null,clip:RenderedClip|n
    if(leaving.current&&!mounted.current){
     // Page is being left: finish a newer edit now (no debounce), but never loop after a failure or into another project.
     if(rerun.current&&succeeded&&pending.current?.id===current.id&&sessionEpoch===projectSessionRef.current.epoch){rerun.current=false;chained=true;void executeRef.current();}
-   }else if(mounted.current&&rerun.current&&(succeeded||pending.current?.id!==current.id||sessionEpoch!==projectSessionRef.current.epoch)){if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>{timer.current=null;executeRef.current();},debounceMs);}
+   }else if(mounted.current&&rerun.current&&(succeeded||pending.current?.id!==current.id||sessionEpoch!==projectSessionRef.current.epoch||fence!==reloadFence.current)){if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>{timer.current=null;executeRef.current();},debounceMs);}
    // A drain token is released only by real completion of the whole chain (also when React StrictMode remounted this editor).
    if(!chained&&!timer.current)closeDrain();
   }
@@ -84,12 +86,20 @@ export function useEditorAutosave(project:EditorProject|null,clip:RenderedClip|n
   // A departed project's debounce must never save the next clean project.
   // Keep a timer seeded while an initial document was loading: caption
   // coverage repair can deliberately mark that new document dirty.
-  if(previousProjectId.current&&previousProjectId.current!==project?.id){if(timer.current)clearTimeout(timer.current);timer.current=null;rerun.current=false;generation.current++;editGen.current=0;journaledGen.current=0;journaledProject.current=null;ackedGen.current=0;cleanGen.current=0;
+  if(previousProjectId.current&&previousProjectId.current!==project?.id){conflictBase.current=null;if(timer.current)clearTimeout(timer.current);timer.current=null;rerun.current=false;generation.current++;editGen.current=0;journaledGen.current=0;journaledProject.current=null;ackedGen.current=0;cleanGen.current=0;
    // A drain held for a pending debounce that was just discarded has no work left: release it unless a save is still in flight (its finally releases).
    if(drainOpen.current&&!saving.current)closeDrain();}
   previousProjectId.current=project?.id||null;
-  acknowledged.current=null;setSaveStatus(timer.current?'dirty':(saving.current&&savingEpoch.current===projectSessionRef.current.epoch)?'saving':'saved');setSaveError(null);setLastSavedAt(null);
+  acknowledged.current=null;setSaveStatus(timer.current?'dirty':(saving.current&&savingEpoch.current===projectSessionRef.current.epoch)?'saving':'saved');setSaveError(null);setSaveConflict(false);setLastSavedAt(null);
  },[project?.id]);
+ // Called by the editor loader at the exact moment it applies a freshly loaded server revision (never from a version comparison).
+ // Only while a revision conflict is open, and only for a revision newer than the one that conflicted: the loaded revision replaces the
+ // screen's edits, so the failed save and its edit counters no longer apply. The loader drops a load that raced a local edit before
+ // reaching this call, so an edit made after it re-dirties normally. The journal record is untouched. Transient errors never take this path.
+ const acknowledgeExternalLoad=useCallback((loadedVersion:number)=>{
+  if(conflictBase.current===null||typeof loadedVersion!=='number'||loadedVersion<=conflictBase.current)return;
+  if(timer.current)clearTimeout(timer.current);timer.current=null;rerun.current=false;generation.current++;editGen.current=0;journaledGen.current=0;journaledProject.current=null;ackedGen.current=0;cleanGen.current=0;acknowledged.current=null;conflictBase.current=null;reloadFence.current++;
+  setSaveError(null);setSaveConflict(false);setSaveStatus('saved');},[]);
  // Unsaved-work protection: while an edit is dirty, saving or failed, ask the browser to confirm leaving, and
  // best-effort flush when the page is hidden/closing. A flush during unload is not guaranteed to finish, so the prompt is the guard.
  const statusRef=useRef<SaveStatus>(saveStatus);statusRef.current=saveStatus;
@@ -110,5 +120,5 @@ export function useEditorAutosave(project:EditorProject|null,clip:RenderedClip|n
   // A failed save has no pending timer: make one best-effort attempt on the way out (single try, never a loop); silent if it fails again.
   else if(statusRef.current==='error'){leaving.current=true;void executeRef.current();}
   mounted.current=false;};},[]);
- return{saveStatus,lastSavedAt,saveError,saveNow,markDirty};
+ return{saveStatus,lastSavedAt,saveError,saveConflict,acknowledgeExternalLoad,saveNow,markDirty};
 }

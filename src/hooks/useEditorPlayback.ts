@@ -1,7 +1,10 @@
 import {usesAutomaticSourceClock} from '../../server/src/shared/automaticSourceClock';
 import {previewShotOwnedElsewhere} from '../../server/src/shared/automaticPreviewFallback';
 import {flushSync} from 'react-dom';
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
+import type { ClockSnapshot } from '../lib/presentationSeek';
+import { PauseSettle, type PauseSettleCtx } from '../lib/pauseSettle';
+import { commitPresentationClock, presentSeek, presentFromSnapshot, consumePresentationEcho, isPausedOnPresentation, clearPresentationSeek, onNativeSeeking } from '../lib/presentationSeek';
 import { timelineToSourceTime, sourceToTimelineTime, playbackSliceAt, mediaTimeAdvanced, type PlaybackSlice } from '../lib/editorPlaybackTime';
 
 export interface UseEditorPlaybackOptions {
@@ -16,6 +19,8 @@ export interface UseEditorPlaybackOptions {
 
 export interface UseEditorPlaybackReturn {
   videoRef: React.RefObject<HTMLVideoElement>;
+  /** Clock identity of this render (slices|offset|mode); writers of presentation seeks pass the identity their target was computed under. */
+  presentationClock: string;
   currentTime: number;
   duration: number;
   isPlaying: boolean;
@@ -69,6 +74,15 @@ export function useEditorPlayback({
   const sourceClockCandidateRef=useRef(sourceClockCandidate);sourceClockCandidateRef.current=sourceClockCandidate;
   const timeRef = useRef(currentTime); timeRef.current = currentTime;
   const slicesRef = useRef(sourceSlices); slicesRef.current = sourceSlices;
+  // Clock identity binds presentation ownership (checked by every reader, see presentationSeek.ts):
+  // slice map, offset and the automatic-clock mode all change what a held target means.
+  const clockKey = JSON.stringify(sourceSlices) + '|' + sourceOffset + '|' + (sourceClockCandidate ? 1 : 0);
+  // Commit-owned snapshot: key and mapping inputs together, published in the same layout effect as the key.
+  const committedClockRef = useRef<ClockSnapshot>({ key: clockKey, slices: sourceSlices, offset: Math.max(0, Number(sourceOffset || 0)), time: currentTime });
+  useLayoutEffect(() => {
+    committedClockRef.current = { key: clockKey, slices: sourceSlices, offset: Math.max(0, Number(sourceOffset || 0)), time: currentTime };
+    if (videoRef.current) commitPresentationClock(videoRef.current, clockKey);
+  });
   const rateRef = useRef(playbackRate); rateRef.current = playbackRate;
   const toSource = (t: number) => timelineToSourceTime(slicesRef.current, t, sourceOffsetRef.current);
   useEffect(() => { if (initialDuration > 0) setDurationState(initialDuration); }, [initialDuration]);
@@ -80,10 +94,10 @@ export function useEditorPlayback({
     // Re-align physical video time if offset changes while paused or if video is out of bounds
     if (videoRef.current && !isPlaying) {
       if (Math.abs(prev - next) > 0.05 || (next > 0 && videoRef.current.currentTime < next - 0.15)) {
-        videoRef.current.currentTime = toSource(currentTime);
+        presentSeek(videoRef.current, toSource(currentTime), clockKey);
       }
     }
-  }, [sourceOffset, currentTime, isPlaying]);
+  }, [sourceOffset, currentTime, isPlaying, clockKey]);
 
   const onTimeUpdateRef = useRef(onTimeUpdate);
   useEffect(() => {
@@ -96,39 +110,67 @@ export function useEditorPlayback({
     }
   }, []);
 
+
   const play = useCallback(() => {
     if (videoRef.current) {
       const offset = sourceOffsetRef.current;
       // If at end of timeline, loop back to start before playing
       if (currentTime >= duration - 0.05) {
-        videoRef.current.currentTime = toSource(0);
+        presentSeek(videoRef.current, toSource(0), clockKey);
         setCurrentTime(0);
       } else if (
         offset > 0 &&
         (videoRef.current.currentTime < offset - 0.15 ||
           videoRef.current.currentTime > offset + duration + 0.15)
       ) {
-        videoRef.current.currentTime = toSource(currentTime);
+        presentSeek(videoRef.current, toSource(currentTime), clockKey);
       }
       videoRef.current.play().catch(() => {});
     }
     setIsPlaying(true);
-  }, [duration, currentTime]);
+  }, [duration, currentTime, clockKey]);
+
+  // Play-to-pause: during play the React playhead lags the video, so the paused presentation sync would otherwise
+  // seek the video back to the stale playhead (measured 100-200 ms) before correcting. Settle the playhead from the
+  // video time in the same batch as the pause, the same final clock native timeupdate would publish.
+  // Single owner of the play-to-pause receipt (lib/pauseSettle.ts): once per play run, committed mapping only.
+  const pauseSettle = useRef(new PauseSettle()).current;
+  const publishSettled = useCallback((v: HTMLVideoElement, settled: number | null) => {
+    if (settled === null) return;
+    timeRef.current = settled; lastMediaTime.current = v.currentTime;
+    setCurrentTime(settled);
+    onTimeUpdateRef.current?.(settled);
+  }, []);
+  const settleCtx = (): PauseSettleCtx => {
+    const c = committedClockRef.current;
+    return { key: c.key, slices: c.slices as PlaybackSlice[], offset: c.offset, hint: timeRef.current, duration: durationRef.current };
+  };
+  const settleApiRef = useRef({ pauseSettle, publishSettled, settleCtx }); settleApiRef.current = { pauseSettle, publishSettled, settleCtx };
 
   const pause = useCallback(() => {
-    if (videoRef.current) {
-      videoRef.current.pause();
+    const v = videoRef.current;
+    if (v) {
+      const wasPlaying = !v.paused;
+      v.pause();
+      publishSettled(v, pauseSettle.onToolbarPause(v, wasPlaying, settleCtx()));
     }
     setIsPlaying(false);
-  }, []);
+  }, [publishSettled, pauseSettle]);
 
   // Crop-specific pause receipt: publish the same final clock native timeupdate
   // will publish, rather than letting an editor snapshot race that later event.
   const pauseForEdit = useCallback((): number | null => {
     const v=videoRef.current;
     if(!v)return null;
+    // Already paused on a presented frame: the transport playhead is the authority, not the presentation target.
+    const heldPresentation=v.paused&&!v.seeking&&isPausedOnPresentation(v);
     v.pause();
+    pauseSettle.endRun(); // this call publishes its own receipt below; a later native pause must not publish a second one
     setIsMediaAdvancing(false);setIsPlaying(false);
+    if(heldPresentation){
+      const held=timeRef.current;
+      if(Number.isFinite(held)&&Number.isFinite(durationRef.current)&&durationRef.current>0){lastMediaTime.current=v.currentTime;onTimeUpdateRef.current?.(held);return held;}
+    }
     if(v.seeking || !Number.isFinite(v.currentTime))return null;
     const raw=sourceToTimelineTime(slicesRef.current,v.currentTime,timeRef.current,sourceOffsetRef.current);
     if(!Number.isFinite(raw) || !Number.isFinite(durationRef.current) || durationRef.current<=0)return null;
@@ -137,7 +179,7 @@ export function useEditorPlayback({
     setCurrentTime(finalTime);
     onTimeUpdateRef.current?.(finalTime);
     return finalTime;
-  }, []);
+  }, [pauseSettle]);
 
   const togglePlay = useCallback(() => {
     if (isPlaying) {
@@ -150,15 +192,16 @@ export function useEditorPlayback({
   const seek = useCallback(
     (time: number) => {
       const clamped = Math.max(0, Math.min(duration, Number(time.toFixed(3))));
+      timeRef.current = clamped;
       setCurrentTime(clamped);
       if (videoRef.current) {
-        videoRef.current.currentTime = toSource(clamped);
+        presentSeek(videoRef.current, toSource(clamped), clockKey);
       }
       if (onTimeUpdateRef.current) {
         onTimeUpdateRef.current(clamped);
       }
     },
-    [duration]
+    [duration, clockKey]
   );
 
   const stepFrames = useCallback(
@@ -226,9 +269,17 @@ export function useEditorPlayback({
     const v = videoRef.current;
     if (!v) return;
 
-    const handleLoadedMetadata = () => { v.currentTime = toSource(timeRef.current); };
+    const handleLoadedMetadata = () => { presentFromSnapshot(v, committedClockRef.current, timelineToSourceTime); };
 
     const handleTimeUpdate = (frameTime?: number) => {
+      // Echo of a paused presentation seek: the transport already owns the playhead.
+      // Rate, lastMediaTime and the end-of-clip boundary still apply; only the playhead write-back is skipped.
+      if (typeof frameTime !== 'number' && timeRef.current < durationRef.current - 0.03 && consumePresentationEcho(v)) {
+        lastMediaTime.current = v.currentTime;
+        const echoSlice = playbackSliceAt(slicesRef.current, timeRef.current);
+        v.playbackRate = rateRef.current * (echoSlice?.speed?.speed || 1);
+        return;
+      }
       const mediaTime=typeof frameTime==='number'?frameTime:v.currentTime;
       const offset = sourceOffsetRef.current;
       if (!slicesRef.current.length && offset > 0 && v.currentTime < offset - 0.25) {
@@ -268,8 +319,12 @@ export function useEditorPlayback({
       }
     };
 
-    const handlePlay = () => { lastMediaTime.current=v.currentTime;setIsMediaAdvancing(false);setIsPlaying(true); };
-    const handlePause = () => { setIsMediaAdvancing(false);setIsPlaying(false); };
+    const handlePlay = () => { settleApiRef.current.pauseSettle.onPlay(v);lastMediaTime.current=v.currentTime;setIsMediaAdvancing(false);setIsPlaying(true); };
+    const handlePlayClear = () => clearPresentationSeek(v);
+    // Source lifecycle only (never registered for 'play': play arms the pause owner and must not be reset after it).
+    const handleSourceReset = () => { clearPresentationSeek(v); settleApiRef.current.pauseSettle.reset(); };
+    const handleSeeking = () => onNativeSeeking(v);
+    const handlePause = () => { if(!v.paused)return; /* stale pause event after a resume: media is playing, change nothing */ const a=settleApiRef.current;a.publishSettled(v,a.pauseSettle.onNativePause(v,a.settleCtx()));setIsMediaAdvancing(false);setIsPlaying(false); };
 
     v.addEventListener('loadedmetadata', handleLoadedMetadata);
     const timeupdate=()=>handleTimeUpdate();
@@ -288,6 +343,10 @@ export function useEditorPlayback({
     v.addEventListener('timeupdate', timeupdate);
     v.addEventListener('ended', handleEnded);
     v.addEventListener('play', handlePlay);
+    v.addEventListener('play', handlePlayClear);
+    v.addEventListener('seeking', handleSeeking);
+    v.addEventListener('emptied', handleSourceReset);
+    v.addEventListener('loadstart', handleSourceReset);
     v.addEventListener('pause', handlePause);
 
     return () => {
@@ -297,12 +356,17 @@ export function useEditorPlayback({
       v.removeEventListener('timeupdate', timeupdate);
       v.removeEventListener('ended', handleEnded);
       v.removeEventListener('play', handlePlay);
+      v.removeEventListener('play', handlePlayClear);
+      v.removeEventListener('seeking', handleSeeking);
+      v.removeEventListener('emptied', handleSourceReset);
+      v.removeEventListener('loadstart', handleSourceReset);
       v.removeEventListener('pause', handlePause);
     };
   }, [isLooping]);
 
   return {
     videoRef,
+    presentationClock: clockKey,
     currentTime,
     duration,
     isPlaying, isMediaAdvancing,

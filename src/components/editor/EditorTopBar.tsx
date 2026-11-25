@@ -20,6 +20,8 @@ interface EditorTopBarProps {
   onBack: () => void;
   saveStatus: SaveStatus;
   saveError: string | null;
+  saveConflict?: boolean;
+  onReloadLatest?: () => void;
   onSaveNow: () => void;
   canUndo: boolean;
   canRedo: boolean;
@@ -42,6 +44,8 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
   onBack,
   saveStatus,
   saveError,
+  saveConflict = false,
+  onReloadLatest,
   onSaveNow,
   canUndo,
   canRedo,
@@ -113,7 +117,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               setLocalTitle(title);
               setIsEditingTitle(true);
             }}
-            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[56px] min-[420px]:max-w-[90px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
+            className="text-sm font-semibold text-neutral-200 hover:text-white truncate max-w-[56px] max-[359px]:max-w-[24px] min-[420px]:max-w-[90px] sm:max-w-[280px] text-left hover:bg-white/[0.06] px-2 py-1 rounded transition"
             title="Click to rename"
           >
             {title || 'Untitled Clip'}
@@ -122,19 +126,19 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
 
         {/* Save Status Pill */}
         <div className="flex items-center ml-1">
-          {saveStatus === 'saving' && (
+          {!(saveConflict && onReloadLatest) && saveStatus === 'saving' && (
             <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-vc-surface1 text-[11px] font-mono text-neutral-400">
               <Loader2 className="w-3 h-3 animate-spin text-neutral-400" />
               <span>Saving...</span>
             </span>
           )}
-          {saveStatus === 'saved' && (
+          {!(saveConflict && onReloadLatest) && saveStatus === 'saved' && (
             <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 text-[11px] font-mono text-emerald-400">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>Saved</span>
             </span>
           )}
-          {saveStatus === 'dirty' && (
+          {!(saveConflict && onReloadLatest) && saveStatus === 'dirty' && (
             <button
               onClick={onSaveNow}
               className="flex items-center gap-1.5 px-2 py-0.5 whitespace-nowrap shrink-0 rounded-full bg-amber-950/40 border border-amber-800/40 text-[11px] font-mono text-amber-400 hover:bg-amber-900/40 transition"
@@ -144,7 +148,19 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               <span>Save<span className="hidden sm:inline"> now</span></span>
             </button>
           )}
-          {saveStatus === 'error' && (
+          {saveConflict && onReloadLatest && (
+            <button
+              onClick={onReloadLatest}
+              className="flex items-center gap-1.5 px-2 py-0.5 whitespace-nowrap shrink-0 rounded-full bg-rose-950/60 border border-rose-800/60 text-[11px] font-mono text-rose-400 hover:bg-rose-900/60 transition"
+              title="This project was saved elsewhere after you opened it. Your edits are kept on screen but cannot be saved over the newer version. Select to reload the latest saved version (your unsaved edits on this screen will be replaced)."
+              aria-label="Changed elsewhere. Your edits are kept on screen but cannot be saved. Reload the latest saved version."
+              role="alert"
+            >
+              <AlertTriangle className="w-3 h-3 text-rose-400" />
+              <span className="max-[359px]:hidden"><span className="sm:hidden">Conflict</span><span className="hidden sm:inline">Changed elsewhere · Reload latest</span></span>
+            </button>
+          )}
+          {saveStatus === 'error' && !(saveConflict && onReloadLatest) && (
             <button
               onClick={onSaveNow}
               className="flex items-center gap-1.5 px-2 py-0.5 whitespace-nowrap shrink-0 rounded-full bg-rose-950/60 border border-rose-800/60 text-[11px] font-mono text-rose-400 hover:bg-rose-900/60 transition"
@@ -153,7 +169,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
               role="alert"
             >
               <AlertTriangle className="w-3 h-3 text-rose-400" />
-              <span>Not saved<span className="hidden sm:inline"> · Retry</span></span>
+              <span className="max-[359px]:hidden">Not saved<span className="hidden sm:inline"> · Retry</span></span>
             </button>
           )}
         </div>

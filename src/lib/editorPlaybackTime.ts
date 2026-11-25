@@ -29,3 +29,14 @@ export function sourceToTimelineTime(slices: PlaybackSlice[], source: number, hi
 export function mediaTimeAdvanced(previous: number | null, current: number, paused: boolean): boolean {
   return !paused && previous !== null && Number.isFinite(previous) && Number.isFinite(current) && current > previous + .005;
 }
+
+/** Timeline time to publish when playback pauses: the video's own time mapped back to the timeline, rounded and clamped.
+ * Null when the video is mid-seek or any input is unusable (the caller then keeps the current playhead). */
+export function settledTimelineTime(
+  slices: PlaybackSlice[], videoTime: number, hintTime: number, offset: number, duration: number, seeking: boolean,
+): number | null {
+  if (seeking || !Number.isFinite(videoTime)) return null;
+  const raw = sourceToTimelineTime(slices, videoTime, hintTime, offset);
+  if (!Number.isFinite(raw) || !Number.isFinite(duration) || duration <= 0) return null;
+  return Math.max(0, Math.min(duration, Number(raw.toFixed(3))));
+}

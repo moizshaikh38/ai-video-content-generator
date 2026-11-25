@@ -35,6 +35,7 @@ import { clampCaptionFontSize } from '../shared/captionPresets.js';
 import { assFontsDirArg } from './editorFontFiles.js';
 import { canvasDims, parseRenderResolution, resolveEffectiveResolution, type EffectiveResolution } from '../shared/renderResolution.js';
 import type {CandidateCreationPreparation} from '../db/repositories/clipRepository.js';
+import {automaticFitFocusY} from '../shared/automaticFitGeometry.js';
 import { createClipWithJob } from '../db/repositories/clipRepository.js';
 import { isMongoConfigured, getMongoDb, getMongoClient } from '../db/mongoClient.js';
 import {renderRetryBudget} from '../shared/renderRetryBudget.js';
@@ -333,7 +334,7 @@ export function buildBlurFitChain(
   const axis = (upper: string, lower: string, v: number) => focus(v) === 0.5 ? `(${upper}-${lower})/2` : `(${upper}-${lower})*${focus(v)}`;
   return (
     `split=2[${tag}_bgs][${tag}_fgs];` +
-    `[${tag}_bgs]scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=${Math.round(25 * canvasScale)}:5,eq=brightness=-0.15:contrast=0.95[${tag}_bg];` +
+    `[${tag}_bgs]scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=${Math.round(25 * canvasScale)}:5,eq=brightness=-0.15:contrast=0.95,setsar=1[${tag}_bg];` +
     `[${tag}_fgs]scale=${ar.w}:${ar.h}:force_original_aspect_ratio=decrease${zoomFilter}[${tag}_fg];` +
     `[${tag}_bg][${tag}_fg]overlay=${axis('W', 'w', focusX)}:${axis('H', 'h', focusY)}`
   );
@@ -350,6 +351,8 @@ export interface CanvasBackdropSpec {
   cornerRadius?: number;
   /** When set (w/h, e.g. 4/3), the source is cover-cropped to this band before placement (Fit band). */
   bandAspect?: number;
+  /** Vertical band placement 0-1 on the canvas (0.5 = centered). Only used with bandAspect. */
+  bandPlaceY?: number;
   /** Crop focus 0-1 inside the source for the band crop. */
   focusX?: number;
   focusY?: number;
@@ -384,8 +387,8 @@ export function buildBackdropFitChain(
   const boxH = Math.max(2, ar.h - 2 * space);
   const fgW = Math.max(2, Math.round((boxW * z) / 2) * 2);
   const bg = spec.kind === 'color'
-    ? `scale=${ar.w}:${ar.h},drawbox=x=0:y=0:w=${ar.w}:h=${ar.h}:color=0x${normalizeBackdropHex(spec.color)}:t=fill`
-    : `scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=${Math.round(25 * cs)}:5,eq=brightness=-0.15:contrast=0.95`;
+    ? `scale=${ar.w}:${ar.h},drawbox=x=0:y=0:w=${ar.w}:h=${ar.h}:color=0x${normalizeBackdropHex(spec.color)}:t=fill,setsar=1`
+    : `scale=${ar.w}:${ar.h}:force_original_aspect_ratio=increase,crop=${ar.w}:${ar.h},boxblur=${Math.round(25 * cs)}:5,eq=brightness=-0.15:contrast=0.95,setsar=1`;
   // Zoom the contained frame, not the inset width, so tall sources do not jump to width-fit.
   const zoomFilter = z > 1 ? `,scale=trunc(iw*${z}/2)*2:trunc(ih*${z}/2)*2` : '';
   const fgScale = `scale=${boxW}:${boxH}:force_original_aspect_ratio=decrease${zoomFilter}`;
@@ -405,7 +408,7 @@ export function buildBackdropFitChain(
     `split=2[${tag}_bgs][${tag}_fgs];` +
     `[${tag}_bgs]${bg}[${tag}_bg];` +
     `[${tag}_fgs]${fg}[${tag}_fg];` +
-    `[${tag}_bg][${tag}_fg]overlay=(W-w)/2:(H-h)/2:format=auto`
+    `[${tag}_bg][${tag}_fg]overlay=(W-w)/2:${spec.bandAspect&&spec.bandAspect>0&&Number.isFinite(spec.bandPlaceY)?`(H-h)*${Math.min(1,Math.max(0,Number(spec.bandPlaceY))).toFixed(4)}`:'(H-h)/2'}:format=auto`
   );
 }
 
@@ -1603,7 +1606,7 @@ export class ClipRenderService {
     layoutMode: ReframeLayoutMode | string;
     track: Awaited<ReturnType<typeof SmartReframeService.getReframeTrack>>;
   }> {
-    const centerCrop = () => clip.crop_config?.layout_mode_source==='auto' ? buildBackdropFitChain(clip.aspect_ratio as ClipAspectRatio,1,{kind:'blur',bandAspect:4/3},'autosafe',canvasScale) : buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 }, canvasScale);
+    const centerCrop = () => clip.crop_config?.layout_mode_source==='auto' ? buildBackdropFitChain(clip.aspect_ratio as ClipAspectRatio,1,{kind:'blur',bandAspect:4/3,bandPlaceY:automaticFitFocusY(clip.aspect_ratio||'9:16')},'autosafe',canvasScale) : buildCropFilter(clip.aspect_ratio as ClipAspectRatio, { focusX: 0.5, focusY: 0.5 }, canvasScale);
 
     if (clip.crop_config?.mode === 'manual') {
       return { cropFilter: buildCropFilter(clip.aspect_ratio as ClipAspectRatio, clip.crop_config, canvasScale), mode: 'manual', layoutMode: 'manual', track: null };

@@ -105,6 +105,9 @@ export function applyPresetToEditorCaption(
   const freshFont=freshPresetTypography(presetId);
   return {
     cues: prev?.cues || [],
+    // Saved-cue coverage is project data, not preset style; losing it would let
+    // a deliberate empty edit or an extend boundary be re-derived on next load.
+    ...(typeof prev?.cues_covered_end === 'number' && Number.isFinite(prev.cues_covered_end) && prev.cues_covered_end >= 0 ? { cues_covered_end: prev.cues_covered_end } : {}),
     position: prev?.position || 'bottom',
     position_x:prev?.position_x,
     position_y:prev?.position_y,

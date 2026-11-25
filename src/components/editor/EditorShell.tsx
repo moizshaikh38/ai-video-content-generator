@@ -84,6 +84,7 @@ interface EditorShellProps {
   saveStatus: 'saved' | 'saving' | 'dirty' | 'error';
   persistedReframeSourceKey?: string | null;
   saveError: string | null;
+  saveConflict?: boolean;
   onSaveNow: () => void | Promise<boolean>;
   onUndo: () => void;
   onRedo: () => void;
@@ -119,6 +120,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
   saveStatus,
   persistedReframeSourceKey,
   saveError,
+  saveConflict = false,
   onSaveNow,
   onUndo,
   onRedo,
@@ -192,6 +194,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
     toggleSafeGuides,
     setPreviewQuality,
     formatTime,
+    presentationClock,
   } = useEditorPlayback({
     sourceClockCandidate:isCleanSource&&adaptivePlanExpected,
     initialDuration: project.canvas.duration || 30,
@@ -1643,6 +1646,10 @@ export const EditorShell: React.FC<EditorShellProps> = ({
         onBack={guardedBack}
         saveStatus={saveStatus}
         saveError={saveError}
+        saveConflict={saveConflict}
+        onReloadLatest={() => {
+          if (window.confirm('This project was changed elsewhere. Reload the latest saved version? Your unsaved changes on this screen will be replaced.')) void onReloadData();
+        }}
         onSaveNow={onSaveNow}
         canUndo={canUndo}
         canRedo={canRedo}
@@ -2060,6 +2067,7 @@ export const EditorShell: React.FC<EditorShellProps> = ({
             </div>
           )}
           <PreviewCanvas
+            presentationClock={presentationClock}
             geometryOutputSize={geometryOutputSize}
             automaticPlanReviewRequired={automaticPlanReviewRequired}
             project={project}

@@ -4,6 +4,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
@@ -42,7 +43,7 @@ import {
 import { CaptionService } from '../services/captionService.js';
 import { ClipRenderService } from '../services/clipRenderService.js';
 import { ProEditorService } from '../services/proEditorService.js';
-import { dataRepository } from '../db/repositories/dataRepository.js';
+import { getMongoDb, isMongoConfigured, closeMongo } from '../db/mongoClient.js';
 import type { ClipRecord, EditorCaptionItem } from '../types/index.js';
 
 const execFileAsync = promisify(execFile);
@@ -418,13 +419,21 @@ describe('Caption presets: preview ↔ export mapping', () => {
   });
 });
 
-describe('Caption presets: persistence through updateClipEditorConfig', () => {
+// The product saves through a Mongo transactional revision write
+// (syncClipEditorRevision), so this block seeds one real clip row instead of
+// mocking a supabase-style chain. Requires MONGODB_URI and MONGODB_DB_NAME.
+describe('Caption presets: persistence through updateClipEditorConfig', { skip: !isMongoConfigured && 'requires MONGODB_URI and MONGODB_DB_NAME' }, () => {
   const originalGetClip = ClipRenderService.getClip;
-  const originalFrom = dataRepository.from;
   let stored: ClipRecord;
+  const projectId = crypto.randomUUID();
+  const readStored = async (): Promise<ClipRecord> => {
+    const { _id, ...row } = (await (await getMongoDb()).collection('clips').findOne({ id: stored.id })) as any;
+    return row as ClipRecord;
+  };
 
-  before(() => {
+  before(async () => {
     stored = baseClip({
+      id: crypto.randomUUID(),
       caption_style: 'mozi',
       caption_config: {
         presetId: 'mozi',
@@ -432,23 +441,21 @@ describe('Caption presets: persistence through updateClipEditorConfig', () => {
         caption_overrides: [{ cueId: 'cue-1', text: 'Fixed text' }],
       },
     });
-    (ClipRenderService as any).getClip = async () => stored;
-    (dataRepository as any).from = (table: string) => {
-      assert.equal(table, 'clips');
-      let payload: any;
-      const q: any = {
-        update(p: any) { payload = p; return q; },
-        eq() { return q; },
-        select() { return q; },
-        async single() { stored = { ...stored, ...payload }; return { data: stored, error: null }; },
-      };
-      return q;
-    };
+    const db = await getMongoDb();
+    await db.collection('clips').insertOne({ ...stored });
+    // Minimal owned editor project at version 2, so a submitted version 1 is genuinely stale.
+    await db.collection('editor_projects').insertOne({ id: projectId, clip_id: stored.id, user_id: stored.user_id, version: 2 });
+    (ClipRenderService as any).getClip = async () => readStored();
   });
 
-  after(() => {
+  after(async () => {
     (ClipRenderService as any).getClip = originalGetClip;
-    (dataRepository as any).from = originalFrom;
+    if (isMongoConfigured) {
+      const db = await getMongoDb();
+      await db.collection('clips').deleteOne({ id: stored.id, user_id: stored.user_id });
+      await db.collection('editor_projects').deleteOne({ id: projectId, clip_id: stored.id });
+      await closeMongo();
+    }
   });
 
   it('saves the stable preset ID, replaces stale preset adjustments and keeps cue corrections', async () => {
@@ -474,6 +481,27 @@ describe('Caption presets: persistence through updateClipEditorConfig', () => {
     assert.equal(CaptionService.resolveClipPreset(saved.caption_style, saved.caption_config)?.presetId, 'simple');
   });
 
+  it('revision guard retained: an existing owned project at a newer version refuses a stale submitted version; clip and project unchanged', async () => {
+    const db = await getMongoDb();
+    const clipBefore = await readStored();
+    const projectBefore = await db.collection('editor_projects').findOne({ id: projectId });
+    await assert.rejects(
+      ClipRenderService.updateClipEditorConfig(stored.id, 'user-1', { captionStyle: 'simple', editorProjectRevision: { id: projectId, version: 1 } }),
+      (err: any) => err.code === 'EDITOR_REVISION_CONFLICT'
+    );
+    assert.deepEqual(await readStored(), clipBefore);
+    assert.deepEqual(await db.collection('editor_projects').findOne({ id: projectId }), projectBefore);
+  });
+
+  it('revision guard retained: a missing project id is refused and the clip is unchanged', async () => {
+    const before = await readStored();
+    await assert.rejects(
+      ClipRenderService.updateClipEditorConfig(stored.id, 'user-1', { captionStyle: 'simple', editorProjectRevision: { id: crypto.randomUUID(), version: 1 } }),
+      (err: any) => err.code === 'EDITOR_REVISION_CONFLICT'
+    );
+    assert.deepEqual(await readStored(), before);
+  });
+
   it('still rejects unknown caption styles (existing API behavior)', async () => {
     await assert.rejects(
       ClipRenderService.updateClipEditorConfig(stored.id, 'user-1', { captionStyle: 'sparkles' as any }),
@@ -482,7 +510,7 @@ describe('Caption presets: persistence through updateClipEditorConfig', () => {
   });
 
   it('No Caption: captionEnabled=false is saved without touching style or other settings', async () => {
-    const before = { ...stored };
+    const before = await readStored();
     const saved = await ClipRenderService.updateClipEditorConfig(stored.id, 'user-1', { captionEnabled: false });
     assert.equal(saved.caption_enabled, false);
     assert.equal(saved.caption_style, before.caption_style);
