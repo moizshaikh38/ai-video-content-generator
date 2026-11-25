@@ -59,7 +59,7 @@ test('R2 adapter streams private files and deletes objects by key or prefix', as
   await writeFile(input, Buffer.from('video bytes'));
   const key = 'users/test/projects/test/source/example.mp4';
   await storage.uploadFile('source', key, input, 11, 'video/mp4');
-  assert.deepEqual(await storage.headObject('source', key), { size: 11, contentType: 'video/mp4' });
+  assert.deepEqual(await storage.headObject('source', key), { size: 11, contentType: 'video/mp4', etag: undefined, versionId: undefined });
   await storage.downloadObjectToFile('source', key, output);
   assert.equal((await readFile(output)).toString(), 'video bytes');
   const preview = await storage.signObjectGet('source', key);

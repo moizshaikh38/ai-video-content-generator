@@ -476,10 +476,21 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
       error: message,
     });
 
+    const isExplicitUserCode = typeof err.code === 'string' && (
+      err.code.startsWith('YOUTUBE_') ||
+      err.code.startsWith('PLATFORM_IMPORT_') ||
+      err.code === 'FILE_SIZE_EXCEEDED' ||
+      err.code === 'NO_VIDEO_STREAM' ||
+      err.code === 'DURATION_EXCEEDED' ||
+      err.code === 'LIVE_SOURCE_NOT_SUPPORTED'
+    );
+    const safeCode = isExplicitUserCode ? err.code : (status >= 500 ? 'INTERNAL_ERROR' : code);
+    const safeMessage = isExplicitUserCode ? err.message : (status >= 500 ? 'Internal server error' : message);
+
     res.status(status).json({
       status: 'error',
-      code: status >= 500 ? 'INTERNAL_ERROR' : code,
-      message: status >= 500 ? 'Internal server error' : message,
+      code: safeCode,
+      message: safeMessage,
     });
   }
 }

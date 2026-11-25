@@ -35,9 +35,8 @@ async function runYouTubeSmokeTest() {
     'Content-Type': 'application/json'
   };
 
-  // Step 2: Ingest YouTube URL via POST /api/projects/ingest-url
-  // Using public historic first YouTube video: "Me at the zoo" (19 seconds, ~533KB)
-  const ytUrl = 'https://www.youtube.com/watch?v=jNQXAC9IVRw';
+  // Using public historic Steve Jobs 2005 speech slice (45s) so duration satisfies the 20s clipping minimum
+  const ytUrl = 'https://www.youtube.com/watch?v=UF8uR6Z6KLc';
   console.log(`2. [INGEST] Calling /api/projects/ingest-url with YouTube URL: ${ytUrl}`);
 
   const ingestRes = await fetch('http://localhost:5000/api/projects/ingest-url', {
@@ -45,8 +44,10 @@ async function runYouTubeSmokeTest() {
     headers: authHeaders,
     body: JSON.stringify({
       url: ytUrl,
-      title: 'YouTube Ingest E2E Test - Me at the zoo',
-      notes: 'Testing real Phase 7 YouTube URL ingestion & pipeline'
+      title: 'YouTube Ingest E2E Test - Steve Jobs Speech',
+      notes: 'Testing real Phase 7 YouTube URL ingestion & pipeline',
+      startTimeSec: 0,
+      endTimeSec: 90
     })
   });
 
@@ -115,12 +116,39 @@ async function runYouTubeSmokeTest() {
 
   // Step 7: Analyze Clips (Phase 10)
   console.log('\n7. [AI CLIP FINDER] Analyzing transcript for clip candidates...');
-  const analyzeClipsRes = await fetch(`http://localhost:5000/api/projects/${projectId}/analyze-clips`, {
+  let analyzeClipsRes = await fetch(`http://localhost:5000/api/projects/${projectId}/analyze-clips`, {
     method: 'POST',
     headers: authHeaders,
+    body: JSON.stringify({
+      clip_preferences: {
+        preferredDurations: 'auto',
+        targetClipCount: 3
+      }
+    })
   });
-  const analyzeClipsJson = await analyzeClipsRes.json() as any;
-  const candidates = analyzeClipsJson.candidates || [];
+  let analyzeClipsJson = await analyzeClipsRes.json() as any;
+  if (analyzeClipsRes.status !== 200) {
+    throw new Error(`Analyze clips failed (${analyzeClipsRes.status}): ${JSON.stringify(analyzeClipsJson)}`);
+  }
+  let candidates = analyzeClipsJson.candidates || [];
+  if (!candidates.length) {
+    console.log('   Retrying clip analysis once...');
+    analyzeClipsRes = await fetch(`http://localhost:5000/api/projects/${projectId}/analyze-clips`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        clip_preferences: {
+          preferredDurations: 'auto',
+          targetClipCount: 3
+        }
+      })
+    });
+    analyzeClipsJson = await analyzeClipsRes.json() as any;
+    if (analyzeClipsRes.status !== 200) {
+      throw new Error(`Analyze clips retry failed (${analyzeClipsRes.status}): ${JSON.stringify(analyzeClipsJson)}`);
+    }
+    candidates = analyzeClipsJson.candidates || [];
+  }
   console.log('   Clip candidates returned:', candidates.length);
   if (!candidates.length) throw new Error('No clip candidates returned');
   const candidate = candidates[0];
@@ -155,7 +183,7 @@ async function runYouTubeSmokeTest() {
   }
 
   let clipStatus = '';
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 90; i++) {
     await new Promise(r => setTimeout(r, 2000));
     const cCheck = await fetch(`http://localhost:5000/api/clips/${clip.id}`, { headers: authHeaders });
     const cJson = await cCheck.json() as any;

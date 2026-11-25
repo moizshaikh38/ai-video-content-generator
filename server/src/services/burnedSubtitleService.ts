@@ -67,7 +67,9 @@ export class BurnedSubtitleService {
     const run=async(binary:string,args:string[])=>{
       if(input.signal?.aborted)throw input.signal.reason;
       const timeoutMs=Math.min(2500,deadline-Date.now());if(timeoutMs<=0)throw Error('Review budget exhausted');
-      return supervisedExecFile(binary==='tesseract'?'env':binary,binary==='tesseract'?['OMP_THREAD_LIMIT=1',binary,...args]:args,{timeoutMs,maxBuffer:1024*1024,signal:input.signal});
+      return process.platform==='linux'
+        ? supervisedExecFile(binary==='tesseract'?'env':binary,binary==='tesseract'?['OMP_THREAD_LIMIT=1',binary,...args]:args,{timeoutMs,maxBuffer:1024*1024,signal:input.signal})
+        : execFileAsync(binary==='tesseract'?'env':binary,binary==='tesseract'?['OMP_THREAD_LIMIT=1',binary,...args]:args,{timeout:timeoutMs,maxBuffer:1024*1024,signal:input.signal});
     };
     try{
       const paths:string[]=[];
@@ -83,7 +85,7 @@ export class BurnedSubtitleService {
       return bind(result);
     }catch(error:any){
       if(error?.code==='PROCESS_STOP_UNVERIFIED')stopVerified=false;
-      if(input.signal?.aborted||['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED','SUPERVISION_UNAVAILABLE'].includes(error?.code))throw error;
+      if(input.signal?.aborted||['WORK_CANCELLED','PROCESS_STOP_UNVERIFIED'].includes(error?.code)||(process.platform==='linux'&&error?.code==='SUPERVISION_UNAVAILABLE'))throw error;
       return bind(unknown);
     }finally{if(stopVerified){await fs.rm(dir,{recursive:true,force:true});this.reviewBusy=false;}}
   }

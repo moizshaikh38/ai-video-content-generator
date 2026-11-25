@@ -708,11 +708,6 @@ export class SmartReframeService {
         console.log(`[DBGSHOT] shot ${shot.start}-${shot.end} samples=${shotSamples.length} dominant=${shotDominantTrackId} global=${dominantTrackId} tracks: ${dbg.join(' | ')}`);
       }
 
-      if (process.env.SMART_REFRAME_DEBUG_SHOTS === '1') {
-        const dbg = Array.from(shotTracks.entries()).map(([id, dets]) => `${id}:n=${dets.length},cx=${(dets.reduce((s, d) => s + d.center_x, 0) / dets.length).toFixed(3)},area=${(dets.reduce((s, d) => s + d.width * d.height, 0) / dets.length).toFixed(4)}`);
-        console.log(`[DBGSHOT] shot ${shot.start}-${shot.end} samples=${shotSamples.length} dominant=${shotDominantTrackId} global=${dominantTrackId} tracks: ${dbg.join(' | ')}`);
-      }
-
       // Build raw trajectory for this shot
       const rawShotTraj: ShotTrajectoryPoint[] = [];
       let lastSeenFace: NormalizedFaceDetection | null = null;

@@ -13,6 +13,7 @@ import {YOUTUBE_SOURCE_FORMAT,YOUTUBE_SOURCE_FORMAT_SORT} from '../utils/youtube
 import {withNewProjectFraming} from '../shared/newProjectFraming.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
@@ -403,7 +404,10 @@ export class UrlIngestionService {
     if (process.env.PYTHON_PATH && fs.existsSync(process.env.PYTHON_PATH)) {
       return process.env.PYTHON_PATH;
     }
+    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
     const candidates = [
+      path.resolve(moduleDir, '../../python/.venv/bin/python'),
+      path.resolve(moduleDir, '../../python/.venv/Scripts/python.exe'),
       path.resolve(process.cwd(), 'python_embed/python.exe'),
       path.resolve(process.cwd(), 'server/python_embed/python.exe'),
       path.resolve(process.cwd(), '../server/python_embed/python.exe'),
@@ -433,7 +437,12 @@ export class UrlIngestionService {
       return { command: process.env.YT_DLP_PATH, prefixArgs: [] };
     }
 
+    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
     const standaloneCandidates = [
+      path.resolve(moduleDir, '../../python/.venv/bin/yt-dlp'),
+      path.resolve(moduleDir, '../../python/.venv/Scripts/yt-dlp.exe'),
+      path.resolve(moduleDir, '../../yt-dlp'),
+      path.resolve(moduleDir, '../../yt-dlp.exe'),
       path.resolve(process.cwd(), 'yt-dlp'),
       path.resolve(process.cwd(), 'server/yt-dlp'),
       path.resolve(process.cwd(), '../server/yt-dlp'),
@@ -444,6 +453,9 @@ export class UrlIngestionService {
       path.resolve(process.cwd(), '../server/python/.venv/bin/yt-dlp'),
       path.resolve(process.cwd(), 'python/.venv/Scripts/yt-dlp.exe'),
       path.resolve(process.cwd(), 'server/python/.venv/Scripts/yt-dlp.exe'),
+      '/usr/local/bin/yt-dlp',
+      '/opt/homebrew/bin/yt-dlp',
+      '/usr/bin/yt-dlp',
     ];
 
     for (const bin of standaloneCandidates) {

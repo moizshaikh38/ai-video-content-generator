@@ -88,6 +88,7 @@ test('Mongo repositories, ownership, indexes, and quota concurrency', { timeout:
       if (!object) { response.statusCode = 404; response.end(); return; }
       response.setHeader('Content-Length', String(object.body.length));
       response.setHeader('Content-Type', object.contentType);
+      response.setHeader('ETag', '"fixture"');
       response.end(); return;
     }
     response.statusCode = 404; response.end();
@@ -111,6 +112,8 @@ test('Mongo repositories, ownership, indexes, and quota concurrency', { timeout:
   const { replaceContentOutputs } = await import('../db/repositories/contentOutputRepository.js');
   const { replaceSuggestedCandidates } = await import('../db/repositories/clipCandidateRepository.js');
   const { claimProjectProcessing } = await import('../db/repositories/projectRepository.js');
+  const { selectionSourceReceipt } = await import('../shared/selectionSourceReceipt.js');
+  const { transcriptContentIdentity } = await import('../shared/transcriptSourceBinding.js');
   t.after(async () => { await closeMongo(); });
   await bootstrapMongo();
 
@@ -220,7 +223,13 @@ test('Mongo repositories, ownership, indexes, and quota concurrency', { timeout:
   assert.equal(claims.filter(Boolean).length, 1);
   await ownerContext.run(user, async () => { await dataRepository.from('projects').update({ video_status: 'uploaded' }).eq('id', projectId); });
   await ownerContext.run(user, async () => {
-    await dataRepository.from('clip_candidates').update({ start_seconds: 0, end_seconds: 20 }).eq('id', candidateId);
+    const proj = await dataRepository.from('projects').select('source_url').eq('id', projectId).single();
+    const key = proj.data.source_url;
+    const tRec = await dataRepository.from('transcripts').select('*').eq('project_id', projectId).single();
+    const tData: any = { ...tRec.data };
+    tData.source_binding = { version: 1, source_receipt: { key, size: 100, etag: '"fixture"', sha256: 'a'.repeat(64) }, prepared_audio_sha256: 'b'.repeat(64), requests: [{ sha256: 'b'.repeat(64), bytes: 100, status: 'completed' }], transcript_content_sha256: transcriptContentIdentity(tData) };
+    await (await getMongoDb()).collection('transcripts').updateOne({ project_id: projectId }, { $set: { source_binding: tData.source_binding } });
+    await dataRepository.from('clip_candidates').update({ start_seconds: 0, end_seconds: 20, metadata: { selection_source_receipt: selectionSourceReceipt(tData, key) } }).eq('id', candidateId);
     const pair = await createClipWithJob(projectId, candidateId, user, '9:16', 'center',undefined,undefined,{kind:'unlimited'});
     assert.equal(pair.clip.candidate_id, candidateId);
     assert.equal(pair.renderJob.clip_id, pair.clip.id);
