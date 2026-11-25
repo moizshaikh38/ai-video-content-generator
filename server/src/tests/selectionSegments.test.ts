@@ -28,3 +28,49 @@ test('one millisecond provider boundary rounding uses unchanged word clocks, nev
  const ss=[{start:0,end:.999,text:'First.'},{start:.999,end:2,text:'Second.'}],ww=[{word:'First.',start:0,end:1},{word:'Second.',start:1,end:2}];assert.equal(derive(ss,ww).changed,false,'expanded word envelope may not overlap the next provider segment');
  const overlapping=[{...ss[0]},{...ss[1],start:.999, text:'Second.'}];const ow=[ww[0],{...ww[1],start:.999}];assert.equal(derive(overlapping,ow).changed,false,'real word overlap is never repaired');
 });
+
+test('selection-time bounded envelope splits coarse Whisper segments with 100ms end skew while rejecting neighbor overlap',()=>{
+ const coarse=[
+  {start:0,end:18.22,text:'First sentence. Second sentence!'},
+  {start:30,end:50.94,text:'Third sentence. Unfinished tail'},
+ ];
+ const coarseWords=[
+  {word:'First',start:0.78,end:1.1},
+  {word:'sentence.',start:1.1,end:2.12},
+  {word:'Second',start:14.8,end:15.3},
+  {word:'sentence!',start:17.8,end:18.32},
+  {word:'Third',start:30,end:30.5},
+  {word:'sentence.',start:30.5,end:47.54},
+  {word:'Unfinished',start:49.48,end:49.9},
+  {word:'tail',start:49.9,end:50.48},
+ ];
+ // Default 1ms persistence contract remains unchanged
+ assert.equal(derive(coarse,coarseWords).changed,false);
+ // Bounded selection-time reconciliation splits into 4 sentence units
+ const refined=derive(coarse,coarseWords,{maxBoundarySkewSec:0.5});
+ assert.equal(refined.changed,true);
+ assert.deepEqual(refined.segments.map(s=>[s.start,s.end,s.text]),[
+  [0,2.12,'First sentence.'],
+  [14.8,18.32,'Second sentence!'],
+  [30,47.54,'Third sentence.'],
+  [49.48,50.94,'Unfinished tail'],
+ ]);
+ // Still rejects if expanding past segment.end would overlap the next segment
+ const colliding=[coarse[0],{...coarse[1],start:18.25}];
+ assert.equal(derive(colliding,coarseWords,{maxBoundarySkewSec:0.5}).changed,false);
+});
+
+test('0.5s boundary-skew tolerance enforces exact limits, ordering, missing words, and leading-word bounds',()=>{
+ const baseSeg=[{start:1.0,end:5.0,text:'Alpha. Beta.'}];
+ // 250ms and exact 500ms trailing skew pass; 501ms fails
+ assert.equal(derive(baseSeg,[{word:'Alpha.',start:1.0,end:2.0},{word:'Beta.',start:3.0,end:5.25}],{maxBoundarySkewSec:0.5}).changed,true);
+ assert.equal(derive(baseSeg,[{word:'Alpha.',start:1.0,end:2.0},{word:'Beta.',start:3.0,end:5.5}],{maxBoundarySkewSec:0.5}).changed,true);
+ assert.equal(derive(baseSeg,[{word:'Alpha.',start:1.0,end:2.0},{word:'Beta.',start:3.0,end:5.501}],{maxBoundarySkewSec:0.5}).changed,false);
+ // Leading-word skew: 500ms before segment.start passes; 501ms fails
+ assert.equal(derive(baseSeg,[{word:'Alpha.',start:0.5,end:2.0},{word:'Beta.',start:3.0,end:5.0}],{maxBoundarySkewSec:0.5}).changed,true);
+ assert.equal(derive(baseSeg,[{word:'Alpha.',start:0.499,end:2.0},{word:'Beta.',start:3.0,end:5.0}],{maxBoundarySkewSec:0.5}).changed,false);
+ // Incorrect word ordering fails even within 0.5s
+ assert.equal(derive(baseSeg,[{word:'Alpha.',start:2.5,end:3.5},{word:'Beta.',start:2.0,end:4.0}],{maxBoundarySkewSec:0.5}).changed,false);
+ // Missing word in words array fails exact text agreement
+ assert.equal(derive(baseSeg,[{word:'Alpha.',start:1.0,end:2.0}],{maxBoundarySkewSec:0.5}).changed,false);
+});

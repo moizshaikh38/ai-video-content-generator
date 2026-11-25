@@ -1257,6 +1257,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
       if (!request.signal.aborted) navigate(`/clips/${targetClipId}/edit`);
     } catch (err: any) {
       if (!request.signal.aborted) {
+        if (err?.code === 'COLD_OPEN_TIMING_REVIEW_REQUIRED') setCreationRecoveryTarget(null);
         setErrorMessage(err.message || 'Failed to prepare clip for editor.');
         setWorkflowState('error');
       }

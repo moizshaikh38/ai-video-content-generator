@@ -19,3 +19,34 @@ test('actual editor aggregate propagates teaser review failure and controller re
 
 test('matched final transcript segment owns interval even with absent or rounded-low duration',()=>{for(const duration_seconds of [undefined,null,6.99,7,8]){const t={...transcript,duration_seconds,segments:[transcript.segments[0],{...transcript.segments[1],start:5.0001,end:7.0049}]};const c={...clip,cold_open:{...clip.cold_open,start_seconds:5,end_seconds:7.005,duration_seconds:2}};const editor=P.buildInitialCandidateEditor(c,'fixture',t);assert.equal(editor.tracks.find(x=>x.type==='VIDEO')!.items[0].timeline_end,2.005);}});
 test('unmatched reversed nonfinite source segment evidence cannot admit a teaser',()=>{for(const segment of [{start:5,end:7.001},{start:7,end:5},{start:NaN,end:7},{start:5,end:Infinity},{start:'5',end:7}])assert.throws(()=>cues(clip,{...transcript,segments:[segment]}),/Cold-open timing/);});
+
+test('fresh editor initialization validates cold-open teaser against sentence-refined selection segments when coarse provider segments hold matching words',()=>{
+  const coarseTranscript={
+    duration_seconds:50.94,
+    text:'Way too close dude. All I did was throw a chameleon at him! Wait, I think bro.',
+    segments:[
+      {start:0,end:18.22,text:'Way too close dude.'},
+      {start:30,end:50.94,text:'All I did was throw a chameleon at him! Wait, I think bro.'},
+    ],
+    words:[
+      {word:'Way',start:0.78,end:0.96},{word:'too',start:0.96,end:1.16},{word:'close',start:1.16,end:1.6},{word:'dude.',start:1.6,end:18.32},
+      {word:'All',start:30,end:30.2},{word:'I',start:30.2,end:30.3},{word:'did',start:30.3,end:30.5},{word:'was',start:30.5,end:30.7},
+      {word:'throw',start:30.7,end:31},{word:'a',start:31,end:31.1},{word:'chameleon',start:31.1,end:31.6},{word:'at',start:31.6,end:31.8},{word:'him!',start:31.8,end:32.06},
+      {word:'Wait,',start:49.48,end:49.86},{word:'I',start:49.86,end:49.98},{word:'think',start:49.98,end:50.18},{word:'bro.',start:50.18,end:50.48},
+    ],
+  };
+  const coarseClip:any={
+    ...clip,
+    start_seconds:0.78,end_seconds:32.06,duration_seconds:31.28,
+    cold_open:{enabled:true,start_seconds:30,end_seconds:32.06,duration_seconds:2.06,teaser_text:'All I did was throw a chameleon at him!',transition_effect:'whoosh'},
+  };
+  const editor=P.buildInitialCandidateEditor(coarseClip,'fixture',coarseTranscript);
+  const video=editor.tracks.find(x=>x.type==='VIDEO')!.items;
+  assert.equal(video[0].source_start,30);
+  assert.equal(video[0].source_end,32.06);
+  assert.equal(video[0].timeline_start,0);
+  assert.equal(video[0].timeline_end,2.06);
+  assert.equal(editor.canvas.duration,33.34);
+  // Mismatched duration still fails even when coarse segments are refined
+  assert.throws(()=>P.buildInitialCandidateEditor({...coarseClip,cold_open:{...coarseClip.cold_open,duration_seconds:3}},'fixture',coarseTranscript),/Cold-open timing/);
+});

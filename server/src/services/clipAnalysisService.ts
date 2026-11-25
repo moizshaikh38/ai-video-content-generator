@@ -1,4 +1,5 @@
-import {finalSpeechAdmissionEvidence,admittedFinalSpeechIds,finalSpeechAdmissionPrompt,finalSpeechAdmissionEnabled} from '../shared/finalSpeechAdmission.js';
+import { deriveSelectionSegments } from './transcription/selectionSegments.js';
+import { finalSpeechAdmissionEvidence,admittedFinalSpeechIds,finalSpeechAdmissionPrompt,finalSpeechAdmissionEnabled } from '../shared/finalSpeechAdmission.js';
 import {assertSelectionProjectActive} from './selectionProviderAdmissionService.js';
 import {selectionSourceReceiptMatches} from '../shared/selectionSourceReceipt.js';
 import {settleClipSelectionWindows} from '../shared/settleClipSelectionWindows.js';
@@ -690,6 +691,20 @@ export class ClipAnalysisService {
           : Array.isArray(rawSegments)
           ? rawSegments.flatMap((s: any) => (Array.isArray(s?.words) ? s.words : []))
           : [];
+
+      // Refine coarse provider segments into sentence-level selection units when
+      // exact word text and non-overlapping ordered clocks agree within Whisper's
+      // normal segment-boundary rounding envelope (up to 0.5s, never overlapping).
+      const derivedSelection = rawWords.length > 0
+        ? deriveSelectionSegments(segments, rawWords, { maxBoundarySkewSec: 0.5 })
+        : null;
+      if (derivedSelection?.changed) {
+        segments.splice(
+          0,
+          segments.length,
+          ...derivedSelection.segments.map((s) => ({ start: s.start, end: s.end, text: s.text }))
+        );
+      }
 
       // 3. Fetch optional creator profile for persona guidance and optional multimodal timeline
       let creatorProfile: CreatorProfileData | null = null;

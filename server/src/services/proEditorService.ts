@@ -2,6 +2,7 @@ import {cutLocalRecoveryTimelineEligible} from '../shared/cutLocalRecoveryTimeli
 import {producerItemPunch} from '../shared/producerItemPunch.js';
 import {duplicateCaptionPayload} from '../shared/duplicateCaptionPayload.js';
 import {constantSpeedSourceSplit} from '../shared/constantSpeedSourceSplit.js';
+import {deriveSelectionSegments} from './transcription/selectionSegments.js';
 import {freshColdOpenInterval} from '../shared/freshColdOpenInterval.js';
 import {assertManualPlacement,assertPlacementTree,manualPlacementFilter} from '../shared/manualVideoPlacement.js';
 import {splitReviewItemCropConfig} from '../shared/automaticSplitEvidence.js';
@@ -2546,7 +2547,14 @@ export class ProEditorService {
     let trimEnd = clip.trim_end_offset || 0;
     let duration = rawDuration - trimStart - trimEnd;
 
-    const teaserInterval=freshColdOpenInterval(clip.cold_open,transcript?.segments);
+    const rawSegments = Array.isArray(transcript?.segments) ? transcript.segments : [];
+    const refinedSelection = rawSegments.length > 0 && Array.isArray(transcript?.words) && transcript.words.length > 0
+      ? deriveSelectionSegments(rawSegments, transcript.words, { maxBoundarySkewSec: 0.5 })
+      : null;
+    const coldOpenSegments = refinedSelection?.changed
+      ? [...rawSegments, ...refinedSelection.segments]
+      : transcript?.segments;
+    const teaserInterval=freshColdOpenInterval(clip.cold_open,coldOpenSegments);
     const hasColdOpen = Boolean(teaserInterval);
     const teaserDuration = teaserInterval?.duration??0;
     const finalDuration = Number((hasColdOpen ? duration + teaserDuration : duration).toFixed(3));

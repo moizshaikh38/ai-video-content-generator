@@ -16,8 +16,14 @@ const terminal = /[.!?。！？।]["'”’»)]*$/u;
  * are required. At most one millisecond of provider segment/word rounding may
  * expand a segment boundary to its real word clock; words never move. Any real
  * overlap or larger discrepancy preserves the entire original segmentation. */
-export function deriveSelectionSegments(segments: NormalizedTranscriptSegment[], words: NormalizedTranscriptWord[]): SelectionSegmentDerivation {
+export function deriveSelectionSegments(
+  segments: NormalizedTranscriptSegment[],
+  words: NormalizedTranscriptWord[],
+  options?: { maxBoundarySkewSec?: number }
+): SelectionSegmentDerivation {
   const unchanged = (): SelectionSegmentDerivation => ({segments, providerSegmentIndexes: segments.map((_, i) => i), changed: false});
+  const skew = options?.maxBoundarySkewSec;
+  const maxSkew = typeof skew === 'number' && Number.isFinite(skew) && skew >= 0 ? skew : 0.001000001;
   if (!segments.length || !words.length || !reliableOrderedClocks(segments, 0) || !reliableOrderedClocks(words, 0)) return unchanged();
   if (segments.some(s => typeof s.text !== 'string' || !s.text.trim()) || words.some(w => typeof w.word !== 'string' || !w.word.trim() || (w.kind && w.kind !== 'word'))) return unchanged();
   const output: NormalizedTranscriptSegment[] = [], indexes: number[] = [];
@@ -25,7 +31,7 @@ export function deriveSelectionSegments(segments: NormalizedTranscriptSegment[],
   for (let index = 0; index < segments.length; index++) {
     const segment = segments[index], from = cursor;
     while (cursor < words.length && words[cursor].start < segment.end) {
-      if (words[cursor].start < segment.start - .001000001 || words[cursor].end > segment.end + .001000001) return unchanged();
+      if (words[cursor].start < segment.start - maxSkew || words[cursor].end > segment.end + maxSkew) return unchanged();
       cursor++;
     }
     const local = words.slice(from, cursor);

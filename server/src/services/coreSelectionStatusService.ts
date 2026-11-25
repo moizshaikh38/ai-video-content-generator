@@ -107,20 +107,15 @@ export async function withSelectionOutcomeStatus<T extends Record<string, any>>(
     receipt.fence === project.clip_selection_fence
   );
 
-  // If a valid completion receipt identifies a bound completed job, a stale
-  // same-context queued job must not override that newer completion.
-  if (receiptFenceValid && receipt.selection_job_id) {
-    const completedByReceipt = boundJobs.find(
-      (j) => j.id === receipt.selection_job_id && j.status === 'completed'
-    );
-    if (completedByReceipt) {
-      boundJobs = [completedByReceipt];
-    }
-  }
-
+  // Without an immutable current-request pointer, never discard another bound
+  // job merely because a completion receipt matches one of the jobs, and never
+  // let a queued/processing job override or lose to a valid completion receipt.
   if (boundJobs.length === 1) {
     const soleJob = boundJobs[0];
     if (soleJob.status === 'queued' || soleJob.status === 'processing') {
+      if (receiptFenceValid) {
+        return reply({ state: 'unknown' });
+      }
       return reply({ state: 'selection_pending' });
     }
     if (!receiptFenceValid || receipt.selection_job_id !== soleJob.id) {

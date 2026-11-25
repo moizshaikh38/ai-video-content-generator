@@ -309,7 +309,10 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
       setKnownCreationCandidates(prev=>new Set([...prev,candidateId]));
       if(lifecycle===clipLifecycleRef.current)setCreationRecoveryTarget(null);
     } catch (err: any) {
-      if (lifecycle === clipLifecycleRef.current) setClipActionError(err.message || 'Failed to create clip.');
+      if (lifecycle === clipLifecycleRef.current) {
+        if (err?.code === 'COLD_OPEN_TIMING_REVIEW_REQUIRED') setCreationRecoveryTarget(null);
+        setClipActionError(err.message || 'Failed to create clip.');
+      }
     } finally {
       clipMutationLocksRef.current.delete(lockKey);
       if (lifecycle === clipLifecycleRef.current) setIsCreatingClip(null);

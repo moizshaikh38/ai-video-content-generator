@@ -198,22 +198,47 @@ test('withSelectionOutcomeStatus validates owner, source, context, fence, attemp
   const boundNotHidden = await withSelectionOutcomeStatus(makeFakeDb(transcript, [unboundNewerJob, activeStandaloneJob]), 'user-1', projectWithoutReceipt);
   assert.deepEqual(boundNotHidden.selection_outcome_status, { state: 'selection_pending' });
 
-  // Stale same-context queued job must NOT override a newer completion receipt for the bound completed job
-  const completedJob = { ...activeStandaloneJob, id: 'job-completed', status: 'completed' };
-  const staleQueuedJob = { ...activeStandaloneJob, id: 'job-stale-queued', status: 'queued' };
-  const projectWithCompletedReceipt = {
+  // Completed receipt A + completed job A + queued job B without immutable
+  // current-request proof -> unknown in both orderings
+  const completedJobA = { ...activeStandaloneJob, id: 'job-A', status: 'completed' };
+  const queuedJobB = { ...activeStandaloneJob, id: 'job-B', status: 'queued' };
+  const projectWithCompletedReceiptA = {
     ...baseProject,
     selection_completion_receipt: {
       ...baseProject.selection_completion_receipt,
-      selection_job_id: 'job-completed',
+      selection_job_id: 'job-A',
     },
   };
-  const staleNotOverride = await withSelectionOutcomeStatus(
-    makeFakeDb(transcript, [staleQueuedJob, completedJob]),
+  const completedAQueuedBOrder1 = await withSelectionOutcomeStatus(
+    makeFakeDb(transcript, [completedJobA, queuedJobB]),
     'user-1',
-    projectWithCompletedReceipt
+    projectWithCompletedReceiptA
   );
-  assert.deepEqual(staleNotOverride.selection_outcome_status, { state: 'completed_empty', savedCount: 0 });
+  assert.deepEqual(completedAQueuedBOrder1.selection_outcome_status, { state: 'unknown' });
+
+  const completedAQueuedBOrder2 = await withSelectionOutcomeStatus(
+    makeFakeDb(transcript, [queuedJobB, completedJobA]),
+    'user-1',
+    projectWithCompletedReceiptA
+  );
+  assert.deepEqual(completedAQueuedBOrder2.selection_outcome_status, { state: 'unknown' });
+
+  // Valid inline completion receipt + queued (or processing) job without
+  // immutable current-request proof -> unknown (queued job must not win)
+  const queuedStandaloneJob = { ...activeStandaloneJob, id: 'job-queued', status: 'queued' };
+  const inlinePlusQueued = await withSelectionOutcomeStatus(
+    makeFakeDb(transcript, [queuedStandaloneJob]),
+    'user-1',
+    baseProject
+  );
+  assert.deepEqual(inlinePlusQueued.selection_outcome_status, { state: 'unknown' });
+
+  const inlinePlusProcessing = await withSelectionOutcomeStatus(
+    makeFakeDb(transcript, [activeStandaloneJob]),
+    'user-1',
+    baseProject
+  );
+  assert.deepEqual(inlinePlusProcessing.selection_outcome_status, { state: 'unknown' });
 
   // Multiple bound jobs (out-of-order / ambiguous without an unambiguous completed receipt) -> unknown
   const multipleAmbiguous = await withSelectionOutcomeStatus(
