@@ -444,15 +444,6 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
       endTimeSec: endSec,
     });
 
-    if (rawPreferences) {
-      const normalized = GenreIntelligenceService.normalizePreferences(withNewProjectFraming(rawPreferences), notes);
-      await dataRepository
-        .from('projects')
-        .update({ clip_preferences: normalized })
-        .eq('id', result.projectId)
-        .eq('user_id', userId);
-    }
-
     const { data: project } = await dataRepository
       .from('projects')
       .select('*')

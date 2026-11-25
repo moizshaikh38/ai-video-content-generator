@@ -859,7 +859,7 @@ export class GenreIntelligenceService {
    * Normalizes incoming preferences, reconciling explicit input, legacy bracketed notes, and default fallbacks.
    */
   public static normalizePreferences(
-    input?: Partial<ClipPreferences>,
+    input?: Partial<ClipPreferences> & Record<string, any>,
     legacyNotes?: string | null
   ): ClipPreferences {
     let parsedAspect: ClipAspectRatio = '9:16';
@@ -938,17 +938,34 @@ export class GenreIntelligenceService {
         ? input.contentGoal
         : parsedGoal || defaultProfile.defaultGoal;
 
+    const rawSuggestedGenre = input?.suggestedGenre ?? input?.suggested_genre;
+    const suggestedGenre: ContentGenre | undefined =
+      typeof rawSuggestedGenre === 'string' && rawSuggestedGenre in this.GENRE_PROFILES
+        ? (rawSuggestedGenre as ContentGenre)
+        : undefined;
+    const rawConfidence = input?.genreConfidence ?? input?.genre_confidence;
+    const genreConfidence: number | undefined =
+      typeof rawConfidence === 'number' && Number.isFinite(rawConfidence) ? rawConfidence : undefined;
+    const rawSelectionMode = input?.genreSelectionMode ?? input?.genre_selection_mode;
+    const explicitSelectionMode: ClipPreferences['genreSelectionMode'] | undefined =
+      rawSelectionMode === 'auto' || rawSelectionMode === 'manual' || rawSelectionMode === 'suggested'
+        ? rawSelectionMode
+        : undefined;
+    const hasExplicitNonGeneralGenre = Boolean(
+      input?.genre && input.genre in this.GENRE_PROFILES && input.genre !== 'general'
+    );
+
     return {
       layoutPolicy:normalizeAutomaticLayoutPolicy(input?.layoutPolicy),
       framingDefaults: normalizeFramingDefaults(input?.framingDefaults),
       sourceLanguage: normalizeSourceLanguage(input?.sourceLanguage),
       genre: resolvedGenre,
-      // Selection-mode default follows the UI: 'auto' when no genre was chosen
-      // (enables classification), 'manual' when a client set an explicit genre
-      // but omitted the mode (preserves explicit intent).
-      genreSelectionMode: input?.genreSelectionMode || (input?.genre ? 'manual' : 'auto'),
-      suggestedGenre: input?.suggestedGenre,
-      genreConfidence: input?.genreConfidence,
+      // Selection-mode default follows the UI: 'auto' when no genre or only the
+      // default 'general' baseline was passed without an explicit mode; 'manual'
+      // when a client set a specific non-general genre or explicit 'manual' mode.
+      genreSelectionMode: explicitSelectionMode || (hasExplicitNonGeneralGenre ? 'manual' : 'auto'),
+      suggestedGenre,
+      genreConfidence,
       contentGoal: resolvedGoal,
       preferredDurations: normalizeDurationPreference(input?.preferredDurations ?? parsedDuration),
       autoHookTitle: input?.autoHookTitle === true,
