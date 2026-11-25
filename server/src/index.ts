@@ -12,7 +12,7 @@ import {databaseBootstrapAdmission} from './middleware/databaseBootstrapAdmissio
 import {setDatabaseBootstrapState} from './services/databaseBootstrapState.js';
 import {startRenderQueueWake} from './services/queue/renderQueueWake.js';
 import {coreProcessingDispatchEnabled,subtitleBurnDispatchEnabled,runsBackgroundWorkers,acceptsApiRequests,validateRuntimePolicy,renderSweepInterval,runsPublishingWorker,runsMultimodalWorker} from './services/runtimePolicy.js';
-import {workLifecycle,createShutdown,workAdmission} from './services/queue/workLifecycle.js';
+import {workLifecycle,createShutdown,workAdmission,createTrackedPoller} from './services/queue/workLifecycle.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -123,6 +123,7 @@ let clipSelectionTimer:ReturnType<typeof setInterval>|null=null;
 let coreProcessingTimer:ReturnType<typeof setInterval>|null=null;
 let subtitleBurnTimer: ReturnType<typeof setInterval> | null = null;
 let multimodalSweepTimer: ReturnType<typeof setInterval> | null = null;
+let dbRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
 
 if (process.env.NODE_ENV !== 'test') {
   // 1. Immediately bind HTTP port so Render and cloud port scanners detect open port in < 1 second
@@ -132,15 +133,18 @@ if (process.env.NODE_ENV !== 'test') {
   });
 
   // 2. Initialize database & background workers asynchronously
+  const bootstrapAttempt = new DatabaseBootstrapAttempt(() =>
+    workLifecycle.run('database-bootstrap', () => bootstrapMongo())
+  );
   const initDatabase = async () => {
     if (!isMongoConfigured) {
-      logger.info('MongoDB is not configured; running in degraded/stateless mode.');
+      setDatabaseBootstrapState('unconfigured');
+      logger.info('MongoDB is not configured; running in unconfigured/stateless mode.');
       return;
     }
 
     let mongoReady = false;
     const maxRetries = config.isProduction ? 2 : 3;
-    const bootstrapAttempt=new DatabaseBootstrapAttempt(()=>workLifecycle.run('database-bootstrap',()=>bootstrapMongo()));
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       if(workLifecycle.isDraining())return;
@@ -159,9 +163,22 @@ if (process.env.NODE_ENV !== 'test') {
           logger.warn(`Database connection attempt ${attempt}/${maxRetries} failed (${errMsg}). Retrying in 2s...`);
           await new Promise((resolve) => setTimeout(resolve, 2000));
         } else {
-          logger.error('Database bootstrap failed after retries. Operating in degraded mode (requests requiring DB will return 503).', { error: errMsg });
+          logger.error('Database bootstrap failed after retries. Scheduling background recovery (requests requiring DB will return 503 until recovered).', { error: errMsg });
         }
       }
+    }
+
+    if (!mongoReady && !workLifecycle.isDraining()) {
+      dbRecoveryTimer = setTimeout(() => {
+        dbRecoveryTimer = null;
+        if (!workLifecycle.isDraining()) {
+          void workLifecycle.run('database-recovery', initDatabase).catch((error) => {
+            logger.warn('Background database recovery attempt failed', { error: error instanceof Error ? error.message : String(error) });
+          });
+        }
+      }, 15_000);
+      dbRecoveryTimer.unref();
+      return;
     }
 
     if (mongoReady && runsBackgroundWorkers() && !workLifecycle.isDraining()) {
@@ -230,11 +247,14 @@ if (process.env.NODE_ENV !== 'test') {
       renderSweepTimer.unref();
 
       stopDurableWorkerAnnouncements=startDurableWorkerAnnouncements(await getMongoDb(),error=>logger.warn('Durable worker announcement failed',{error:String(error)}));
-      if(coreSelectionContinuationEnabled()){const deliver=()=>{if(!workLifecycle.isDraining()){void processNextAutomaticOneExport().catch(error=>logger.warn('Automatic export handoff failed',{error:String(error)}));}if(!workLifecycle.isDraining())void processNextCoreSelectionContinuation().catch(error=>logger.warn('Core selection continuation delivery failed',{error:String(error)}));};deliver();coreSelectionContinuationTimer=setInterval(deliver,5000);coreSelectionContinuationTimer.unref();}
-      if(clipSelectionDispatchEnabled()){const drainSelection=()=>{if(!workLifecycle.isDraining())void processNextClipSelectionJob().catch(error=>logger.warn('Selection queue drain failed',{error:String(error)}));};drainSelection();clipSelectionTimer=setInterval(drainSelection,5000);clipSelectionTimer.unref();}
+      if(coreSelectionContinuationEnabled()){
+        coreSelectionContinuationTimer=createTrackedPoller('core-selection-continuation',async()=>{await processNextAutomaticOneExport();await processNextCoreSelectionContinuation();},5000);
+      }
+      if(clipSelectionDispatchEnabled()){
+        clipSelectionTimer=createTrackedPoller('clip-selection-queue',()=>processNextClipSelectionJob(),5000);
+      }
       if(coreProcessingDispatchEnabled()){
-        const drainCore=()=>{if(!workLifecycle.isDraining())void processNextCoreProcessingJob().catch(error=>logger.warn('Core processing queue drain failed',{error:String(error)}));};
-        drainCore();coreProcessingTimer=setInterval(drainCore,5000);coreProcessingTimer.unref();
+        coreProcessingTimer=createTrackedPoller('core-processing-queue',()=>processNextCoreProcessingJob(),5000);
       }
 
       // Durable subtitle burns use a separate opt-in queue. One local drain at
@@ -295,6 +315,7 @@ if (process.env.NODE_ENV !== 'test') {
       stopPublishingWorker();
       stopAutopilotContinuationWorker();
       stopRenderWake?.();
+      if (dbRecoveryTimer) { clearTimeout(dbRecoveryTimer); dbRecoveryTimer = null; }
       for(const timer of[cleanupTimer,oauthCleanupTimer,renderSweepTimer,multimodalSweepTimer,subtitleBurnTimer,coreProcessingTimer,clipSelectionTimer,coreSelectionContinuationTimer])if(timer)clearInterval(timer);
     },
     closeHttp:()=>new Promise<void>((resolve,reject)=>{if(!server){resolve();return;}server.close(error=>error?reject(error):resolve());server.closeIdleConnections();}),

@@ -53,12 +53,10 @@ export function getUtcBillingResetDate(): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString();
 }
 
-const DEFAULT_UNLIMITED_EMAILS = ['vertexdigitals07@gmail.com', 'moizsh786786@gmail.com'];
-
 export function isUserUnlimited(email?: string): boolean {
+  if (config.isProduction) return false;
   if (!email) return false;
   const cleanEmail = email.trim().toLowerCase();
-  if (DEFAULT_UNLIMITED_EMAILS.includes(cleanEmail)) return true;
   if (!config.devUnlimitedUserEmail) return false;
   const configuredEmails = config.devUnlimitedUserEmail
     .split(',')

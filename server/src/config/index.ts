@@ -84,8 +84,11 @@ export const config = {
   processingStaleMinutes: parseInt(process.env.PROCESSING_STALE_MINUTES || '15', 10),
   maxVideoBytes: 2 * 1024 * 1024 * 1024, // Direct R2 PUT; processing still needs local disk capacity
   defaultMonthlyQuotaMinutes: parseInt(process.env.DEFAULT_MONTHLY_QUOTA_MINUTES || '15', 10),
-  // Development / Test Account Unlimited Processing Entitlement
-  devUnlimitedUserEmail: process.env.DEV_UNLIMITED_USER_EMAIL || 'vertexdigitals07@gmail.com,moizsh786786@gmail.com',
+  // Development / Test Account Unlimited Processing Entitlement (never active in production)
+  devUnlimitedUserEmail:
+    process.env.NODE_ENV === 'production'
+      ? ''
+      : (process.env.DEV_UNLIMITED_USER_EMAIL || 'vertexdigitals07@gmail.com,moizsh786786@gmail.com'),
   // Timeouts (milliseconds)
   transcriptionTimeoutMs: parseInt(process.env.TRANSCRIPTION_TIMEOUT_MS || '120000', 10),
   contentGenerationTimeoutMs: parseInt(process.env.CONTENT_GENERATION_TIMEOUT_MS || '60000', 10),

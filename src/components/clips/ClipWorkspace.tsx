@@ -210,26 +210,31 @@ export const ClipWorkspace: React.FC<ClipWorkspaceProps> = ({
     return () => { clipReadSequenceRef.current++; clipLifecycleRef.current++; searchSequenceRef.current++; previewSequenceRef.current++; };
   }, [projectId]);
 
+  const hasActiveRenders = myClips.some((c) =>
+    ['queued', 'rendering', 'uploading'].includes(c.render_status)
+  );
+
   // Polling loop for active rendering jobs in 'my_clips'
   useEffect(() => {
-    const hasActiveRenders = myClips.some((c) =>
-      ['draft', 'queued', 'rendering', 'uploading'].includes(c.render_status)
-    );
-
     if (!hasActiveRenders) return;
 
     let current = true;
+    let inFlight = false;
     const interval = setInterval(async () => {
+      if (!current || inFlight) return;
+      inFlight = true;
       try {
         const updated = await clipRenderService.getProjectClips(projectId);
         if (current) setMyClips(updated);
-      } catch (e) {
-        // Polling failure ignored
+      } catch {
+        // Keep interval alive on transient read failure; next tick retries safely
+      } finally {
+        inFlight = false;
       }
     }, 2500);
 
     return () => { current = false; clearInterval(interval); };
-  }, [projectId, myClips]);
+  }, [projectId, hasActiveRenders]);
 
   // Handle Find Clips analysis call (triggers POST /api/projects/:id/analyze-clips ONCE)
   const handleFindClips = async () => {

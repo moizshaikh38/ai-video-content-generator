@@ -29,6 +29,7 @@ const collections = [
   'idempotency_keys',
   'video_intelligence',
   'project_upload_attempts',
+  'public_id_index',
 ] as const;
 
 // Phase 4B.3: Bounded Wallet Schema Definition (Strict JSON Schema, Zero Unbounded Arrays)
@@ -468,6 +469,10 @@ export async function bootstrapMongo(db?: Db): Promise<void> {
     database.collection('video_intelligence').createIndex({ user_id: 1, source_hash: 1 }, { unique: true }),
     database.collection('video_intelligence').createIndex({ user_id: 1, created_at: -1 }),
     database.collection('video_intelligence').createIndex({ source_hash: 1 }),
+    // Public ID lookup index (P0-G)
+    database.collection('public_id_index').createIndex({ public_id: 1 }, { unique: true }),
+    database.collection('public_id_index').createIndex({ internal_id: 1 }, { unique: true }),
+    database.collection('public_id_index').createIndex({ user_id: 1, entity_type: 1 }),
     database.collection('video_intelligence').createIndex({ status: 1, locked_at: 1 }),
 
     // Phase 4B.4 Upload Lifecycle & Orphan Prevention indexes

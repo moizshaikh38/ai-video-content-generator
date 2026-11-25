@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ffmpegStatic from 'ffmpeg-static';
-import { UrlValidator } from '../utils/urlValidator.js';
+import { pinnedPublicMediaFetch } from '../utils/pinnedHttpsAssetFetch.js';
 import { AppError, MediaAssetRecord, MediaType } from '../types/index.js';
 import { dataRepository } from '../db/repositories/dataRepository.js';
 import { MediaAssetService } from './mediaAssetService.js';
@@ -44,7 +44,8 @@ export class MediaImportService {
    */
   public static async importRemoteMedia(
     userId: string,
-    dto: ImportMediaDTO
+    dto: ImportMediaDTO,
+    fetchImpl: typeof pinnedPublicMediaFetch = pinnedPublicMediaFetch
   ): Promise<MediaAssetRecord> {
     if (!dto.url || typeof dto.url !== 'string') {
       throw new AppError('A valid URL is required for media import.', 400, 'INVALID_URL');
@@ -81,9 +82,7 @@ export class MediaImportService {
       throw new AppError('Only HTTP and HTTPS URLs are allowed.', 400, 'INVALID_PROTOCOL');
     }
 
-    await UrlValidator.checkSsrf(targetUrl.hostname);
-
-    // 3. Fetch with safe redirect handling & size cap
+    // 3. Fetch with DNS-pinned SSRF protection, safe redirect handling & size cap
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vireo-import-'));
     const downloadPath = path.join(tmpDir, 'downloaded_asset');
 
@@ -94,16 +93,15 @@ export class MediaImportService {
 
       while (redirectsCount < 4) {
         const parsed = new URL(currentUrl);
-        await UrlValidator.checkSsrf(parsed.hostname);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          throw new AppError('Only HTTP and HTTPS URLs are allowed.', 400, 'INVALID_PROTOCOL');
+        }
 
-        const res = await fetch(currentUrl, {
-          redirect: 'manual',
-          signal: AbortSignal.timeout(20000),
-          headers: { 'User-Agent': 'Vireo-Media-Importer/1.0' },
-        });
+        const res = await fetchImpl(currentUrl, AbortSignal.timeout(20000));
 
         if (res.status >= 300 && res.status < 400) {
           const loc = res.headers.get('location');
+          await res.body?.cancel().catch(() => {});
           if (!loc) throw new AppError('Redirect missing location header.', 400, 'INVALID_REDIRECT');
           currentUrl = new URL(loc, currentUrl).toString();
           redirectsCount++;
@@ -111,6 +109,7 @@ export class MediaImportService {
         }
 
         if (!res.ok) {
+          await res.body?.cancel().catch(() => {});
           throw new AppError(`Remote provider returned error status: ${res.status}`, 400, 'REMOTE_FETCH_FAILED');
         }
 
@@ -138,6 +137,8 @@ export class MediaImportService {
       }
 
       const fileStream = fs.createWriteStream(downloadPath);
+      let fileStreamError: Error | null = null;
+      fileStream.on('error', (err) => { fileStreamError = err; });
       let downloadedBytes = 0;
 
       if (!finalRes.body) {
@@ -145,22 +146,33 @@ export class MediaImportService {
       }
 
       const reader = finalRes.body.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          downloadedBytes += value.length;
-          if (downloadedBytes > MAX_IMPORT_BYTES) {
-            fileStream.destroy();
-            throw new AppError('Asset exceeds maximum allowed file size (100MB).', 400, 'FILE_TOO_LARGE');
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            downloadedBytes += value.length;
+            if (downloadedBytes > MAX_IMPORT_BYTES) {
+              await reader.cancel().catch(() => {});
+              fileStream.destroy();
+              throw new AppError('Asset exceeds maximum allowed file size (100MB).', 400, 'FILE_TOO_LARGE');
+            }
+            fileStream.write(value);
           }
-          fileStream.write(value);
         }
+      } catch (streamErr) {
+        await reader.cancel().catch(() => {});
+        fileStream.destroy();
+        throw streamErr;
+      } finally {
+        reader.releaseLock();
       }
       fileStream.end();
 
       // Wait for stream to finish writing
+      if (fileStreamError) throw fileStreamError;
       await new Promise<void>((resolve, reject) => {
+        if (fileStreamError) { reject(fileStreamError); return; }
         fileStream.on('finish', () => resolve());
         fileStream.on('error', reject);
       });

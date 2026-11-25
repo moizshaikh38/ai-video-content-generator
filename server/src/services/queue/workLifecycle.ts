@@ -1,5 +1,6 @@
 import type{Request,Response,NextFunction}from'express';
 import{AsyncLocalStorage}from'node:async_hooks';import{AppError}from'../../types/index.js';
+import{logger}from'../../utils/logger.js';
 /** Process-local admission/drain ownership, not a distributed queue lease. */
 export class WorkLifecycle{
  private draining=false;private next=0;private active=new Map<number,string>();private context=new AsyncLocalStorage<number>();private waiters=new Set<()=>void>();
@@ -36,4 +37,25 @@ export function createShutdown(options:{lifecycle:WorkLifecycle;stopPollers:()=>
    return await Promise.race([drained,deadline]);
   }finally{if(timer)clearTimeout(timer);}
  })();
+}
+
+export function createTrackedPoller(
+ label: string,
+ fn: () => Promise<unknown>,
+ intervalMs: number,
+ lifecycle: { isDraining(): boolean; run<T>(l: string, w: () => Promise<T> | T): Promise<T> } = workLifecycle
+): ReturnType<typeof setInterval> {
+ let running = false;
+ const tick = () => {
+  if (running || lifecycle.isDraining()) return;
+  running = true;
+  void lifecycle
+   .run(label, fn)
+   .catch((error) => logger.warn(`${label} failed`, { error: error instanceof Error ? error.message : String(error) }))
+   .finally(() => { running = false; });
+ };
+ tick();
+ const timer = setInterval(tick, intervalMs);
+ timer.unref();
+ return timer;
 }
