@@ -37,8 +37,41 @@ export const ACTIVE_PROCESSING_STATUSES: readonly VideoStatus[] = [
   'generating',
 ] as const;
 
+export type SelectionOutcomeState =
+  | 'source_processing'
+  | 'selection_pending'
+  | 'completed_empty'
+  | 'completed'
+  | 'failed'
+  | 'review_required'
+  | 'unavailable'
+  | 'unknown';
+
+export interface SelectionOutcomeStatus {
+  state: SelectionOutcomeState;
+  savedCount?: number;
+  code?: string | null;
+  message?: string | null;
+}
+
+export interface SelectionCompletionReceipt {
+  version: 1;
+  outcome: 'completed' | 'completed_empty';
+  saved_count: number;
+  suggested_count: number;
+  fence: string;
+  selection_job_id: string | null;
+  processing_attempt_id: string | null;
+  processing_run_token: string | null;
+  context: string;
+  source_receipt: import('../shared/selectionSourceReceipt.js').SelectionSourceReceipt | null;
+  completed_at: Date;
+}
+
 export interface ProjectRecord {
   error_code?: string | null;
+  selection_completion_receipt?: SelectionCompletionReceipt | null;
+  selection_outcome_status?: SelectionOutcomeStatus;
   retention_policy?: import('../shared/projectRetention.js').ProjectRetentionPolicy | null;
   id: string;
   user_id: string;

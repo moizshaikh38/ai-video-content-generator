@@ -1,4 +1,34 @@
-import { Project, ContentOutput, OutputPlatform, CreatorProfile, ProjectStatus, Transcript, GenerationOverrides, ClipPreferences } from '../types';
+import { Project, ContentOutput, OutputPlatform, CreatorProfile, ProjectStatus, Transcript, GenerationOverrides, ClipPreferences, SelectionOutcomeState, SelectionOutcomeStatus } from '../types';
+
+const VALID_SELECTION_OUTCOME_STATES: ReadonlySet<SelectionOutcomeState> = new Set([
+  'source_processing',
+  'selection_pending',
+  'completed_empty',
+  'completed',
+  'failed',
+  'review_required',
+  'unavailable',
+  'unknown',
+]);
+
+export function parseSelectionOutcomeStatus(raw: unknown): SelectionOutcomeStatus | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const candidate = raw as Record<string, unknown>;
+  if (typeof candidate.state !== 'string' || !VALID_SELECTION_OUTCOME_STATES.has(candidate.state as SelectionOutcomeState)) {
+    return undefined;
+  }
+  const result: SelectionOutcomeStatus = { state: candidate.state as SelectionOutcomeState };
+  if (typeof candidate.savedCount === 'number' && Number.isSafeInteger(candidate.savedCount) && candidate.savedCount >= 0) {
+    result.savedCount = candidate.savedCount;
+  }
+  if (typeof candidate.code === 'string' || candidate.code === null) {
+    result.code = candidate.code;
+  }
+  if (typeof candidate.message === 'string' || candidate.message === null) {
+    result.message = candidate.message;
+  }
+  return result;
+}
 import { backendRequest } from './backendClient';
 import { getCurrentAuthOwner } from '../lib/authOwner';
 
@@ -61,6 +91,7 @@ class ProjectService {
       video_url: row.source_url || null, notes: row.notes || '',
       clip_preferences: row.clip_preferences,
       error_code: row.error_code ?? null,
+      selection_outcome_status: parseSelectionOutcomeStatus(row.selection_outcome_status),
       processing_failure:row.processing_failure??null,
       automatic_export_capable:row.automatic_export_capable===true,
       automatic_export_status:row.automatic_export_status??undefined,

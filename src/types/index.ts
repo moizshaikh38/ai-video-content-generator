@@ -59,8 +59,26 @@ export interface ContentOutput {
   position: number;
 }
 
+export type SelectionOutcomeState =
+  | 'source_processing'
+  | 'selection_pending'
+  | 'completed_empty'
+  | 'completed'
+  | 'failed'
+  | 'review_required'
+  | 'unavailable'
+  | 'unknown';
+
+export interface SelectionOutcomeStatus {
+  state: SelectionOutcomeState;
+  savedCount?: number;
+  code?: string | null;
+  message?: string | null;
+}
+
 export interface Project {
   error_code?: string | null;
+  selection_outcome_status?: SelectionOutcomeStatus;
   processing_run_token?:string|null;
   automatic_export_capable?:boolean;
   automatic_export_status?:{state:string;clipId?:string;renderStatus?:string};

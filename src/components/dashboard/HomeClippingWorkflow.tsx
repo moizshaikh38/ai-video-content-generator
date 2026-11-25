@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { backendRequest } from '../../services/backendClient';
 import { projectService } from '../../services/projectService';
+import { resolveEmptySelectionOutcome } from '../../lib/clippingRecovery';
 import { uploadVideoFile, validateVideoFile } from '../../services/storageService';
 import { clipService } from '../../services/clipService';
 import { clipRenderService } from '../../services/clipRenderService';
@@ -373,6 +374,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
   const [creationRecoveryTarget,setCreationRecoveryTarget]=useState<{projectId:string;input:CandidateCreationInput}|null>(null);
   const candidateExportsRef = useRef(new Map<string, string>());
   const postProcessingProjectsRef = useRef(new Set<string>());
+  const readOnlyProcessingRecoveryRef = useRef(false);
   const resultReadSequenceRef = useRef(0);
   const workflowSessionRef = useRef(0);
   useEffect(() => () => { resultReadSequenceRef.current++; workflowSessionRef.current++; abortControllerRef.current?.abort(); abortControllerRef.current = null; }, []);
@@ -460,16 +462,18 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             setWorkflowState('error');
             setErrorMessage('The previous upload did not finish. Select the video file again to continue.');
           } else if (proj.core_selection_status) {
+            readOnlyProcessingRecoveryRef.current = true;
             setWorkflowState('processing');setActiveProjectStatus(status);
           } else if (status === 'uploaded') {
             setActiveProjectStatus(status);
             setWorkflowState('source_selected');
           } else if (['queued', 'processing', 'transcribing', 'analyzing', 'generating'].includes(status)) {
+            readOnlyProcessingRecoveryRef.current = true;
             setWorkflowState('processing');
             setActiveProjectStatus(status);
           } else if (['completed', 'transcribed'].includes(status)) {
             const isReview = searchParams.get('view') === 'review';
-            loadResults(proj.id, isReview);
+            loadResults(proj.id, isReview, proj);
           } else if (status === 'failed') {
             setWorkflowState('error');
             setClippingFailure(projectClippingFailure(proj));
@@ -564,7 +568,8 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           if(automatic.state==='review_required'||automatic.state==='queued'&&automatic.renderStatus!=='ready'&&automatic.renderStatus!=='completed'){setErrorMessage('Automatic export needs review. Your saved suggestions remain available; no extra export was started.');}
         }
         if(continuation){
-          if(['pending','queued','processing'].includes(continuation.state)){consecutiveReadFailures=0;setProcessingStageMessage('Saved request is continuing to clip selection...');return;}
+          if(continuation.state==='pending'){consecutiveReadFailures=0;setProcessingStageMessage('Saved request is queued for clip selection...');return;}
+          if(['queued','processing'].includes(continuation.state)){consecutiveReadFailures=0;setProcessingStageMessage('Saved request is continuing to clip selection...');return;}
           if(continuation.state==='completed'&&continuation.selectionJobId){
             readingSavedResult=true;
             await clipService.readSavedSelection(activeProjectId,continuation.selectionJobId);
@@ -573,6 +578,21 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
             navigate(`/dashboard?view=review&project=${activeProjectId}`,{replace:false});await loadResults(activeProjectId,true);onRefreshProjects();return;
           }
           clearInterval(interval);setSavedSelectionReadRecovery(true);setWorkflowState('error');setErrorMessage('Saved clip selection needs review or its status is unavailable. Your source is saved. Reload to check again; no new generation was started.');return;
+        }
+        const outcome = proj.selection_outcome_status;
+        if (outcome?.state === 'selection_pending') {
+          consecutiveReadFailures = 0;
+          setProcessingStageMessage(
+            outcome.code === 'OUTBOX_PENDING'
+              ? 'Saved request is queued for clip selection...'
+              : 'Clip selection is in progress...'
+          );
+          return;
+        }
+        if (readOnlyProcessingRecoveryRef.current && ['completed', 'transcribed'].includes(status)) {
+          clearInterval(interval);
+          await loadResults(activeProjectId, true, proj);
+          return;
         }
         consecutiveReadFailures=0;
         if (status === 'queued') {
@@ -661,15 +681,22 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     }
   }, [searchParams]);
 
-  const loadResults = async (projectId: string, forceShowReview = false) => {
+  const loadResults = async (projectId: string, forceShowReview = false, knownProject?: Project | null) => {
     const sequence = ++resultReadSequenceRef.current;
+    const session = workflowSessionRef.current;
+    const owner = workflowOwnerRef.current;
     try {
-      const [candData, clipsData] = await Promise.all([
+      const [candData, clipsData, projectData] = await Promise.all([
         clipService.getClipCandidates(projectId),
         clipRenderService.getProjectClips(projectId),
+        knownProject ? Promise.resolve(knownProject) : projectService.fetchProject(projectId),
       ]);
 
-      if (sequence !== resultReadSequenceRef.current) return;
+      if (
+        sequence !== resultReadSequenceRef.current ||
+        session !== workflowSessionRef.current ||
+        owner !== workflowOwnerRef.current
+      ) return;
       setCandidates(candData || []);
       setRenderedClips(clipsData || []);
 
@@ -684,13 +711,22 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
           setActivePreviewClipId(firstId);
         }
       } else if (!hasResults && forceShowReview) {
-        // A completed analysis can legitimately return nothing. Make that
-        // outcome explicit rather than quietly inviting another paid run.
-        setErrorMessage('No suitable standalone moment was found in this video. Your source is saved. Try a longer video with a complete thought, or choose another source.');
-        setWorkflowState('error');
+        const outcome = resolveEmptySelectionOutcome(projectData);
+        if (outcome.workflowState === 'processing') {
+          readOnlyProcessingRecoveryRef.current = true;
+          setProcessingStageMessage(outcome.message);
+          setWorkflowState('processing');
+        } else {
+          setErrorMessage(outcome.message);
+          setWorkflowState('error');
+        }
       }
     } catch {
-      if (sequence !== resultReadSequenceRef.current) return;
+      if (
+        sequence !== resultReadSequenceRef.current ||
+        session !== workflowSessionRef.current ||
+        owner !== workflowOwnerRef.current
+      ) return;
       // A failed read says nothing about whether saved results exist.
       // Do not send the user back to generation or claim an empty analysis.
       setSavedSelectionReadRecovery(true);
@@ -903,6 +939,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
     });
 
     if (['uploading', 'queued', 'processing', 'transcribing', 'analyzing', 'generating'].includes(status)) {
+      readOnlyProcessingRecoveryRef.current = true;
       setWorkflowState('processing');
       setActiveProjectStatus(status);
     } else if (['completed', 'transcribed'].includes(status)) {
@@ -947,6 +984,7 @@ export const HomeClippingWorkflow: React.FC<HomeClippingWorkflowProps> = ({
 
     setIsSubmitting(true);
     setErrorMessage(null);
+    readOnlyProcessingRecoveryRef.current = false;
 
     const abortController = new AbortController();
     abortControllerRef.current = abortController;

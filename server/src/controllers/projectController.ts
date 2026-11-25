@@ -1,4 +1,4 @@
-import {withCoreSelectionStatus} from '../services/coreSelectionStatusService.js';
+import {withCoreSelectionStatus, withSelectionOutcomeStatus, stripSelectionInternalFields} from '../services/coreSelectionStatusService.js';
 import {coreSelectionContinuationEnabled} from '../services/runtimePolicy.js';
 import {withCoreProcessingStatus} from '../services/coreProcessingStatusService.js';
 import {coreProcessingDispatchEnabled,runsBackgroundWorkers} from '../services/runtimePolicy.js';
@@ -94,7 +94,7 @@ export const listProjects = async (req: AuthenticatedRequest, res: Response): Pr
     // Cleanup belongs to an explicit, separately authorized lifecycle operation.
     // Sign existing HD posters inline so the dashboard needs no extra request per card.
     const projected=await withCoreSelectionStatus(await getMongoDb(),userId,await withCoreProcessingStatus(await getMongoDb(),userId,rawList));
-    const projectsWithPosters = await Promise.all(projected.map(withPosterUrl));
+    const projectsWithPosters = await Promise.all(projected.map((p) => withPosterUrl(stripSelectionInternalFields(p))));
 
     res.status(200).json({
       status: 'ok',
@@ -165,7 +165,8 @@ export const getProject = async (req: AuthenticatedRequest, res: Response): Prom
     }
 
     const [projected]=await withCoreSelectionStatus(await getMongoDb(),userId,await withCoreProcessingStatus(await getMongoDb(),userId,[data]));
-    res.status(200).json({ status: 'ok', project: await withPosterUrl(projected) });
+    const withOutcome = await withSelectionOutcomeStatus(await getMongoDb(), userId, projected);
+    res.status(200).json({ status: 'ok', project: await withPosterUrl(withOutcome) });
   } catch (err) {
     logger.error('Unexpected error fetching project', {
       requestId: req.requestId,
@@ -197,7 +198,7 @@ export const updateProject = async (req: AuthenticatedRequest, res: Response): P
   const { data, error } = await dataRepository.from('projects').update(updates).eq('id', projectId).select().maybeSingle();
   if (error) { res.status(503).json({ status: 'error', code: 'DATABASE_UNAVAILABLE', message: 'Project update failed.' }); return; }
   if (!data) { res.status(404).json({ status: 'error', code: 'PROJECT_NOT_FOUND', message: 'Project not found.' }); return; }
-  res.status(200).json({ status: 'ok', project: data });
+  res.status(200).json({ status: 'ok', project: stripSelectionInternalFields(data) });
 };
 
 /**
@@ -336,10 +337,10 @@ export const createProject = async (req: AuthenticatedRequest, res: Response): P
     // Register the public ID for URL-safe external references
     try {
       const publicId = await registerPublicId(internalProjectId, 'projects', userId);
-      res.status(201).json({ status: 'ok', project: { ...data, public_id: publicId } });
+      res.status(201).json({ status: 'ok', project: { ...stripSelectionInternalFields(data), public_id: publicId } });
     } catch {
       // Public ID registration is best-effort; the project is already created
-      res.status(201).json({ status: 'ok', project: data });
+      res.status(201).json({ status: 'ok', project: stripSelectionInternalFields(data) });
     }
   } catch (err) {
     logger.error('Unexpected error creating project', {
@@ -461,7 +462,7 @@ export const ingestProjectUrl = async (req: AuthenticatedRequest, res: Response)
 
     res.status(201).json({
       status: 'ok',
-      project,
+      project: stripSelectionInternalFields(project),
       message: 'Video URL successfully ingested into project.',
     });
   } catch (err: any) {
@@ -585,7 +586,7 @@ export const confirmProjectUpload = async (req: AuthenticatedRequest, res: Respo
 
   if (project.video_status === 'uploaded' && project.source_url && !project.pending_upload_key) {
     if (!targetKey || targetKey === project.source_url) {
-      res.status(200).json({ status: 'ok', project }); return;
+      res.status(200).json({ status: 'ok', project: stripSelectionInternalFields(project) }); return;
     }
   }
 
@@ -659,7 +660,7 @@ export const confirmProjectUpload = async (req: AuthenticatedRequest, res: Respo
 
     // Check if another request or retry already confirmed this exact key (Idempotent success)
     if (currentProject.video_status === 'uploaded' && currentProject.source_url === project.pending_upload_key) {
-      res.status(200).json({ status: 'ok', project: currentProject });
+      res.status(200).json({ status: 'ok', project: stripSelectionInternalFields(currentProject) });
       return;
     }
 
@@ -682,7 +683,7 @@ export const confirmProjectUpload = async (req: AuthenticatedRequest, res: Respo
     return;
   }
 
-  res.status(200).json({ status: 'ok', project: casResult });
+  res.status(200).json({ status: 'ok', project: stripSelectionInternalFields(casResult) });
 };
 
 export const getProjectSourcePreviewUrl = async (req: AuthenticatedRequest, res: Response): Promise<void> => {

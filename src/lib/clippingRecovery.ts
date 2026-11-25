@@ -44,10 +44,70 @@ export function projectClippingFailure(project: {
   };
 }
 
+import type { Project } from '../types';
+
 /** An explicit review link is read-only, even before a failure flag is saved. */
 export function projectTranscriptReviewRequired(
   project: Parameters<typeof projectClippingFailure>[0] | null | undefined,
   reviewOnly = false,
 ): boolean {
   return reviewOnly || Boolean(project && transcriptReviewRequired(projectClippingFailure(project)));
+}
+
+export interface EmptySelectionResolution {
+  workflowState: 'processing' | 'error';
+  message: string;
+}
+
+export const COMPLETED_EMPTY_SELECTION_MESSAGE = 'Selection completed without clip suggestions. Your source is saved.';
+export const UNKNOWN_EMPTY_SELECTION_MESSAGE = 'No saved clips were found. Clip selection status is unavailable.';
+
+export function resolveEmptySelectionOutcome(project: Partial<Project> | null | undefined): EmptySelectionResolution {
+  const outcome = project?.selection_outcome_status;
+  if (outcome?.state === 'completed_empty') {
+    return { workflowState: 'error', message: COMPLETED_EMPTY_SELECTION_MESSAGE };
+  }
+  if (outcome?.state === 'source_processing') {
+    return { workflowState: 'processing', message: 'Source video processing is in progress...' };
+  }
+  if (outcome?.state === 'selection_pending') {
+    return {
+      workflowState: 'processing',
+      message: outcome.code === 'OUTBOX_PENDING'
+        ? 'Saved request is queued for clip selection...'
+        : 'Clip selection is in progress...',
+    };
+  }
+  if (outcome?.state === 'failed') {
+    return {
+      workflowState: 'error',
+      message: outcome.code
+        ? clippingStartErrorMessage({ code: outcome.code, message: outcome.message || 'Clip selection failed. Your source is saved.' })
+        : (outcome.message || 'Clip selection failed. Your source is saved.'),
+    };
+  }
+  if (outcome?.state === 'review_required') {
+    return {
+      workflowState: 'error',
+      message: outcome.code === 'CLIP_SELECTION_CONTEXT_CHANGED'
+        ? 'Clip settings changed after selection. Review or run clip selection again; your source is saved.'
+        : 'Clip selection needs review before results can be used. Your source is saved.',
+    };
+  }
+  if (outcome?.state === 'unavailable' || outcome?.state === 'unknown') {
+    return { workflowState: 'error', message: UNKNOWN_EMPTY_SELECTION_MESSAGE };
+  }
+
+  const videoStatus = project?.video_status || project?.status;
+  if (videoStatus && ['queued', 'processing', 'transcribing', 'analyzing', 'generating'].includes(videoStatus)) {
+    return { workflowState: 'processing', message: 'Source video processing is in progress...' };
+  }
+  if (videoStatus === 'failed') {
+    const failure = projectClippingFailure(project || {});
+    return {
+      workflowState: 'error',
+      message: clippingStartErrorMessage({ code: failure.code, message: failure.message || 'Video processing failed. Your source is saved.' }),
+    };
+  }
+  return { workflowState: 'error', message: UNKNOWN_EMPTY_SELECTION_MESSAGE };
 }

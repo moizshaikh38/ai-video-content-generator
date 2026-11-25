@@ -56,11 +56,33 @@ test('late metadata merges only into the current file selection and preserves it
   assert.doesNotMatch(workflow, /source\.duration = tempVideo\.duration;\s*setSelectedSource\(\{ \.\.\.source \}\)/);
 });
 
-test('empty analysis review explains the result instead of silently inviting another paid run', () => {
+test('empty analysis review uses truthful outcome resolution instead of silently inviting another paid run', async () => {
   const empty = workflow.slice(workflow.indexOf('} else if (!hasResults && forceShowReview)'), workflow.indexOf('} catch {', workflow.indexOf('} else if (!hasResults && forceShowReview)')));
-  assert.match(empty, /No suitable standalone moment was found/);
-  assert.match(empty, /setWorkflowState\('error'\)/);
+  assert.match(empty, /resolveEmptySelectionOutcome\(projectData\)/);
   assert.doesNotMatch(empty, /setWorkflowState\('source_selected'\)/);
+  const { resolveEmptySelectionOutcome, COMPLETED_EMPTY_SELECTION_MESSAGE, UNKNOWN_EMPTY_SELECTION_MESSAGE } = await import('../../../src/lib/clippingRecovery.ts');
+  assert.deepEqual(resolveEmptySelectionOutcome({ video_status: 'transcribed', selection_outcome_status: { state: 'completed_empty', savedCount: 0 } }), {
+    workflowState: 'error',
+    message: COMPLETED_EMPTY_SELECTION_MESSAGE,
+  });
+  assert.deepEqual(resolveEmptySelectionOutcome({ video_status: 'transcribed' }), {
+    workflowState: 'error',
+    message: UNKNOWN_EMPTY_SELECTION_MESSAGE,
+  });
+  assert.equal(resolveEmptySelectionOutcome({ video_status: 'transcribing', selection_outcome_status: { state: 'source_processing' } }).workflowState, 'processing');
+  assert.equal(resolveEmptySelectionOutcome({ selection_outcome_status: { state: 'selection_pending', code: 'OUTBOX_PENDING' } }).message, 'Saved request is queued for clip selection...');
+});
+
+test('read-only recovery polling never calls handlePostProcessingReady or analyzeClips while explicit Generate remains enabled', () => {
+  assert.match(workflow, /readOnlyProcessingRecoveryRef\.current = true;\s*setWorkflowState\('processing'\)/);
+  assert.match(workflow, /const handleGenerateClips[\s\S]*readOnlyProcessingRecoveryRef\.current = false;/);
+  const pollSlice = workflow.slice(
+    workflow.indexOf('// 3. Polling Loop while in \'processing\' state'),
+    workflow.indexOf('handlePostProcessingReady(activeProjectId);', workflow.indexOf('// 3. Polling Loop while in \'processing\' state')) + 60
+  );
+  assert.match(pollSlice, /outcome\?\.state === 'selection_pending'/);
+  assert.match(pollSlice, /if \(readOnlyProcessingRecoveryRef\.current && \['completed', 'transcribed'\]\.includes\(status\)\)/);
+  assert.match(pollSlice, /await loadResults\(activeProjectId, true, proj\)/);
 });
 
 test('transcription-only project is not counted as a completed clipping job', () => {
